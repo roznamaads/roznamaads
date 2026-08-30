@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="RoznamaAds.pk logo">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#166638"/>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="#1f8a4c" stroke-width="1"/>
+  <!-- folded newspaper shape -->
+  <path d="M16 20 h24 a2 2 0 0 1 2 2 v18 a4 4 0 0 1 -4 4 h-20 a4 4 0 0 1 -4 -4 v-18 a2 2 0 0 1 2 -2 z" fill="#fbf8ef"/>
+  <path d="M16 20 h24 v4 h-24 z" fill="#e5ecdf"/>
+  <!-- text lines -->
+  <rect x="20" y="27" width="16" height="2.4" rx="1.2" fill="#166638"/>
+  <rect x="20" y="32" width="16" height="2.4" rx="1.2" fill="#a9c9b3"/>
+  <rect x="20" y="37" width="10" height="2.4" rx="1.2" fill="#a9c9b3"/>
+  <!-- gold tag accent -->
+  <circle cx="46" cy="18" r="7" fill="#f5c94f"/>
+  <path d="M43.2 18 l2.1 2.1 l4.2 -4.6" stroke="#2c2410" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

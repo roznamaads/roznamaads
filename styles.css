@@ -107,4 +107,6 @@ footer .copy{text-align:center;margin-top:20px;color:var(--muted);font-size:.8re
 .legal-content h2{font-size:1rem;color:var(--green-dark);margin:22px 0 8px}
 .legal-content h2:first-of-type{margin-top:0}
 .legal-content p{font-size:.9rem;line-height:1.7;color:var(--ink);margin:0 0 10px}
+.logo-img{width:32px;height:32px;border-radius:8px}
+.foot-logo-img{width:22px;height:22px;border-radius:6px}
 .legal-list{margin:0 0 10px;padding-left:20px;font-size:.9rem;line-height:1.8;color:var(--ink)}
