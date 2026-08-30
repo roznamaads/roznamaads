@@ -6,6 +6,8 @@
 <meta name="robots" content="noindex, nofollow, noarchive">
 <title>Personal Toolkit — RoznamaAds Admin</title>
 <link rel="stylesheet" href="../styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
 <style>
   body{background:var(--bg)}
   .gate{position:fixed;inset:0;background:var(--green-dark);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px}
@@ -115,16 +117,34 @@
     </div>
   </section>
 
-  <!-- Simple placeholder-only panels -->
-  <section class="panel" data-panel="draft-queue"><h2>Ad Draft Queue</h2><p class="desc">AI-generated drafts jo admin review ka wait kar rahe hain.</p><div class="stub"><div class="icon">🗂️</div>Database connect hone ke baad drafts yahan list hongi.</div></section>
+  <!-- Ad Draft Queue -->
+  <section class="panel" data-panel="draft-queue">
+    <h2>Ad Draft Queue</h2>
+    <p class="desc">User-submitted aur AI-generated pending ads — approve ya reject karein.</p>
+    <div class="field"><label>Supabase Service Role Key</label><input type="password" id="serviceKey" placeholder="service_role key paste karein"></div>
+    <p class="desc" style="color:#a86b00">⚠️ Ye key sab RLS bypass kar sakti hai — kabhi public files mein na daalein. Draft Queue, Ad Manager, Reported Ads teeno isi key ko use karte hain.</p>
+    <button class="btn" id="loadPending">📥 Load Pending Ads</button>
+    <div id="pendingList" style="margin-top:14px"></div>
+  </section>
 
-  <section class="panel" data-panel="ad-manager"><h2>Ad Manager</h2><p class="desc">Sab live ads — edit / delete / feature.</p><div class="stub"><div class="icon">📋</div>Database connect hone ke baad ye tool functional hoga.</div></section>
+  <!-- Ad Manager -->
+  <section class="panel" data-panel="ad-manager">
+    <h2>Ad Manager</h2>
+    <p class="desc">Sab live ads — delete karein agar zaroorat ho.</p>
+    <button class="btn" id="loadLive">📥 Load Live Ads</button>
+    <div id="liveList" style="margin-top:14px"></div>
+  </section>
 
   <section class="panel" data-panel="dup-check"><h2>Duplicate Check</h2><p class="desc">Multi-newspaper mein repeat hone wali ads detect karega.</p><div class="stub"><div class="icon">🧬</div>Phase 3 feature — database aur multi-newspaper ingestion ke baad.</div></section>
 
   <section class="panel" data-panel="expiry"><h2>Expiry Management</h2><p class="desc">30-din auto-expiry override / extend.</p><div class="stub"><div class="icon">⏳</div>Database connect hone ke baad functional hoga.</div></section>
 
-  <section class="panel" data-panel="reported"><h2>Reported Ads</h2><p class="desc">Users ke "Report this ad" submissions ki queue.</p><div class="stub"><div class="icon">🚩</div>Backend connect hone ke baad reports yahan aayengi.</div></section>
+  <section class="panel" data-panel="reported">
+    <h2>Reported Ads</h2>
+    <p class="desc">Users ke "Report this ad" submissions ki queue.</p>
+    <button class="btn" id="loadReports">📥 Load Reports</button>
+    <div id="reportsList" style="margin-top:14px"></div>
+  </section>
 
   <section class="panel" data-panel="category-manager">
     <h2>Category Manager</h2>
@@ -725,6 +745,123 @@ document.getElementById('saveCatsToDeployer').addEventListener('click', () => {
   document.getElementById('catSaveMsg').textContent = '✅ categories.json Deployer queue mein add ho gayi — Deployer tab mein ja kar Scan & Commit karein.';
   log('📤 categories.json Deployer mein queue ho gayi.');
 });
+
+/* ---------- Admin DB access (service_role key, session-only) ---------- */
+function getAdminClient(){
+  const key = document.getElementById('serviceKey').value.trim() || sessionStorage.getItem('rz_service_key');
+  if(!key){ alert('Pehle Supabase Service Role Key daalein.'); return null; }
+  sessionStorage.setItem('rz_service_key', key);
+  return supabase.createClient(SUPABASE_URL, key);
+}
+(function restoreServiceKey(){
+  const saved = sessionStorage.getItem('rz_service_key');
+  if(saved) document.getElementById('serviceKey').value = saved;
+})();
+
+let categoryLabelsAdmin = {};
+fetch('../categories.json').then(r => r.json()).then(cats => {
+  cats.forEach(c => categoryLabelsAdmin[c.id] = c.label);
+}).catch(() => {});
+
+/* Draft Queue */
+document.getElementById('loadPending').addEventListener('click', async () => {
+  const client = getAdminClient();
+  if(!client) return;
+  const box = document.getElementById('pendingList');
+  box.innerHTML = 'Loading...';
+  const { data, error } = await client.from('ads').select('*').eq('status', 'pending').order('created_at', {ascending:false});
+  if(error){ box.innerHTML = `<div class="stub">❌ ${error.message}</div>`; return; }
+  if(!data.length){ box.innerHTML = '<div class="stub">Koi pending ad nahi hai.</div>'; return; }
+  box.innerHTML = data.map(ad => `
+    <div class="cat-row" style="flex-direction:column;align-items:stretch">
+      <b>${ad.title}</b>
+      <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city} · ${ad.contact_phone}${ad.price ? ' · '+ad.price : ''}</span>
+      <span style="font-size:.8rem">${ad.description}</span>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn" onclick="approveAd('${ad.id}')">✅ Approve</button>
+        <button class="mini-btn" style="color:#c0392b" onclick="rejectAd('${ad.id}')">❌ Reject</button>
+      </div>
+    </div>
+  `).join('');
+});
+
+async function approveAd(id){
+  const client = getAdminClient();
+  if(!client) return;
+  const { error } = await client.from('ads').update({status:'live', approved_at: new Date().toISOString()}).eq('id', id);
+  if(error){ alert('Error: ' + error.message); return; }
+  log('✅ Ad approved: ' + id);
+  document.getElementById('loadPending').click();
+}
+async function rejectAd(id){
+  if(!confirm('Ye ad reject karni hai?')) return;
+  const client = getAdminClient();
+  if(!client) return;
+  const { error } = await client.from('ads').update({status:'rejected'}).eq('id', id);
+  if(error){ alert('Error: ' + error.message); return; }
+  log('❌ Ad rejected: ' + id);
+  document.getElementById('loadPending').click();
+}
+
+/* Ad Manager */
+document.getElementById('loadLive').addEventListener('click', async () => {
+  const client = getAdminClient();
+  if(!client) return;
+  const box = document.getElementById('liveList');
+  box.innerHTML = 'Loading...';
+  const { data, error } = await client.from('ads').select('*').eq('status', 'live').order('created_at', {ascending:false});
+  if(error){ box.innerHTML = `<div class="stub">❌ ${error.message}</div>`; return; }
+  if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
+  box.innerHTML = data.map(ad => `
+    <div class="cat-row" style="flex-direction:column;align-items:stretch">
+      <b>${ad.title}</b>
+      <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city}</span>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <a class="mini-btn" href="../ad.html?id=${ad.id}" target="_blank" style="text-decoration:none;display:inline-block">👁️ View</a>
+        <button class="mini-btn" style="color:#c0392b" onclick="deleteAd('${ad.id}')">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('');
+});
+
+async function deleteAd(id){
+  if(!confirm('Ye ad permanently delete karni hai?')) return;
+  const client = getAdminClient();
+  if(!client) return;
+  const { error } = await client.from('ads').delete().eq('id', id);
+  if(error){ alert('Error: ' + error.message); return; }
+  log('🗑️ Ad deleted: ' + id);
+  document.getElementById('loadLive').click();
+}
+
+/* Reported Ads */
+document.getElementById('loadReports').addEventListener('click', async () => {
+  const client = getAdminClient();
+  if(!client) return;
+  const box = document.getElementById('reportsList');
+  box.innerHTML = 'Loading...';
+  const { data, error } = await client.from('ad_reports').select('*, ads(title, status)').order('reported_at', {ascending:false});
+  if(error){ box.innerHTML = `<div class="stub">❌ ${error.message}</div>`; return; }
+  if(!data.length){ box.innerHTML = '<div class="stub">Koi report nahi hai.</div>'; return; }
+  box.innerHTML = data.map(r => `
+    <div class="cat-row" style="flex-direction:column;align-items:stretch">
+      <b>${r.ads?.title || '(ad deleted)'}</b>
+      <span style="font-size:.78rem;color:var(--muted)">Reported: ${new Date(r.reported_at).toLocaleString()} · Status: ${r.ads?.status || '—'}</span>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        ${r.ad_id ? `<button class="mini-btn" style="color:#c0392b" onclick="deleteAd('${r.ad_id}')">🗑️ Remove Ad</button>` : ''}
+        <button class="mini-btn" onclick="dismissReport('${r.id}')">Dismiss</button>
+      </div>
+    </div>
+  `).join('');
+});
+
+async function dismissReport(id){
+  const client = getAdminClient();
+  if(!client) return;
+  const { error } = await client.from('ad_reports').delete().eq('id', id);
+  if(error){ alert('Error: ' + error.message); return; }
+  document.getElementById('loadReports').click();
+}
 </script>
 </body>
 </html>

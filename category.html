@@ -7,6 +7,8 @@
 <meta id="pageDesc" name="description" content="Browse classified ads by category on RoznamaAds.pk">
 <link id="canonicalLink" rel="canonical" href="https://roznamaads.pk/category.html">
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -53,13 +55,9 @@
     <button id="applyFilters">Apply</button>
   </div>
 
-  <p class="result-count" id="resultCount">Filters ke sath ads jald yahan dikhengi.</p>
+  <p class="result-count" id="resultCount">Loading...</p>
 
-  <div class="empty-state">
-    <div class="icon">🗂️</div>
-    <p><strong>Is category ke ads abhi database se connect nahi hue.</strong><br>
-    Newspaper extraction pipeline (Batch 7+) ke baad yahan live ads dikhengi.</p>
-  </div>
+  <div class="ad-grid" id="catAdsGrid"></div>
 </main>
 
 <footer>
@@ -104,13 +102,45 @@ function initPage(){
   catNav.innerHTML = catNavList.map(c =>
     `<a href="category.html?cat=${c.id}" class="${c.id === catKey ? 'active' : ''}">${c.label}</a>`
   ).join('');
+
+  loadCategoryAds(catKey);
+}
+
+async function loadCategoryAds(catKey, city, price){
+  const grid = document.getElementById('catAdsGrid');
+  const countEl = document.getElementById('resultCount');
+  grid.innerHTML = '';
+  countEl.textContent = 'Loading...';
+  try{
+    let q = rzDb.from('ads').select('id, title, city, price, created_at').eq('status', 'live');
+    if(catKey) q = q.eq('category', catKey);
+    if(city) q = q.eq('city', city);
+    q = q.order('created_at', {ascending:false});
+    const { data, error } = await q;
+    if(error) throw error;
+    if(!data || data.length === 0){
+      countEl.textContent = '0 ads mile.';
+      grid.innerHTML = `<div style="grid-column:1/-1" class="empty-state"><div class="icon">🗂️</div>Is category mein abhi koi live ad nahi hai. <a href="submit-ad.html">Apni ad submit karein</a>!</div>`;
+      return;
+    }
+    countEl.textContent = `${data.length} ad(s) mile.`;
+    grid.innerHTML = data.map(ad => `
+      <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
+        <h4>${ad.title}</h4>
+        <span class="meta">${ad.city}${ad.price ? ' · ' + ad.price : ''} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
+      </a>
+    `).join('');
+  }catch(e){
+    countEl.textContent = 'Ads load nahi ho sakin.';
+  }
 }
 
 document.getElementById('applyFilters').addEventListener('click', () => {
+  const params = new URLSearchParams(location.search);
+  const catKey = (params.get('cat') || '').toLowerCase();
   const city = document.getElementById('fCity').value;
   const price = document.getElementById('fPrice').value;
-  document.getElementById('resultCount').textContent =
-    `Filter applied: ${city || 'All Cities'}, ${price || 'Any Price'} — live results Batch 7+ ke baad.`;
+  loadCategoryAds(catKey, city, price);
 });
 </script>
 </body>

@@ -7,6 +7,8 @@
 <meta name="description" content="Apni classified ad khud post karein RoznamaAds.pk par — Property, Jobs, Vehicles, Matrimonial aur zyada.">
 <link rel="canonical" href="https://roznamaads.pk/submit-ad.html">
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -65,11 +67,17 @@
       <div id="imagePreview" class="image-preview"></div>
     </div>
 
+    <div class="form-section">
+      <label for="submitterName">Aapka Naam (optional)</label>
+      <input type="text" id="submitterName" placeholder="e.g. Ahmed Khan">
+    </div>
+
     <div class="form-section expiry-note">
       <span>⏳ Expiry:</span> Ye ad default 30 din ke baad automatically expire ho jayegi.
     </div>
 
-    <button type="submit" class="btn-submit-ad">Submit for Review</button>
+    <button type="submit" class="btn-submit-ad" id="submitBtn">Submit for Review</button>
+    <p class="field-hint" id="submitError" style="text-align:center;margin-top:8px;color:#c0392b"></p>
     <p class="field-hint" style="text-align:center;margin-top:8px">Submit karne ke baad admin review karega, phir ad live hogi.</p>
   </form>
 
@@ -182,12 +190,54 @@ document.getElementById('images').addEventListener('change', (e) => {
   });
 });
 
-document.getElementById('submitAdForm').addEventListener('submit', (e) => {
+document.getElementById('submitAdForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if(!categorySelect.value){
-    alert('Category select karna zaroori hai.');
+  const errEl = document.getElementById('submitError');
+  errEl.textContent = '';
+
+  if(!categorySelect.value){ errEl.textContent = 'Category select karna zaroori hai.'; return; }
+  const title = document.getElementById('title').value.trim();
+  const city = document.getElementById('city').value;
+  const description = document.getElementById('description').value.trim();
+  const contact = document.getElementById('contact').value.trim();
+  if(!title || !city || !description || !contact){ errEl.textContent = 'Sab * wale fields bharna zaroori hai.'; return; }
+
+  // Collect dynamic category-specific fields into extra_fields JSON
+  const extraFields = {};
+  const fields = FIELD_SETS[categorySelect.value] || [];
+  let price = null;
+  fields.forEach(f => {
+    const val = document.getElementById('dyn_' + f.id)?.value?.trim();
+    if(val){
+      if(f.id === 'price') price = val;
+      extraFields[f.id] = val;
+    }
+  });
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  const { error } = await rzDb.from('ads').insert([{
+    category: categorySelect.value,
+    title: title,
+    city: city,
+    description: description,
+    contact_phone: contact,
+    price: price,
+    extra_fields: extraFields,
+    submitted_name: document.getElementById('submitterName').value.trim() || null,
+    status: 'pending'
+  }]);
+
+  btn.disabled = false;
+  btn.textContent = 'Submit for Review';
+
+  if(error){
+    errEl.textContent = 'Kuch ghalat ho gaya: ' + error.message;
     return;
   }
+
   document.getElementById('submitAdForm').style.display = 'none';
   document.getElementById('successState').style.display = 'block';
   window.scrollTo({top: 0, behavior: 'smooth'});

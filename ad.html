@@ -7,6 +7,8 @@
 <meta id="pageDesc" name="description" content="View full classified ad details on RoznamaAds.pk">
 <link id="canonicalLink" rel="canonical" href="https://roznamaads.pk/ad.html">
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -88,37 +90,79 @@ fetch('categories.json').then(r => r.json()).then(cats => {
 
 function initAdPage(){
   const params = new URLSearchParams(location.search);
-  const catKey = (params.get('cat') || 'property').toLowerCase();
-  const cat = CATEGORIES[catKey] || {label:"Category"};
+  const adId = params.get('id');
 
-  const sampleAd = {
-    title: "10 Marla Plot — DHA Phase 6, Lahore",
-    city: "Lahore",
-    date: "29 Aug 2026",
-    price: "PKR 1.85 Crore",
-    phoneMasked: "0300-XXX-4521"
-  };
+  if(adId){
+    loadRealAd(adId);
+  } else {
+    renderAd({
+      category: CATEGORIES[(params.get('cat')||'property').toLowerCase()] || {label:"Category"},
+      title: "10 Marla Plot — DHA Phase 6, Lahore",
+      city: "Lahore",
+      date: "29 Aug 2026",
+      price: "PKR 1.85 Crore",
+      phoneMasked: "0300-XXX-4521",
+      description: "Is ad ki tafseel abhi placeholder hai — real newspaper data connect hone ke baad yahan asal description dikhegi.",
+      isSample: true
+    });
+  }
+}
 
-  document.getElementById('pageTitle').textContent = sampleAd.title + " — RoznamaAds.pk";
-  document.getElementById('pageDesc').setAttribute('content', sampleAd.title + " — " + cat.label + " ad on RoznamaAds.pk");
-  document.getElementById('adCatTag').textContent = cat.label;
-  document.getElementById('breadcrumbCatLink').textContent = cat.label;
-  document.getElementById('breadcrumbCatLink').href = 'category.html?cat=' + catKey;
-  document.getElementById('breadcrumbAd').textContent = sampleAd.title;
-  document.getElementById('adTitle').textContent = sampleAd.title;
-  document.getElementById('adMeta').textContent = sampleAd.city + ' · ' + sampleAd.date;
-  document.getElementById('adPrice').textContent = sampleAd.price;
-  document.getElementById('adPhone').textContent = sampleAd.phoneMasked;
+async function loadRealAd(id){
+  try{
+    const { data, error } = await rzDb.from('ads').select('*').eq('id', id).eq('status', 'live').single();
+    if(error || !data) throw error || new Error('not found');
+    const phone = data.contact_phone || '';
+    const masked = phone.length > 4 ? phone.slice(0,4) + '-XXX-' + phone.slice(-4) : '0300-XXX-XXXX';
+    renderAd({
+      category: CATEGORIES[data.category] || {label:data.category},
+      catKey: data.category,
+      title: data.title,
+      city: data.city,
+      date: new Date(data.created_at).toLocaleDateString('en-GB'),
+      price: data.price || '',
+      phoneMasked: masked,
+      phoneFull: phone,
+      description: data.description,
+      isSample: false
+    });
+  }catch(e){
+    document.querySelector('main').innerHTML = `<div class="empty-state"><div class="icon">❌</div>Ye ad nahi mili — ho sakta hai expire ho gayi ho ya remove kar di gayi ho. <a href="index.html">Home par wapas jayein</a>.</div>`;
+  }
+}
+
+function renderAd(ad){
+  document.getElementById('pageTitle').textContent = ad.title + " — RoznamaAds.pk";
+  document.getElementById('pageDesc').setAttribute('content', ad.title + " — " + ad.category.label + " ad on RoznamaAds.pk");
+  document.getElementById('adCatTag').textContent = ad.category.label;
+  document.getElementById('breadcrumbCatLink').textContent = ad.category.label;
+  document.getElementById('breadcrumbCatLink').href = 'category.html?cat=' + (ad.catKey || '');
+  document.getElementById('breadcrumbAd').textContent = ad.title;
+  document.getElementById('adTitle').textContent = ad.title;
+  document.getElementById('adMeta').textContent = ad.city + ' · ' + ad.date;
+  document.getElementById('adPrice').textContent = ad.price;
+  document.getElementById('adPhone').textContent = ad.phoneMasked;
+  document.getElementById('adDesc').textContent = ad.description;
+  window.__adPhoneFull = ad.phoneFull || '0300-1234521 (sample)';
+  if(ad.isSample){
+    document.querySelector('.ad-detail-body').insertAdjacentHTML('afterbegin',
+      '<p style="font-size:.72rem;color:var(--muted);margin:0 0 6px">⚠️ Ye sample ad hai (koi ?id= nahi diya gaya)</p>');
+  }
 }
 
 document.getElementById('revealBtn').addEventListener('click', () => {
-  document.getElementById('adPhone').textContent = '0300-1234521 (sample)';
+  document.getElementById('adPhone').textContent = window.__adPhoneFull || '0300-1234521 (sample)';
   document.getElementById('revealBtn').textContent = '✅ Number Revealed';
   document.getElementById('revealBtn').disabled = true;
 });
 
-document.getElementById('reportBtn').addEventListener('click', () => {
-  alert('Report submit ho gayi — admin isay review karega. (Placeholder — Batch 7+ mein backend connect hoga)');
+document.getElementById('reportBtn').addEventListener('click', async () => {
+  const params = new URLSearchParams(location.search);
+  const adId = params.get('id');
+  if(!adId){ alert('Sample ad ko report nahi kiya ja sakta.'); return; }
+  const { error } = await rzDb.from('ad_reports').insert([{ad_id: adId, reason: 'User reported via website'}]);
+  if(error){ alert('Report submit nahi ho saki: ' + error.message); return; }
+  alert('Report submit ho gayi — admin isay review karega.');
 });
 </script>
 </body>

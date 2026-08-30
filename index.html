@@ -11,6 +11,8 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://roznamaads.pk/">
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -38,12 +40,9 @@
   </div>
 
   <div class="section-title"><h2>Recent Ads</h2></div>
-  <div class="ad-grid">
-    <a class="ad-card" href="ad.html?cat=property" style="text-decoration:none;color:inherit"><span class="cat-tag">Property</span><h4>10 Marla Plot — DHA Phase 6, Lahore</h4><span class="meta">Lahore · Sample listing</span></a>
-    <a class="ad-card" href="ad.html?cat=jobs" style="text-decoration:none;color:inherit"><span class="cat-tag">Jobs</span><h4>Government Vacancy — Data Entry Operator</h4><span class="meta">Islamabad · Sample listing</span></a>
-    <a class="ad-card" href="ad.html?cat=vehicles" style="text-decoration:none;color:inherit"><span class="cat-tag">Vehicles</span><h4>Honda Civic 2019 — Excellent Condition</h4><span class="meta">Karachi · Sample listing</span></a>
+  <div class="ad-grid" id="recentAdsGrid">
+    <div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:.85rem">Loading...</div>
   </div>
-  <p class="intro-text" style="margin-top:10px;font-size:.8rem">Ye sample ads hain — live newspaper data Batch 2 ke baad connect hoga.</p>
 
   <div class="section-title"><h2>Why RoznamaAds</h2></div>
   <div class="feature-grid">
@@ -78,7 +77,8 @@
 </footer>
 
 <script>
-fetch('categories.json').then(r => r.json()).then(cats => {
+let categoryLabels = {};
+const categoriesReady = fetch('categories.json').then(r => r.json()).then(cats => {
   const grid = document.getElementById('categoryGrid');
   grid.innerHTML = cats.filter(c => c.active).map(c => `
     <a class="category-card" href="category.html?cat=${c.id}">
@@ -86,9 +86,37 @@ fetch('categories.json').then(r => r.json()).then(cats => {
       ${c.tag ? `<span class="tag-new">${c.tag}</span>` : `<span class="count">${c.subtitle || ''}</span>`}
     </a>
   `).join('');
+  cats.forEach(c => categoryLabels[c.id] = c.label);
 }).catch(() => {
   document.getElementById('categoryGrid').innerHTML = '<div style="grid-column:1/-1;color:var(--muted)">Categories load nahi ho sakin.</div>';
 });
+
+async function loadRecentAds(){
+  const grid = document.getElementById('recentAdsGrid');
+  await categoriesReady;
+  try{
+    const { data, error } = await rzDb.from('ads')
+      .select('id, category, title, city, created_at')
+      .eq('status', 'live')
+      .order('created_at', {ascending:false})
+      .limit(6);
+    if(error) throw error;
+    if(!data || data.length === 0){
+      grid.innerHTML = '<div style="grid-column:1/-1" class="empty-state"><div class="icon">🗂️</div>Abhi koi live ad nahi hai — pehli ad aap khud <a href="submit-ad.html">Submit Ad</a> se daal sakte hain!</div>';
+      return;
+    }
+    grid.innerHTML = data.map(ad => `
+      <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
+        <span class="cat-tag">${categoryLabels[ad.category] || ad.category}</span>
+        <h4>${ad.title}</h4>
+        <span class="meta">${ad.city} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
+      </a>
+    `).join('');
+  }catch(e){
+    grid.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-size:.85rem">Ads load nahi ho sakin.</div>';
+  }
+}
+loadRecentAds();
 
 document.getElementById('adSearch').addEventListener('keydown', (e) => {
   if(e.key === 'Enter'){
