@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Personal Toolkit — RoznamaAds Admin</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body{background:var(--bg)}
+  .gate{position:fixed;inset:0;background:var(--green-dark);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px}
+  .gate-box{background:var(--card);border-radius:14px;padding:28px;max-width:340px;width:100%;text-align:center}
+  .gate-box h2{color:var(--green-dark);margin:0 0 6px}
+  .gate-box p{font-size:.82rem;color:var(--muted);margin:0 0 16px}
+  .gate-box input{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:1rem;margin-bottom:10px;text-align:center}
+  .gate-box button{width:100%;background:var(--green);color:#fff;border:none;padding:11px;border-radius:8px;font-size:.95rem;font-weight:700;cursor:pointer}
+  .gate-err{color:#c0392b;font-size:.8rem;margin-top:8px;display:none}
+
+  .admin-wrap{display:none}
+  .admin-header{background:var(--green-dark);color:#fbf8ef;padding:16px 16px}
+  .admin-header .brand-row{display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.1rem;color:#fbf8ef;text-decoration:none}
+  .admin-header .sub{font-size:.78rem;opacity:.8;margin-top:2px}
+  .tool-nav{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;background:var(--bg-soft);border-bottom:1px solid var(--line)}
+  .tool-nav button{flex-shrink:0;padding:7px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:.78rem;cursor:pointer;color:var(--ink)}
+  .tool-nav button.active{background:var(--green);color:#fff;border-color:var(--green)}
+  .panel{display:none;max-width:720px;margin:0 auto;padding:18px 16px 60px}
+  .panel.active{display:block}
+  .panel h2{color:var(--green-dark);font-size:1.05rem;margin:0 0 4px}
+  .panel .desc{font-size:.82rem;color:var(--muted);margin:0 0 16px}
+  .stub{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:26px 18px;text-align:center;color:var(--muted)}
+  .stub .icon{font-size:1.8rem;margin-bottom:8px}
+  .stub b{color:var(--ink)}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.82rem;font-weight:600;margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:7px;font-size:.88rem;background:#fffdf9;font-family:inherit}
+  .btn{background:var(--green);color:#fff;border:none;padding:9px 16px;border-radius:7px;font-size:.85rem;cursor:pointer;margin-right:8px}
+  .btn:hover{background:var(--green-dark)}
+  .btn.alt{background:#fff;color:var(--green-dark);border:1px solid var(--green)}
+  .health-table,.audit-table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:12px}
+  .health-table th,.health-table td,.audit-table th,.audit-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  .status-ok{color:var(--green-dark);font-weight:700}
+  .status-bad{color:#c0392b;font-weight:700}
+  .toolkit-log{background:#111611;color:#8be9a0;font-family:ui-monospace,Consolas,monospace;font-size:.76rem;padding:10px;border-radius:6px;height:120px;overflow-y:auto;white-space:pre-wrap;margin-top:10px}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h2>🔒 Personal Toolkit</h2>
+    <p>Private admin access — RoznamaAds team only</p>
+    <input type="password" id="gatePass" placeholder="Password" autocomplete="off">
+    <button id="gateBtn">Unlock</button>
+    <p class="gate-err" id="gateErr">Ghalat password — dobara try karein.</p>
+  </div>
+</div>
+
+<div class="admin-wrap" id="adminWrap">
+  <div class="admin-header">
+    <a href="#" class="brand-row"><img src="../logo.svg" alt="" style="width:26px;height:26px;border-radius:6px">RoznamaAds — Personal Toolkit</a>
+    <div class="sub">Private admin panel · noindex · not linked from public site</div>
+  </div>
+
+  <nav class="tool-nav" id="toolNav"></nav>
+
+  <!-- AI Settings -->
+  <section class="panel" data-panel="ai-settings">
+    <h2>AI Settings</h2>
+    <p class="desc">Gemini Free API — Stage 0. Provider replaceable rakha gaya hai.</p>
+    <div class="field"><label>AI Provider</label>
+      <select id="aiProvider"><option>Gemini</option><option>OpenAI (future)</option><option>Local Model (future)</option></select>
+    </div>
+    <div class="field"><label>API Key</label><input type="password" id="aiKey" placeholder="Gemini API key"></div>
+    <div class="field"><label>Model</label><input type="text" id="aiModel" placeholder="e.g. gemini-2.0-flash" value="gemini-2.0-flash"></div>
+    <button class="btn" id="testConn">Test Connection</button>
+    <button class="btn alt" id="saveAiSettings">Save AI Settings</button>
+    <p class="desc" id="aiSaveMsg" style="margin-top:8px"></p>
+    <p class="desc" style="color:#a86b00">⚠️ Abhi ke liye key sirf is browser mein (localStorage) save hoti hai — production mein server-side secret hona chahiye (kabhi bhi public code mein commit na karein).</p>
+  </section>
+
+  <!-- AI Playground -->
+  <section class="panel" data-panel="ai-playground">
+    <h2>AI Playground</h2>
+    <p class="desc">Live ads par asar dale bina prompt/output test karein.</p>
+    <div class="field"><label>Provider / Model</label><input type="text" id="pgModel" readonly></div>
+    <div class="field"><label>Prompt / Input</label><textarea id="pgPrompt" rows="4" placeholder="e.g. Is OCR text ko clean karke Property ad banao..."></textarea></div>
+    <button class="btn" id="pgGenerate">Generate</button>
+    <div class="field" style="margin-top:14px"><label>Output</label><div class="stub" id="pgOutput" style="text-align:left">Output yahan dikhega.</div></div>
+  </section>
+
+  <!-- Ad Post Generator (Newspaper Manager + OCR/AI Processing) -->
+  <section class="panel" data-panel="ad-generator">
+    <h2>Ad Post Generator</h2>
+    <p class="desc">Raw OCR text paste karein → AI category/city/price/description nikalega.</p>
+    <div class="field"><label>Raw OCR Text</label><textarea id="ocrText" rows="5" placeholder="Newspaper se OCR/copy kiya hua raw text yahan paste karein..."></textarea></div>
+    <button class="btn" id="genDraft">🧠 Generate Draft</button>
+    <div class="stub" style="margin-top:14px">
+      <div class="icon">🛠️</div>
+      Structured field editor, duplicate-check warning, aur multi-platform caption generator yahan Batch 8+ (backend/database connect hone ke baad) add honge.
+    </div>
+  </section>
+
+  <!-- Simple placeholder-only panels -->
+  <section class="panel" data-panel="draft-queue"><h2>Ad Draft Queue</h2><p class="desc">AI-generated drafts jo admin review ka wait kar rahe hain.</p><div class="stub"><div class="icon">🗂️</div>Database connect hone ke baad drafts yahan list hongi.</div></section>
+
+  <section class="panel" data-panel="ad-manager"><h2>Ad Manager</h2><p class="desc">Sab live ads — edit / delete / feature.</p><div class="stub"><div class="icon">📋</div>Database connect hone ke baad ye tool functional hoga.</div></section>
+
+  <section class="panel" data-panel="dup-check"><h2>Duplicate Check</h2><p class="desc">Multi-newspaper mein repeat hone wali ads detect karega.</p><div class="stub"><div class="icon">🧬</div>Phase 3 feature — database aur multi-newspaper ingestion ke baad.</div></section>
+
+  <section class="panel" data-panel="expiry"><h2>Expiry Management</h2><p class="desc">30-din auto-expiry override / extend.</p><div class="stub"><div class="icon">⏳</div>Database connect hone ke baad functional hoga.</div></section>
+
+  <section class="panel" data-panel="reported"><h2>Reported Ads</h2><p class="desc">Users ke "Report this ad" submissions ki queue.</p><div class="stub"><div class="icon">🚩</div>Backend connect hone ke baad reports yahan aayengi.</div></section>
+
+  <section class="panel" data-panel="category-manager"><h2>Category Manager</h2><p class="desc">Categories add/edit/reorder karein.</p><div class="stub"><div class="icon">🗃️</div>Abhi categories code mein hard-coded hain (11 categories) — is tool se DB-driven banega.</div></section>
+
+  <section class="panel" data-panel="user-ads"><h2>User Submitted Ads</h2><p class="desc">Submit Ad page se aane wali ads ki moderation queue.</p><div class="stub"><div class="icon">👤</div>Backend connect hone ke baad submissions yahan aayengi.</div></section>
+
+  <section class="panel" data-panel="social"><h2>Social Posting</h2><p class="desc">Facebook / Instagram auto-post controls.</p><div class="stub"><div class="icon">📣</div>Phase 2 — Facebook/Instagram Graph API approval ke baad.</div></section>
+
+  <section class="panel" data-panel="whatsapp"><h2>WhatsApp Distribution</h2><p class="desc">"Send to Groups" controls.</p><div class="stub"><div class="icon">💬</div>WhatsApp Groups infrastructure set hone ke baad (Phase 2).</div></section>
+
+  <section class="panel" data-panel="seo-manager"><h2>SEO Manager</h2><p class="desc">Meta titles/descriptions, sitemap regeneration.</p><div class="stub"><div class="icon">🔍</div>Static sitemap.xml/robots.txt abhi manual hain — ye tool unhe automate karega.</div></section>
+
+  <section class="panel" data-panel="analytics"><h2>Analytics Dashboard</h2><p class="desc">Daily new ads, traffic, click-through.</p><div class="stub"><div class="icon">📊</div>GA4 + Search Console setup ke baad data yahan dikhega.</div></section>
+
+  <!-- Website Health Monitor (functional) -->
+  <section class="panel" data-panel="health">
+    <h2>Website Health Monitor</h2>
+    <p class="desc">Live pages ka HTTP status aur response time check karein.</p>
+    <button class="btn" id="checkHealth">🩺 Check All Pages</button>
+    <table class="health-table" id="healthTbl">
+      <thead><tr><th>Page</th><th>Status</th><th>Time (ms)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- Full Site Audit (functional, basic) -->
+  <section class="panel" data-panel="audit">
+    <h2>Full Site Audit</h2>
+    <p class="desc">Basic on-page SEO checks: title, meta description, H1, canonical.</p>
+    <button class="btn" id="runAudit">🔎 Run Audit</button>
+    <table class="audit-table" id="auditTbl">
+      <thead><tr><th>Page</th><th>Title</th><th>Meta Desc</th><th>H1</th><th>Canonical</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- Deployer link -->
+  <section class="panel" data-panel="deployer">
+    <h2>Deployer</h2>
+    <p class="desc">GitHub single-commit deploy tool — alag page par hai.</p>
+    <div class="stub">
+      <div class="icon">🚀</div>
+      <a href="deployer.html" class="btn" style="text-decoration:none;display:inline-block">Open Deployer Tool →</a>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="backup"><h2>Backup / Restore</h2><p class="desc">Database backup schedule aur manual restore.</p><div class="stub"><div class="icon">💾</div>Database connect hone ke baad ye tool functional hoga.</div></section>
+
+  <section class="panel" data-panel="system"><h2>System Settings</h2><p class="desc">General site config, admin users, roles.</p><div class="stub"><div class="icon">⚙️</div>Multi-admin/role separation Phase 3 feature hai.</div></section>
+
+  <div class="toolkit-log" id="toolkitLog">Ready.</div>
+</div>
+
+<script>
+/* ---------- Password Gate ---------- */
+// NOTE: Client-side gate is a basic deterrent only, NOT real security.
+// Change this password before sharing this file, and move to real
+// server-side auth once a backend exists.
+const ADMIN_PASSWORD = "roznama2026";
+
+function log(msg){
+  const el = document.getElementById('toolkitLog');
+  el.textContent += `\n[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.scrollTop = el.scrollHeight;
+}
+
+document.getElementById('gateBtn').addEventListener('click', unlock);
+document.getElementById('gatePass').addEventListener('keydown', e => { if(e.key === 'Enter') unlock(); });
+
+function unlock(){
+  const val = document.getElementById('gatePass').value;
+  if(val === ADMIN_PASSWORD){
+    sessionStorage.setItem('rz_admin_ok', '1');
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('adminWrap').style.display = 'block';
+  } else {
+    document.getElementById('gateErr').style.display = 'block';
+  }
+}
+
+if(sessionStorage.getItem('rz_admin_ok') === '1'){
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('adminWrap').style.display = 'block';
+}
+
+/* ---------- Tab Navigation ---------- */
+const TOOLS = [
+  {id:'ai-settings', label:'AI Settings'},
+  {id:'ai-playground', label:'AI Playground'},
+  {id:'ad-generator', label:'Ad Post Generator'},
+  {id:'draft-queue', label:'Draft Queue'},
+  {id:'ad-manager', label:'Ad Manager'},
+  {id:'dup-check', label:'Duplicate Check'},
+  {id:'expiry', label:'Expiry Mgmt'},
+  {id:'reported', label:'Reported Ads'},
+  {id:'category-manager', label:'Category Mgr'},
+  {id:'user-ads', label:'User Ads'},
+  {id:'social', label:'Social Posting'},
+  {id:'whatsapp', label:'WhatsApp'},
+  {id:'seo-manager', label:'SEO Manager'},
+  {id:'analytics', label:'Analytics'},
+  {id:'health', label:'Health Monitor'},
+  {id:'audit', label:'Full Audit'},
+  {id:'deployer', label:'Deployer'},
+  {id:'backup', label:'Backup/Restore'},
+  {id:'system', label:'System Settings'}
+];
+
+const nav = document.getElementById('toolNav');
+nav.innerHTML = TOOLS.map((t,i) => `<button data-target="${t.id}" class="${i===0?'active':''}">${t.label}</button>`).join('');
+
+nav.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    nav.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.panel[data-panel="${btn.dataset.target}"]`).classList.add('active');
+  });
+});
+document.querySelector('.panel[data-panel="ai-settings"]').classList.add('active');
+
+/* ---------- AI Settings (localStorage only — see warning above) ---------- */
+(function loadAiSettings(){
+  const saved = JSON.parse(localStorage.getItem('rz_ai_settings') || '{}');
+  if(saved.provider) document.getElementById('aiProvider').value = saved.provider;
+  if(saved.model) document.getElementById('aiModel').value = saved.model;
+})();
+
+document.getElementById('saveAiSettings').addEventListener('click', () => {
+  const settings = {
+    provider: document.getElementById('aiProvider').value,
+    model: document.getElementById('aiModel').value,
+    hasKey: !!document.getElementById('aiKey').value
+  };
+  localStorage.setItem('rz_ai_settings', JSON.stringify(settings));
+  document.getElementById('aiSaveMsg').textContent = '✅ Saved (is browser mein).';
+  document.getElementById('pgModel').value = settings.provider + ' / ' + settings.model;
+});
+
+document.getElementById('testConn').addEventListener('click', () => {
+  document.getElementById('aiSaveMsg').textContent = '⚠️ Test Connection abhi disabled hai — API key backend se connect hone ke baad kaam karega.';
+});
+
+document.getElementById('pgGenerate').addEventListener('click', () => {
+  document.getElementById('pgOutput').textContent = 'AI provider abhi connect nahi hai — AI Settings mein key save karke backend integration (Batch 8+) ka wait karein.';
+});
+
+document.getElementById('genDraft').addEventListener('click', () => {
+  const text = document.getElementById('ocrText').value.trim();
+  if(!text){ alert('Pehle OCR text paste karein.'); return; }
+  alert('AI processing abhi backend se connect nahi hai — ye Batch 8+ mein Gemini API integrate hone ke baad kaam karega.');
+});
+
+/* ---------- Website Health Monitor (functional) ---------- */
+const SITE_PAGES = [
+  '../index.html','../category.html','../ad.html','../search.html','../submit-ad.html',
+  '../privacy.html','../terms.html','../about.html','../contact.html'
+];
+
+document.getElementById('checkHealth').addEventListener('click', async () => {
+  const tbody = document.querySelector('#healthTbl tbody');
+  tbody.innerHTML = '';
+  log('Health check shuru...');
+  for(const pg of SITE_PAGES){
+    const start = performance.now();
+    let statusText = '—', cls = 'status-bad', ms = '—';
+    try{
+      const res = await fetch(pg, {cache:'no-store'});
+      ms = Math.round(performance.now() - start);
+      statusText = res.status;
+      cls = res.ok ? 'status-ok' : 'status-bad';
+    }catch(e){
+      statusText = 'Error';
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${pg.replace('../','')}</td><td class="${cls}">${statusText}</td><td>${ms}</td>`;
+    tbody.appendChild(tr);
+  }
+  log('✅ Health check complete.');
+});
+
+/* ---------- Full Site Audit (functional, basic) ---------- */
+document.getElementById('runAudit').addEventListener('click', async () => {
+  const tbody = document.querySelector('#auditTbl tbody');
+  tbody.innerHTML = '';
+  log('Audit shuru...');
+  for(const pg of SITE_PAGES){
+    let title='—', desc='—', h1='—', canon='—';
+    try{
+      const res = await fetch(pg, {cache:'no-store'});
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      title = doc.querySelector('title') ? '✅' : '❌';
+      desc = doc.querySelector('meta[name="description"]') ? '✅' : '❌';
+      const h1Count = doc.querySelectorAll('h1').length;
+      h1 = h1Count === 1 ? '✅ (1)' : `⚠️ (${h1Count})`;
+      canon = doc.querySelector('link[rel="canonical"]') ? '✅' : '❌';
+    }catch(e){
+      title = desc = h1 = canon = 'Error';
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${pg.replace('../','')}</td><td>${title}</td><td>${desc}</td><td>${h1}</td><td>${canon}</td>`;
+    tbody.appendChild(tr);
+  }
+  log('✅ Audit complete.');
+});
+</script>
+</body>
+</html>
