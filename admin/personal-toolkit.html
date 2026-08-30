@@ -41,6 +41,13 @@
   .status-ok{color:var(--green-dark);font-weight:700}
   .status-bad{color:#c0392b;font-weight:700}
   .toolkit-log{background:#111611;color:#8be9a0;font-family:ui-monospace,Consolas,monospace;font-size:.76rem;padding:10px;border-radius:6px;height:120px;overflow-y:auto;white-space:pre-wrap;margin-top:10px}
+  .field-row{display:flex;gap:10px;flex-wrap:wrap}
+  .field-row .field{flex:1;min-width:110px}
+  .filebox{border:2px dashed var(--line);border-radius:8px;padding:16px;text-align:center;color:var(--muted);font-size:.82rem;cursor:pointer}
+  .filebox:hover{border-color:var(--green)}
+  .progWrap{background:var(--line);border-radius:6px;height:8px;overflow:hidden}
+  .progBar{background:var(--green);height:100%;width:0%;transition:width .2s}
+  #depFileList div{padding:3px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
 </style>
 </head>
 <body>
@@ -145,29 +152,67 @@
     </table>
   </section>
 
-  <!-- Deployer link -->
+  <!-- Deployer (merged, password-protected, GitHub token never leaves this session) -->
   <section class="panel" data-panel="deployer">
     <h2>Deployer</h2>
-    <p class="desc">GitHub single-commit deploy tool — alag page par hai.</p>
-    <div class="stub">
-      <div class="icon">🚀</div>
-      <a href="deployer.html" class="btn" style="text-decoration:none;display:inline-block">Open Deployer Tool →</a>
+    <p class="desc">Local batch files → Scan &amp; Dry Run → Single Commit → GitHub → Vercel auto-deploy</p>
+
+    <div class="field-row">
+      <div class="field"><label>Owner</label><input type="text" id="depOwner" value="roznamaads"></div>
+      <div class="field"><label>Repo</label><input type="text" id="depRepo" value="roznamaads"></div>
+      <div class="field"><label>Branch</label><input type="text" id="depBranch" value="main"></div>
     </div>
+    <div class="field"><label>GitHub Personal Access Token (repo / contents:write)</label><input type="password" id="depToken" placeholder="ghp_... ya github_pat_..."></div>
+    <div class="field"><label>Target folder in repo (optional)</label><input type="text" id="depPrefix" placeholder="blank = repo root"></div>
+    <div class="field"><label>Commit message</label><input type="text" id="depMsg" value="Batch update: RoznamaAds files"></div>
+
+    <div class="field">
+      <label>Batch Files</label>
+      <div class="filebox" id="depDropZone">📁 Click to choose files (or a folder)
+        <input type="file" id="depFileInput" multiple webkitdirectory style="display:none">
+      </div>
+      <div id="depFileList" style="font-size:.8rem;max-height:160px;overflow-y:auto;margin-top:8px"></div>
+    </div>
+
+    <div class="field"><label>Delete these paths (optional, comma-separated)</label><input type="text" id="depDeletePaths" placeholder="e.g. admin/deployer.html"></div>
+
+    <button class="btn" id="depScanBtn">🔍 Scan &amp; Dry Run</button>
+    <button class="btn alt" id="depClearBtn">Clear</button>
+
+    <div id="depDryRunSummary" class="desc" style="margin-top:12px">Not run yet.</div>
+    <div class="progWrap" style="margin-top:8px"><div class="progBar" id="depProgBar"></div></div>
+    <button class="btn" id="depCommitBtn" disabled style="width:100%">🚀 Push Single Commit</button>
+
+    <div class="toolkit-log" id="depLog">Ready.</div>
+    <p class="desc" style="margin-top:10px;color:#a86b00">⚠️ GitHub token kahin save nahi hota — sirf is browser tab ki memory mein rehta hai jab tak page khula hai.</p>
   </section>
 
   <section class="panel" data-panel="backup"><h2>Backup / Restore</h2><p class="desc">Database backup schedule aur manual restore.</p><div class="stub"><div class="icon">💾</div>Database connect hone ke baad ye tool functional hoga.</div></section>
 
-  <section class="panel" data-panel="system"><h2>System Settings</h2><p class="desc">General site config, admin users, roles.</p><div class="stub"><div class="icon">⚙️</div>Multi-admin/role separation Phase 3 feature hai.</div></section>
+  <section class="panel" data-panel="system">
+    <h2>System Settings</h2>
+    <p class="desc">General site config, admin users, roles.</p>
+    <div class="stub" style="margin-bottom:16px"><div class="icon">⚙️</div>Multi-admin/role separation Phase 3 feature hai.</div>
+
+    <h2 style="font-size:.95rem">Change Admin Password</h2>
+    <div class="field"><label>Current Password</label><input type="password" id="curPass"></div>
+    <div class="field"><label>New Password</label><input type="password" id="newPass"></div>
+    <button class="btn" id="changePassBtn">Update Password</button>
+    <p class="desc" id="passMsg" style="margin-top:8px"></p>
+    <p class="desc" style="color:#a86b00">⚠️ Ye password sirf is browser mein (localStorage) save hota hai — doosre device/browser se access karne par wahan ka apna default password chalega jab tak wahan bhi change na kiya jaye.</p>
+  </section>
 
   <div class="toolkit-log" id="toolkitLog">Ready.</div>
 </div>
 
 <script>
 /* ---------- Password Gate ---------- */
-// NOTE: Client-side gate is a basic deterrent only, NOT real security.
-// Change this password before sharing this file, and move to real
-// server-side auth once a backend exists.
-const ADMIN_PASSWORD = "roznama2026";
+// Password is stored in localStorage (per-browser). Default on first use only.
+const DEFAULT_PASSWORD = "roznama2026";
+
+function getAdminPassword(){
+  return localStorage.getItem('rz_admin_password') || DEFAULT_PASSWORD;
+}
 
 function log(msg){
   const el = document.getElementById('toolkitLog');
@@ -180,7 +225,7 @@ document.getElementById('gatePass').addEventListener('keydown', e => { if(e.key 
 
 function unlock(){
   const val = document.getElementById('gatePass').value;
-  if(val === ADMIN_PASSWORD){
+  if(val === getAdminPassword()){
     sessionStorage.setItem('rz_admin_ok', '1');
     document.getElementById('gate').style.display = 'none';
     document.getElementById('adminWrap').style.display = 'block';
@@ -193,6 +238,27 @@ if(sessionStorage.getItem('rz_admin_ok') === '1'){
   document.getElementById('gate').style.display = 'none';
   document.getElementById('adminWrap').style.display = 'block';
 }
+
+document.getElementById('changePassBtn').addEventListener('click', () => {
+  const cur = document.getElementById('curPass').value;
+  const next = document.getElementById('newPass').value;
+  const msg = document.getElementById('passMsg');
+  if(cur !== getAdminPassword()){
+    msg.style.color = '#c0392b';
+    msg.textContent = '❌ Current password ghalat hai.';
+    return;
+  }
+  if(!next || next.length < 4){
+    msg.style.color = '#c0392b';
+    msg.textContent = '❌ Naya password kam se kam 4 characters ka ho.';
+    return;
+  }
+  localStorage.setItem('rz_admin_password', next);
+  msg.style.color = '#166638';
+  msg.textContent = '✅ Password update ho gaya (is browser ke liye).';
+  document.getElementById('curPass').value = '';
+  document.getElementById('newPass').value = '';
+});
 
 /* ---------- Tab Navigation ---------- */
 const TOOLS = [
@@ -315,6 +381,254 @@ document.getElementById('runAudit').addEventListener('click', async () => {
   }
   log('✅ Audit complete.');
 });
+/* ---------- Deployer (merged — GitHub token stays in-memory only) ---------- */
+let depSelectedFiles = [];
+let depDryRunOk = false;
+
+function depProg(p){ document.getElementById('depProgBar').style.width = Math.round(p*100) + '%'; }
+function depSleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+async function depGhFetch(url, opt, tries){
+  tries = (tries === undefined) ? 5 : tries;
+  let res;
+  try{ res = await fetch(url, opt); }
+  catch(networkErr){
+    if(tries <= 0) throw new Error('network: ' + networkErr.message);
+    const wait = Math.pow(2, 6 - tries) * 500;
+    log(`  ↻ network error, retry in ${wait}ms (${tries} left)...`);
+    await depSleep(wait);
+    return depGhFetch(url, opt, tries - 1);
+  }
+  if((res.status === 403 || res.status === 429 || res.status >= 500) && tries > 0){
+    const wait = Math.pow(2, 6 - tries) * 500;
+    log(`  ↻ ${res.status} response, retry in ${wait}ms (${tries} left)...`);
+    await depSleep(wait);
+    return depGhFetch(url, opt, tries - 1);
+  }
+  return res;
+}
+
+function depPool(items, limit, fn, onProgress){
+  return new Promise((resolve, reject) => {
+    let i = 0, active = 0, done = 0, failed = false;
+    const results = new Array(items.length);
+    if(items.length === 0) return resolve(results);
+    function next(){
+      if(failed) return;
+      if(done === items.length) return resolve(results);
+      while(active < limit && i < items.length){
+        const idx = i++;
+        active++;
+        fn(items[idx], idx).then(r => {
+          results[idx] = r; active--; done++;
+          if(onProgress) onProgress(done, items.length);
+          next();
+        }, err => { failed = true; reject(err); });
+      }
+    }
+    next();
+  });
+}
+
+function depGhHeaders(token){
+  return {'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'};
+}
+
+function depApi(){
+  return {
+    owner: document.getElementById('depOwner').value.trim(),
+    repo: document.getElementById('depRepo').value.trim(),
+    branch: document.getElementById('depBranch').value.trim() || 'main',
+    token: document.getElementById('depToken').value.trim(),
+    prefix: document.getElementById('depPrefix').value.trim().replace(/^\/+|\/+$/g,'')
+  };
+}
+
+function depRenderFileList(){
+  const el = document.getElementById('depFileList');
+  if(depSelectedFiles.length === 0){ el.innerHTML = '<div style="color:var(--muted)">No files selected yet.</div>'; return; }
+  el.innerHTML = depSelectedFiles.map((f,i) =>
+    `<div>${f.path} <span style="color:var(--muted)">(${(f.file.size/1024).toFixed(1)} KB)</span> <a href="#" onclick="depRemoveFile(${i});return false;" style="color:#c0392b">✕</a></div>`
+  ).join('');
+}
+function depRemoveFile(i){
+  depSelectedFiles.splice(i,1);
+  depRenderFileList();
+  depDryRunOk = false;
+  document.getElementById('depCommitBtn').disabled = true;
+}
+
+function depAddFiles(fileArr, useRelPath){
+  for(const f of fileArr){
+    let relPath = useRelPath ? (f.webkitRelativePath || f.name) : f.name;
+    if(useRelPath && relPath.includes('/')) relPath = relPath.split('/').slice(1).join('/') || f.name;
+    depSelectedFiles.push({path: relPath, file: f});
+  }
+  depRenderFileList();
+}
+
+document.getElementById('depDropZone').onclick = () => document.getElementById('depFileInput').click();
+document.getElementById('depFileInput').onchange = (e) => depAddFiles(Array.from(e.target.files), true);
+document.getElementById('depClearBtn').onclick = () => {
+  depSelectedFiles = [];
+  depRenderFileList();
+  depDryRunOk = false;
+  document.getElementById('depCommitBtn').disabled = true;
+  document.getElementById('depDryRunSummary').textContent = 'Not run yet.';
+  document.getElementById('depLog').textContent = 'Cleared.';
+};
+
+function depReadFileAsBase64(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+document.getElementById('depScanBtn').onclick = async () => {
+  const {owner, repo, branch, token, prefix} = depApi();
+  const deletePathsCheck = document.getElementById('depDeletePaths').value.split(',').map(s => s.trim()).filter(Boolean);
+  if(!token){ log('❌ GitHub token required.'); return; }
+  if(depSelectedFiles.length === 0 && deletePathsCheck.length === 0){ log('❌ No files selected aur koi delete path bhi nahi.'); return; }
+  log(`Scanning ${depSelectedFiles.length} file(s) against ${owner}/${repo}@${branch} ...`);
+  document.getElementById('depScanBtn').disabled = true;
+  depProg(0);
+
+  let newCount = 0, updateCount = 0, results = [];
+  try{
+    let existingPaths = new Set();
+    let refRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${branch}`, {headers: depGhHeaders(token)});
+    if(refRes.status === 404 || refRes.status === 409){
+      log('  · Repo/branch khali hai — sab files NEW mani jayengi.');
+    } else if(!refRes.ok){
+      throw new Error(`Ref fetch failed: ${refRes.status} ${await refRes.text()}`);
+    } else {
+      const refData = await refRes.json();
+      depProg(0.3);
+      const commitRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/commits/${refData.object.sha}`, {headers: depGhHeaders(token)});
+      if(!commitRes.ok) throw new Error(`Commit fetch failed: ${commitRes.status}`);
+      const commitData = await commitRes.json();
+      depProg(0.5);
+      const treeRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${commitData.tree.sha}?recursive=1`, {headers: depGhHeaders(token)});
+      if(!treeRes.ok) throw new Error(`Tree fetch failed: ${treeRes.status}`);
+      const treeData = await treeRes.json();
+      for(const node of treeData.tree) if(node.type === 'blob') existingPaths.add(node.path);
+      depProg(0.8);
+    }
+    for(const f of depSelectedFiles){
+      const repoPath = prefix ? `${prefix}/${f.path}` : f.path;
+      if(existingPaths.has(repoPath)){ updateCount++; results.push(`<div>UPDATE  ${repoPath}</div>`); }
+      else { newCount++; results.push(`<div style="color:var(--green-dark)">NEW     ${repoPath}</div>`); }
+    }
+    depProg(1);
+    const deletePaths = document.getElementById('depDeletePaths').value.split(',').map(s => s.trim()).filter(Boolean);
+    let deleteNote = deletePaths.length ? `<br>${deletePaths.length} file(s) marked for deletion: ${deletePaths.join(', ')}` : '';
+    document.getElementById('depDryRunSummary').innerHTML = `${newCount} new file(s), ${updateCount} updated file(s).${deleteNote}<br>` + results.join('');
+    depDryRunOk = true;
+    document.getElementById('depCommitBtn').disabled = false;
+    log(`✅ Dry run OK — ${newCount} new, ${updateCount} update. Ready to commit.`);
+  }catch(err){
+    log(`❌ Dry run failed: ${err.message}`);
+    depDryRunOk = false;
+    document.getElementById('depCommitBtn').disabled = true;
+  }
+  document.getElementById('depScanBtn').disabled = false;
+  depProg(0);
+};
+
+document.getElementById('depCommitBtn').onclick = async () => {
+  if(!depDryRunOk){ log('❌ Run Dry Run first.'); return; }
+  const {owner, repo, branch, token, prefix} = depApi();
+  const commitMsg = document.getElementById('depMsg').value.trim() || 'Batch update';
+  const btn = document.getElementById('depCommitBtn');
+  btn.disabled = true;
+  depProg(0);
+  try{
+    log('Step 1/5: Getting latest commit on branch...');
+    let latestCommitSha = null, baseTreeSha = null, isEmptyRepo = false;
+    let res = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${branch}`, {headers: depGhHeaders(token)});
+    if(res.status === 404 || res.status === 409){
+      isEmptyRepo = true;
+      log('  · Repo/branch khali hai — pehla commit banaya jayega.');
+    } else if(!res.ok){
+      throw new Error(`Failed to get ref: ${res.status} ${await res.text()}`);
+    } else {
+      const refData = await res.json();
+      latestCommitSha = refData.object.sha;
+      res = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`, {headers: depGhHeaders(token)});
+      if(!res.ok) throw new Error(`Failed to get base commit: ${res.status}`);
+      const baseCommit = await res.json();
+      baseTreeSha = baseCommit.tree.sha;
+    }
+    depProg(0.1);
+
+    log('Step 2/5: Uploading blobs (parallel)...');
+    const treeItems = await depPool(depSelectedFiles, 4, async (f) => {
+      const repoPath = prefix ? `${prefix}/${f.path}` : f.path;
+      const base64Content = await depReadFileAsBase64(f.file);
+      const blobRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/blobs`, {
+        method: 'POST', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'},
+        body: JSON.stringify({content: base64Content, encoding: 'base64'})
+      });
+      if(!blobRes.ok) throw new Error(`Blob upload failed for ${repoPath}: ${blobRes.status}`);
+      const blobData = await blobRes.json();
+      log(`  ✓ ${repoPath}`);
+      return {path: repoPath, mode: '100644', type: 'blob', sha: blobData.sha};
+    }, (done, total) => depProg(0.1 + (done/total) * 0.6));
+
+    const deletePaths = document.getElementById('depDeletePaths').value.split(',').map(s => s.trim()).filter(Boolean);
+    for(const dp of deletePaths){
+      treeItems.push({path: dp, mode: '100644', type: 'blob', sha: null});
+      log(`  🗑️ marked for deletion: ${dp}`);
+    }
+    if(deletePaths.length && isEmptyRepo){
+      throw new Error('Empty repo mein files delete nahi ho sakti (kuch bhi exist hi nahi karta).');
+    }
+
+    log('Step 3/5: Creating tree...');
+    const treeBody = baseTreeSha ? {base_tree: baseTreeSha, tree: treeItems} : {tree: treeItems};
+    const treeRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
+      method: 'POST', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'}, body: JSON.stringify(treeBody)
+    });
+    if(!treeRes.ok) throw new Error(`Tree creation failed: ${treeRes.status} ${await treeRes.text()}`);
+    const treeData = await treeRes.json();
+    depProg(0.8);
+
+    log('Step 4/5: Creating commit...');
+    const commitBody = isEmptyRepo ? {message: commitMsg, tree: treeData.sha} : {message: commitMsg, tree: treeData.sha, parents: [latestCommitSha]};
+    const commitRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, {
+      method: 'POST', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'}, body: JSON.stringify(commitBody)
+    });
+    if(!commitRes.ok) throw new Error(`Commit creation failed: ${commitRes.status} ${await commitRes.text()}`);
+    const newCommit = await commitRes.json();
+    depProg(0.9);
+
+    log('Step 5/5: Updating branch ref...');
+    let updateRefRes;
+    if(isEmptyRepo){
+      updateRefRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+        method: 'POST', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'},
+        body: JSON.stringify({ref: `refs/heads/${branch}`, sha: newCommit.sha})
+      });
+    } else {
+      updateRefRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
+        method: 'PATCH', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'},
+        body: JSON.stringify({sha: newCommit.sha, force: false})
+      });
+    }
+    if(!updateRefRes.ok) throw new Error(`Ref update failed: ${updateRefRes.status} ${await updateRefRes.text()}`);
+    depProg(1);
+    log(`✅ Pushed! Commit: ${newCommit.sha.slice(0,7)} — Vercel auto-deploy shuru ho jayega.`);
+    depDryRunOk = false;
+  }catch(err){
+    log(`❌ Commit failed: ${err.message}`);
+  }
+  btn.disabled = false;
+};
+
+depRenderFileList();
 </script>
 </body>
 </html>
