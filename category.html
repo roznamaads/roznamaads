@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title id="pageTitle">Category — RoznamaAds.pk</title>
+<meta id="pageDesc" name="description" content="Browse classified ads by category on RoznamaAds.pk">
+<link id="canonicalLink" rel="canonical" href="https://roznamaads.pk/category.html">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="hero" style="padding:20px 18px">
+  <div class="site-header-bar">
+    <a href="index.html" class="brand-row"><span class="dot"></span>RoznamaAds<span style="opacity:.7">.pk</span></a>
+  </div>
+</header>
+
+<nav class="cat-nav" id="catNav" aria-label="Category navigation"></nav>
+
+<div class="subheader">
+  <div class="wrap">
+    <div class="breadcrumb"><a href="index.html">Home</a> / <span id="breadcrumbCat">Category</span></div>
+    <h1 id="catTitle">Category</h1>
+  </div>
+</div>
+
+<main id="main-content" style="margin-top:0">
+  <div class="filter-bar">
+    <select id="fCity" aria-label="Filter by city">
+      <option value="">All Cities</option>
+      <option>Lahore</option>
+      <option>Karachi</option>
+      <option>Islamabad</option>
+      <option>Rawalpindi</option>
+      <option>Faisalabad</option>
+      <option>Multan</option>
+      <option>Peshawar</option>
+      <option>Quetta</option>
+    </select>
+    <select id="fPrice" aria-label="Filter by price range">
+      <option value="">Any Price</option>
+      <option>Under 5 Lac</option>
+      <option>5–20 Lac</option>
+      <option>20–50 Lac</option>
+      <option>50 Lac+</option>
+    </select>
+    <select id="fDate" aria-label="Sort by date">
+      <option value="newest">Newest First</option>
+      <option value="oldest">Oldest First</option>
+    </select>
+    <button id="applyFilters">Apply</button>
+  </div>
+
+  <p class="result-count" id="resultCount">Filters ke sath ads jald yahan dikhengi.</p>
+
+  <div class="empty-state">
+    <div class="icon">🗂️</div>
+    <p><strong>Is category ke ads abhi database se connect nahi hue.</strong><br>
+    Newspaper extraction pipeline (Batch 7+) ke baad yahan live ads dikhengi.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-brand"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:#f5c94f;display:inline-block"></span>RoznamaAds.pk</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="#">Submit Ad</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+    </nav>
+    <p class="copy">© 2026 RoznamaAds.pk — Pakistani Newspaper Classifieds, Digital.</p>
+  </div>
+</footer>
+
+<script>
+const CATEGORIES = {
+  property:   { label: "Property" },
+  jobs:       { label: "Jobs" },
+  vehicles:   { label: "Vehicles" },
+  matrimonial:{ label: "Matrimonial / Rishta" },
+  visa:       { label: "Visa & Immigration" },
+  auctions:   { label: "Auctions" },
+  admissions: { label: "Admissions" },
+  tenders:    { label: "Tenders" },
+  notices:    { label: "Government / Public Notices" },
+  services:   { label: "Services" },
+  electronics:{ label: "Electronics" }
+};
+
+const params = new URLSearchParams(location.search);
+const catKey = (params.get('cat') || '').toLowerCase();
+const cat = CATEGORIES[catKey] || { label: "All Categories" };
+
+document.getElementById('catTitle').textContent = cat.label;
+document.getElementById('breadcrumbCat').textContent = cat.label;
+document.getElementById('pageTitle').textContent = cat.label + " Ads — RoznamaAds.pk";
+document.getElementById('pageDesc').setAttribute('content', cat.label + " classified ads from Pakistani newspapers — searchable on RoznamaAds.pk");
+if(CATEGORIES[catKey]){
+  document.getElementById('canonicalLink').setAttribute('href', 'https://roznamaads.pk/category.html?cat=' + catKey);
+}
+
+const catNav = document.getElementById('catNav');
+catNav.innerHTML = Object.keys(CATEGORIES).map(key =>
+  `<a href="category.html?cat=${key}" class="${key === catKey ? 'active' : ''}">${CATEGORIES[key].label}</a>`
+).join('');
+
+document.getElementById('applyFilters').addEventListener('click', () => {
+  const city = document.getElementById('fCity').value;
+  const price = document.getElementById('fPrice').value;
+  document.getElementById('resultCount').textContent =
+    `Filter applied: ${city || 'All Cities'}, ${price || 'Any Price'} — live results Batch 7+ ke baad.`;
+});
+</script>
+</body>
+</html>
