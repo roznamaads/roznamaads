@@ -1,0 +1,13 @@
+[
+  {"id":"property","label":"Property","subtitle":"Plots, Houses, Rentals","tag":"","active":true},
+  {"id":"jobs","label":"Jobs","subtitle":"Govt & Private","tag":"","active":true},
+  {"id":"vehicles","label":"Vehicles","subtitle":"Cars, Bikes","tag":"","active":true},
+  {"id":"matrimonial","label":"Matrimonial / Rishta","subtitle":"Rishta Notices","tag":"","active":true},
+  {"id":"visa","label":"Visa & Immigration","subtitle":"","tag":"New","active":true},
+  {"id":"auctions","label":"Auctions","subtitle":"","tag":"New","active":true},
+  {"id":"admissions","label":"Admissions","subtitle":"Universities, Schools","tag":"","active":true},
+  {"id":"tenders","label":"Tenders","subtitle":"Govt & Private","tag":"","active":true},
+  {"id":"notices","label":"Government / Public Notices","subtitle":"","tag":"New","active":true},
+  {"id":"services","label":"Services","subtitle":"General Services","tag":"","active":true},
+  {"id":"electronics","label":"Electronics","subtitle":"Buy / Sell","tag":"","active":true}
+]

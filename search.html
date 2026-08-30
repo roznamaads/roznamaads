@@ -27,17 +27,6 @@
   <div class="filter-bar">
     <select id="fCat" aria-label="Filter by category">
       <option value="">All Categories</option>
-      <option value="property">Property</option>
-      <option value="jobs">Jobs</option>
-      <option value="vehicles">Vehicles</option>
-      <option value="matrimonial">Matrimonial / Rishta</option>
-      <option value="visa">Visa &amp; Immigration</option>
-      <option value="auctions">Auctions</option>
-      <option value="admissions">Admissions</option>
-      <option value="tenders">Tenders</option>
-      <option value="notices">Government / Public Notices</option>
-      <option value="services">Services</option>
-      <option value="electronics">Electronics</option>
     </select>
     <select id="fCity" aria-label="Filter by city">
       <option value="">All Cities</option>
@@ -75,6 +64,15 @@
 </footer>
 
 <script>
+fetch('categories.json').then(r => r.json()).then(cats => {
+  const sel = document.getElementById('fCat');
+  cats.filter(c => c.active).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id; opt.textContent = c.label;
+    sel.appendChild(opt);
+  });
+}).catch(() => {});
+
 const params = new URLSearchParams(location.search);
 const q = params.get('q') || '';
 if(q){

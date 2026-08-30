@@ -37,7 +37,8 @@
   .btn:hover{background:var(--green-dark)}
   .btn.alt{background:#fff;color:var(--green-dark);border:1px solid var(--green)}
   .health-table,.audit-table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:12px}
-  .health-table th,.health-table td,.audit-table th,.audit-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  .health-table th,.health-table td,.audit-table th,.audit-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .status-ok{color:var(--green-dark);font-weight:700}
   .status-bad{color:#c0392b;font-weight:700}
   .toolkit-log{background:#111611;color:#8be9a0;font-family:ui-monospace,Consolas,monospace;font-size:.76rem;padding:10px;border-radius:6px;height:120px;overflow-y:auto;white-space:pre-wrap;margin-top:10px}
@@ -48,6 +49,10 @@
   .progWrap{background:var(--line);border-radius:6px;height:8px;overflow:hidden}
   .progBar{background:var(--green);height:100%;width:0%;transition:width .2s}
   #depFileList div{padding:3px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+  .cat-row{display:flex;gap:6px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px;flex-wrap:wrap}
+  .cat-row input[type=text]{flex:1;min-width:100px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;font-size:.82rem}
+  .cat-row label{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted);white-space:nowrap}
+  .cat-row .mini-btn{background:none;border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:.75rem;cursor:pointer}
 </style>
 </head>
 <body>
@@ -63,9 +68,12 @@
 </div>
 
 <div class="admin-wrap" id="adminWrap">
-  <div class="admin-header">
-    <a href="#" class="brand-row"><img src="../logo.svg" alt="" style="width:26px;height:26px;border-radius:6px">RoznamaAds — Personal Toolkit</a>
-    <div class="sub">Private admin panel · noindex · not linked from public site</div>
+  <div class="admin-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <a href="#" class="brand-row"><img src="../logo.svg" alt="" style="width:26px;height:26px;border-radius:6px">RoznamaAds — Personal Toolkit</a>
+      <div class="sub">Private admin panel · noindex · not linked from public site</div>
+    </div>
+    <button id="lockBtn" style="background:none;border:1px solid #fbf8ef;color:#fbf8ef;padding:6px 12px;border-radius:6px;font-size:.78rem;cursor:pointer;flex-shrink:0">🔒 Lock</button>
   </div>
 
   <nav class="tool-nav" id="toolNav"></nav>
@@ -118,7 +126,15 @@
 
   <section class="panel" data-panel="reported"><h2>Reported Ads</h2><p class="desc">Users ke "Report this ad" submissions ki queue.</p><div class="stub"><div class="icon">🚩</div>Backend connect hone ke baad reports yahan aayengi.</div></section>
 
-  <section class="panel" data-panel="category-manager"><h2>Category Manager</h2><p class="desc">Categories add/edit/reorder karein.</p><div class="stub"><div class="icon">🗃️</div>Abhi categories code mein hard-coded hain (11 categories) — is tool se DB-driven banega.</div></section>
+  <section class="panel" data-panel="category-manager">
+    <h2>Category Manager</h2>
+    <p class="desc">Categories add/edit/reorder karein — Save karne ke baad Deployer se site par push karein.</p>
+    <button class="btn" id="loadCats">📥 Load categories.json</button>
+    <div id="catManagerList" style="margin-top:14px"></div>
+    <button class="btn alt" id="addCatBtn" style="margin-top:10px">+ Add Category</button>
+    <button class="btn" id="saveCatsToDeployer" style="margin-top:10px">📤 Send to Deployer</button>
+    <p class="desc" id="catSaveMsg" style="margin-top:8px"></p>
+  </section>
 
   <section class="panel" data-panel="user-ads"><h2>User Submitted Ads</h2><p class="desc">Submit Ad page se aane wali ads ki moderation queue.</p><div class="stub"><div class="icon">👤</div>Backend connect hone ke baad submissions yahan aayengi.</div></section>
 
@@ -135,10 +151,12 @@
     <h2>Website Health Monitor</h2>
     <p class="desc">Live pages ka HTTP status aur response time check karein.</p>
     <button class="btn" id="checkHealth">🩺 Check All Pages</button>
+    <div class="table-scroll">
     <table class="health-table" id="healthTbl">
       <thead><tr><th>Page</th><th>Status</th><th>Time (ms)</th></tr></thead>
       <tbody></tbody>
     </table>
+    </div>
   </section>
 
   <!-- Full Site Audit (functional, basic) -->
@@ -146,10 +164,12 @@
     <h2>Full Site Audit</h2>
     <p class="desc">Basic on-page SEO checks: title, meta description, H1, canonical.</p>
     <button class="btn" id="runAudit">🔎 Run Audit</button>
+    <div class="table-scroll">
     <table class="audit-table" id="auditTbl">
       <thead><tr><th>Page</th><th>Title</th><th>Meta Desc</th><th>H1</th><th>Canonical</th></tr></thead>
       <tbody></tbody>
     </table>
+    </div>
   </section>
 
   <!-- Deployer (merged, password-protected, GitHub token never leaves this session) -->
@@ -238,6 +258,13 @@ if(sessionStorage.getItem('rz_admin_ok') === '1'){
   document.getElementById('gate').style.display = 'none';
   document.getElementById('adminWrap').style.display = 'block';
 }
+
+document.getElementById('lockBtn').addEventListener('click', () => {
+  sessionStorage.removeItem('rz_admin_ok');
+  document.getElementById('gate').style.display = 'flex';
+  document.getElementById('adminWrap').style.display = 'none';
+  document.getElementById('gatePass').value = '';
+});
 
 document.getElementById('changePassBtn').addEventListener('click', () => {
   const cur = document.getElementById('curPass').value;
@@ -629,6 +656,75 @@ document.getElementById('depCommitBtn').onclick = async () => {
 };
 
 depRenderFileList();
+
+/* ---------- Category Manager ---------- */
+let catData = [];
+
+function renderCatManager(){
+  const box = document.getElementById('catManagerList');
+  box.innerHTML = catData.map((c, i) => `
+    <div class="cat-row" data-idx="${i}">
+      <button class="mini-btn" onclick="moveCat(${i},-1)">↑</button>
+      <button class="mini-btn" onclick="moveCat(${i},1)">↓</button>
+      <input type="text" value="${c.id}" placeholder="id" data-field="id">
+      <input type="text" value="${c.label}" placeholder="Label" data-field="label">
+      <input type="text" value="${c.subtitle||''}" placeholder="Subtitle" data-field="subtitle">
+      <input type="text" value="${c.tag||''}" placeholder="Tag (e.g. New)" data-field="tag">
+      <label><input type="checkbox" ${c.active ? 'checked' : ''} data-field="active"> Active</label>
+      <button class="mini-btn" style="color:#c0392b" onclick="removeCat(${i})">✕</button>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const field = inp.dataset.field;
+        catData[idx][field] = field === 'active' ? inp.checked : inp.value;
+      });
+    });
+  });
+}
+
+function moveCat(i, dir){
+  const j = i + dir;
+  if(j < 0 || j >= catData.length) return;
+  [catData[i], catData[j]] = [catData[j], catData[i]];
+  renderCatManager();
+}
+function removeCat(i){
+  if(!confirm('Ye category list se hatani hai?')) return;
+  catData.splice(i, 1);
+  renderCatManager();
+}
+
+document.getElementById('loadCats').addEventListener('click', async () => {
+  try{
+    const res = await fetch('../categories.json', {cache:'no-store'});
+    catData = await res.json();
+    renderCatManager();
+    log('✅ categories.json load ho gayi (' + catData.length + ' categories).');
+  }catch(e){
+    log('❌ categories.json load nahi ho saki: ' + e.message);
+  }
+});
+
+document.getElementById('addCatBtn').addEventListener('click', () => {
+  catData.push({id:'', label:'', subtitle:'', tag:'', active:true});
+  renderCatManager();
+});
+
+document.getElementById('saveCatsToDeployer').addEventListener('click', () => {
+  if(catData.length === 0){ document.getElementById('catSaveMsg').textContent = '❌ Pehle categories load/add karein.'; return; }
+  const jsonStr = JSON.stringify(catData, null, 2) + '\n';
+  const blob = new Blob([jsonStr], {type:'application/json'});
+  const file = new File([blob], 'categories.json');
+  // Remove any existing categories.json from deployer queue, then add updated one
+  depSelectedFiles = depSelectedFiles.filter(f => f.path !== 'categories.json');
+  depSelectedFiles.push({path: 'categories.json', file: file});
+  depRenderFileList();
+  document.getElementById('catSaveMsg').textContent = '✅ categories.json Deployer queue mein add ho gayi — Deployer tab mein ja kar Scan & Commit karein.';
+  log('📤 categories.json Deployer mein queue ho gayi.');
+});
 </script>
 </body>
 </html>

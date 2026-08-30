@@ -27,17 +27,6 @@
       <label for="category">Category *</label>
       <select id="category" required>
         <option value="">— Select Category —</option>
-        <option value="property">Property</option>
-        <option value="jobs">Jobs</option>
-        <option value="vehicles">Vehicles</option>
-        <option value="matrimonial">Matrimonial / Rishta</option>
-        <option value="visa">Visa &amp; Immigration</option>
-        <option value="auctions">Auctions</option>
-        <option value="admissions">Admissions</option>
-        <option value="tenders">Tenders</option>
-        <option value="notices">Government / Public Notices</option>
-        <option value="services">Services</option>
-        <option value="electronics">Electronics</option>
       </select>
     </div>
 
@@ -158,6 +147,14 @@ const FIELD_SETS = {
 
 const categorySelect = document.getElementById('category');
 const dynamicFieldsBox = document.getElementById('dynamicFields');
+
+fetch('categories.json').then(r => r.json()).then(cats => {
+  cats.filter(c => c.active).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id; opt.textContent = c.label;
+    categorySelect.appendChild(opt);
+  });
+}).catch(() => {});
 
 categorySelect.addEventListener('change', () => {
   const fields = FIELD_SETS[categorySelect.value] || [];

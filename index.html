@@ -33,18 +33,8 @@
 <main id="main-content">
 
   <div class="section-title"><h2>Categories</h2></div>
-  <div class="category-grid">
-    <a class="category-card" href="category.html?cat=property"><h3>Property</h3><span class="count">Plots, Houses, Rentals</span></a>
-    <a class="category-card" href="category.html?cat=jobs"><h3>Jobs</h3><span class="count">Govt &amp; Private</span></a>
-    <a class="category-card" href="category.html?cat=vehicles"><h3>Vehicles</h3><span class="count">Cars, Bikes</span></a>
-    <a class="category-card" href="category.html?cat=matrimonial"><h3>Matrimonial / Rishta</h3><span class="count">Rishta Notices</span></a>
-    <a class="category-card" href="category.html?cat=visa"><h3>Visa &amp; Immigration</h3><span class="tag-new">New</span></a>
-    <a class="category-card" href="category.html?cat=auctions"><h3>Auctions</h3><span class="tag-new">New</span></a>
-    <a class="category-card" href="category.html?cat=admissions"><h3>Admissions</h3><span class="count">Universities, Schools</span></a>
-    <a class="category-card" href="category.html?cat=tenders"><h3>Tenders</h3><span class="count">Govt &amp; Private</span></a>
-    <a class="category-card" href="category.html?cat=notices"><h3>Government / Public Notices</h3><span class="tag-new">New</span></a>
-    <a class="category-card" href="category.html?cat=services"><h3>Services</h3><span class="count">General Services</span></a>
-    <a class="category-card" href="category.html?cat=electronics"><h3>Electronics</h3><span class="count">Buy / Sell</span></a>
+  <div class="category-grid" id="categoryGrid">
+    <div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:.85rem">Loading categories...</div>
   </div>
 
   <div class="section-title"><h2>Recent Ads</h2></div>
@@ -88,6 +78,18 @@
 </footer>
 
 <script>
+fetch('categories.json').then(r => r.json()).then(cats => {
+  const grid = document.getElementById('categoryGrid');
+  grid.innerHTML = cats.filter(c => c.active).map(c => `
+    <a class="category-card" href="category.html?cat=${c.id}">
+      <h3>${c.label}</h3>
+      ${c.tag ? `<span class="tag-new">${c.tag}</span>` : `<span class="count">${c.subtitle || ''}</span>`}
+    </a>
+  `).join('');
+}).catch(() => {
+  document.getElementById('categoryGrid').innerHTML = '<div style="grid-column:1/-1;color:var(--muted)">Categories load nahi ho sakin.</div>';
+});
+
 document.getElementById('adSearch').addEventListener('keydown', (e) => {
   if(e.key === 'Enter'){
     const q = e.target.value.trim();

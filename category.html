@@ -78,36 +78,33 @@
 </footer>
 
 <script>
-const CATEGORIES = {
-  property:   { label: "Property" },
-  jobs:       { label: "Jobs" },
-  vehicles:   { label: "Vehicles" },
-  matrimonial:{ label: "Matrimonial / Rishta" },
-  visa:       { label: "Visa & Immigration" },
-  auctions:   { label: "Auctions" },
-  admissions: { label: "Admissions" },
-  tenders:    { label: "Tenders" },
-  notices:    { label: "Government / Public Notices" },
-  services:   { label: "Services" },
-  electronics:{ label: "Electronics" }
-};
+let CATEGORIES = {};
+let catNavList = [];
 
-const params = new URLSearchParams(location.search);
-const catKey = (params.get('cat') || '').toLowerCase();
-const cat = CATEGORIES[catKey] || { label: "All Categories" };
+fetch('categories.json').then(r => r.json()).then(cats => {
+  catNavList = cats.filter(c => c.active);
+  catNavList.forEach(c => CATEGORIES[c.id] = {label: c.label});
+  initPage();
+}).catch(() => { initPage(); });
 
-document.getElementById('catTitle').textContent = cat.label;
-document.getElementById('breadcrumbCat').textContent = cat.label;
-document.getElementById('pageTitle').textContent = cat.label + " Ads — RoznamaAds.pk";
-document.getElementById('pageDesc').setAttribute('content', cat.label + " classified ads from Pakistani newspapers — searchable on RoznamaAds.pk");
-if(CATEGORIES[catKey]){
-  document.getElementById('canonicalLink').setAttribute('href', 'https://roznamaads.pk/category.html?cat=' + catKey);
+function initPage(){
+  const params = new URLSearchParams(location.search);
+  const catKey = (params.get('cat') || '').toLowerCase();
+  const cat = CATEGORIES[catKey] || { label: "All Categories" };
+
+  document.getElementById('catTitle').textContent = cat.label;
+  document.getElementById('breadcrumbCat').textContent = cat.label;
+  document.getElementById('pageTitle').textContent = cat.label + " Ads — RoznamaAds.pk";
+  document.getElementById('pageDesc').setAttribute('content', cat.label + " classified ads from Pakistani newspapers — searchable on RoznamaAds.pk");
+  if(CATEGORIES[catKey]){
+    document.getElementById('canonicalLink').setAttribute('href', 'https://roznamaads.pk/category.html?cat=' + catKey);
+  }
+
+  const catNav = document.getElementById('catNav');
+  catNav.innerHTML = catNavList.map(c =>
+    `<a href="category.html?cat=${c.id}" class="${c.id === catKey ? 'active' : ''}">${c.label}</a>`
+  ).join('');
 }
-
-const catNav = document.getElementById('catNav');
-catNav.innerHTML = Object.keys(CATEGORIES).map(key =>
-  `<a href="category.html?cat=${key}" class="${key === catKey ? 'active' : ''}">${CATEGORIES[key].label}</a>`
-).join('');
 
 document.getElementById('applyFilters').addEventListener('click', () => {
   const city = document.getElementById('fCity').value;
