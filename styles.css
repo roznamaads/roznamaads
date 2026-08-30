@@ -100,3 +100,11 @@ footer .copy{text-align:center;margin-top:20px;color:var(--muted);font-size:.8re
 .expiry-note span{font-weight:700}
 .btn-submit-ad{width:100%;background:var(--green);color:#fff;border:none;padding:13px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer}
 .btn-submit-ad:hover{background:var(--green-dark)}
+
+/* Legal Pages */
+.legal-content{max-width:640px;margin:0 auto 40px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px}
+.legal-updated{font-size:.78rem;color:var(--muted);margin:0 0 18px}
+.legal-content h2{font-size:1rem;color:var(--green-dark);margin:22px 0 8px}
+.legal-content h2:first-of-type{margin-top:0}
+.legal-content p{font-size:.9rem;line-height:1.7;color:var(--ink);margin:0 0 10px}
+.legal-list{margin:0 0 10px;padding-left:20px;font-size:.9rem;line-height:1.8;color:var(--ink)}
