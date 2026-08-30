@@ -83,3 +83,20 @@ footer .copy{text-align:center;margin-top:20px;color:var(--muted);font-size:.8re
 .btn-report{margin-top:16px;background:none;border:1px solid #d9534f;color:#d9534f;padding:8px 14px;border-radius:8px;font-size:.8rem;cursor:pointer}
 .btn-report:hover{background:#fdf1f0}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+
+/* Submit Ad Form */
+.ad-form{max-width:560px;margin:0 auto 40px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+.form-section{margin-bottom:16px}
+.form-section label{display:block;font-size:.85rem;font-weight:600;color:var(--ink);margin-bottom:6px}
+.form-section input,.form-section select,.form-section textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:.9rem;
+  background:#fffdf9;color:var(--ink);font-family:inherit
+}
+.form-section textarea{resize:vertical}
+.field-hint{font-size:.72rem;color:var(--muted);margin:6px 0 0}
+.image-preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.image-preview img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.expiry-note{background:var(--green-pale);color:var(--green-dark);border-radius:8px;padding:10px 12px;font-size:.82rem}
+.expiry-note span{font-weight:700}
+.btn-submit-ad{width:100%;background:var(--green);color:#fff;border:none;padding:13px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer}
+.btn-submit-ad:hover{background:var(--green-dark)}

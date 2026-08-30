@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Submit Ad — RoznamaAds.pk</title>
+<meta name="description" content="Apni classified ad khud post karein RoznamaAds.pk par — Property, Jobs, Vehicles, Matrimonial aur zyada.">
+<link rel="canonical" href="https://roznamaads.pk/submit-ad.html">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="hero" style="padding:24px 18px">
+  <div class="site-header-bar">
+    <a href="index.html" class="brand-row"><span class="dot"></span>RoznamaAds<span style="opacity:.7">.pk</span></a>
+  </div>
+  <h1 style="font-size:1.3rem;margin-top:6px">📝 Submit Your Ad</h1>
+  <p style="font-size:.85rem">Free — admin review ke baad ad live ho jayegi</p>
+</header>
+
+<main id="main-content">
+
+  <form id="submitAdForm" class="ad-form" novalidate>
+
+    <div class="form-section">
+      <label for="category">Category *</label>
+      <select id="category" required>
+        <option value="">— Select Category —</option>
+        <option value="property">Property</option>
+        <option value="jobs">Jobs</option>
+        <option value="vehicles">Vehicles</option>
+        <option value="matrimonial">Matrimonial / Rishta</option>
+        <option value="visa">Visa &amp; Immigration</option>
+        <option value="auctions">Auctions</option>
+        <option value="admissions">Admissions</option>
+        <option value="tenders">Tenders</option>
+        <option value="notices">Government / Public Notices</option>
+        <option value="services">Services</option>
+        <option value="electronics">Electronics</option>
+      </select>
+    </div>
+
+    <div class="form-section">
+      <label for="title">Ad Title *</label>
+      <input type="text" id="title" placeholder="e.g. 10 Marla Plot for Sale — DHA Phase 6" required>
+    </div>
+
+    <div class="form-section">
+      <label for="city">City *</label>
+      <select id="city" required>
+        <option value="">— Select City —</option>
+        <option>Lahore</option><option>Karachi</option><option>Islamabad</option>
+        <option>Rawalpindi</option><option>Faisalabad</option><option>Multan</option>
+        <option>Peshawar</option><option>Quetta</option><option>Other</option>
+      </select>
+    </div>
+
+    <!-- Dynamic category-specific fields render here -->
+    <div id="dynamicFields"></div>
+
+    <div class="form-section">
+      <label for="description">Description *</label>
+      <textarea id="description" rows="4" placeholder="Ad ki tafseel likhein..." required></textarea>
+    </div>
+
+    <div class="form-section">
+      <label for="contact">Contact Number *</label>
+      <input type="tel" id="contact" placeholder="03XX-XXXXXXX" required>
+      <p class="field-hint">Website par masked format mein dikhega — privacy ke liye.</p>
+    </div>
+
+    <div class="form-section">
+      <label for="images">Photos (optional, up to 5)</label>
+      <input type="file" id="images" accept="image/*" multiple>
+      <div id="imagePreview" class="image-preview"></div>
+    </div>
+
+    <div class="form-section expiry-note">
+      <span>⏳ Expiry:</span> Ye ad default 30 din ke baad automatically expire ho jayegi.
+    </div>
+
+    <button type="submit" class="btn-submit-ad">Submit for Review</button>
+    <p class="field-hint" style="text-align:center;margin-top:8px">Submit karne ke baad admin review karega, phir ad live hogi.</p>
+  </form>
+
+  <div class="empty-state" id="successState" style="display:none">
+    <div class="icon">✅</div>
+    <p><strong>Ad submit ho gayi!</strong><br>Admin review ke baad ye live ho jayegi. (Placeholder — backend Batch 7+ mein connect hoga)</p>
+  </div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-brand"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:#f5c94f;display:inline-block"></span>RoznamaAds.pk</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="submit-ad.html">Submit Ad</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+    </nav>
+    <p class="copy">© 2026 RoznamaAds.pk — Pakistani Newspaper Classifieds, Digital.</p>
+  </div>
+</footer>
+
+<script>
+// Category-specific field definitions
+const FIELD_SETS = {
+  property: [
+    {id:'price', label:'Price (PKR)', type:'text', placeholder:'e.g. 1.85 Crore'},
+    {id:'size', label:'Size', type:'text', placeholder:'e.g. 10 Marla / 1 Kanal'},
+    {id:'location', label:'Location / Area', type:'text', placeholder:'e.g. DHA Phase 6'}
+  ],
+  vehicles: [
+    {id:'model', label:'Model', type:'text', placeholder:'e.g. Honda Civic'},
+    {id:'year', label:'Year', type:'text', placeholder:'e.g. 2019'},
+    {id:'price', label:'Price (PKR)', type:'text', placeholder:'e.g. 45 Lac'}
+  ],
+  jobs: [
+    {id:'salary', label:'Salary (PKR)', type:'text', placeholder:'e.g. 50,000/month'},
+    {id:'qualification', label:'Qualification', type:'text', placeholder:'e.g. Bachelor\'s'},
+  ],
+  matrimonial: [
+    {id:'age', label:'Age', type:'text', placeholder:'e.g. 27'},
+    {id:'profession', label:'Profession', type:'text', placeholder:'e.g. Doctor'}
+  ],
+  visa: [
+    {id:'destination', label:'Destination Country', type:'text', placeholder:'e.g. UK, Canada, UAE'},
+    {id:'visaType', label:'Visa Type', type:'text', placeholder:'e.g. Work Visa, Study Visa'}
+  ],
+  auctions: [
+    {id:'auctionDate', label:'Auction Date', type:'date'},
+    {id:'itemType', label:'Item / Property Type', type:'text', placeholder:'e.g. Vehicle, Plot, Machinery'},
+    {id:'reservePrice', label:'Reserve Price (PKR)', type:'text', placeholder:'optional'}
+  ],
+  admissions: [
+    {id:'institute', label:'Institute Name', type:'text'},
+    {id:'program', label:'Program / Class', type:'text'}
+  ],
+  tenders: [
+    {id:'department', label:'Department / Organization', type:'text'},
+    {id:'deadline', label:'Submission Deadline', type:'date'}
+  ],
+  notices: [
+    {id:'department', label:'Department / Authority', type:'text'}
+  ],
+  services: [
+    {id:'serviceType', label:'Service Type', type:'text', placeholder:'e.g. Plumber, Tutor, Electrician'}
+  ],
+  electronics: [
+    {id:'itemName', label:'Item Name', type:'text', placeholder:'e.g. Samsung LED TV'},
+    {id:'price', label:'Price (PKR)', type:'text'}
+  ]
+};
+
+const categorySelect = document.getElementById('category');
+const dynamicFieldsBox = document.getElementById('dynamicFields');
+
+categorySelect.addEventListener('change', () => {
+  const fields = FIELD_SETS[categorySelect.value] || [];
+  dynamicFieldsBox.innerHTML = fields.map(f => `
+    <div class="form-section">
+      <label for="dyn_${f.id}">${f.label}</label>
+      <input type="${f.type}" id="dyn_${f.id}" placeholder="${f.placeholder || ''}">
+    </div>
+  `).join('');
+});
+
+// Image preview
+document.getElementById('images').addEventListener('change', (e) => {
+  const box = document.getElementById('imagePreview');
+  box.innerHTML = '';
+  const files = Array.from(e.target.files).slice(0, 5);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = document.createElement('img');
+      img.src = ev.target.result;
+      box.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
+document.getElementById('submitAdForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  if(!categorySelect.value){
+    alert('Category select karna zaroori hai.');
+    return;
+  }
+  document.getElementById('submitAdForm').style.display = 'none';
+  document.getElementById('successState').style.display = 'block';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+});
+</script>
+</body>
+</html>
