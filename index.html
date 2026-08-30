@@ -25,8 +25,8 @@
 
   <div class="search-wrap">
     <label for="adSearch" class="visually-hidden">Search ads</label>
-    <input id="adSearch" placeholder="e.g. Lahore property, government job, used car..." autocomplete="off" disabled>
-    <div class="search-hint">🔍 Search jald available hoga — pehle categories browse karein</div>
+    <input id="adSearch" placeholder="e.g. Lahore property, government job, used car..." autocomplete="off">
+    <div class="search-hint">🔍 Enter dabayein ya category select karein</div>
   </div>
 </header>
 
@@ -49,9 +49,9 @@
 
   <div class="section-title"><h2>Recent Ads</h2></div>
   <div class="ad-grid">
-    <div class="ad-card"><span class="cat-tag">Property</span><h4>10 Marla Plot — DHA Phase 6, Lahore</h4><span class="meta">Lahore · Sample listing</span></div>
-    <div class="ad-card"><span class="cat-tag">Jobs</span><h4>Government Vacancy — Data Entry Operator</h4><span class="meta">Islamabad · Sample listing</span></div>
-    <div class="ad-card"><span class="cat-tag">Vehicles</span><h4>Honda Civic 2019 — Excellent Condition</h4><span class="meta">Karachi · Sample listing</span></div>
+    <a class="ad-card" href="ad.html?cat=property" style="text-decoration:none;color:inherit"><span class="cat-tag">Property</span><h4>10 Marla Plot — DHA Phase 6, Lahore</h4><span class="meta">Lahore · Sample listing</span></a>
+    <a class="ad-card" href="ad.html?cat=jobs" style="text-decoration:none;color:inherit"><span class="cat-tag">Jobs</span><h4>Government Vacancy — Data Entry Operator</h4><span class="meta">Islamabad · Sample listing</span></a>
+    <a class="ad-card" href="ad.html?cat=vehicles" style="text-decoration:none;color:inherit"><span class="cat-tag">Vehicles</span><h4>Honda Civic 2019 — Excellent Condition</h4><span class="meta">Karachi · Sample listing</span></a>
   </div>
   <p class="intro-text" style="margin-top:10px;font-size:.8rem">Ye sample ads hain — live newspaper data Batch 2 ke baad connect hoga.</p>
 
@@ -86,6 +86,15 @@
     <p class="copy">© 2026 RoznamaAds.pk — Pakistani Newspaper Classifieds, Digital.</p>
   </div>
 </footer>
+
+<script>
+document.getElementById('adSearch').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){
+    const q = e.target.value.trim();
+    if(q) location.href = 'search.html?q=' + encodeURIComponent(q);
+  }
+});
+</script>
 
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[

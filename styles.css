@@ -62,3 +62,24 @@ footer .copy{text-align:center;margin-top:20px;color:var(--muted);font-size:.8re
 .cat-nav{display:flex;gap:8px;overflow-x:auto;padding:14px 16px 0;max-width:960px;margin:0 auto}
 .cat-nav a{flex-shrink:0;padding:6px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:.78rem;text-decoration:none;color:var(--ink)}
 .cat-nav a.active{background:var(--green);color:#fff;border-color:var(--green)}
+
+/* Ad Detail Page */
+.ad-detail-card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:10px}
+.ad-detail-imgbox{background:var(--green-pale);color:var(--green);font-size:2.6rem;display:flex;align-items:center;justify-content:center;height:160px}
+.ad-detail-body{padding:18px}
+.ad-detail-body h1{font-size:1.25rem;margin:8px 0 4px;color:var(--ink)}
+.ad-detail-meta{font-size:.82rem;color:var(--muted);margin:0}
+.ad-detail-price{font-size:1.1rem;font-weight:700;color:var(--green-dark);margin:8px 0}
+.ad-detail-desc h2,.contact-box h2{font-size:.95rem;color:var(--green-dark);margin:18px 0 8px}
+.ad-detail-desc p{font-size:.88rem;line-height:1.6;color:var(--ink)}
+.contact-box{background:var(--green-pale);border-radius:10px;padding:14px;margin-top:14px}
+.masked-number{font-size:1.05rem;font-weight:700;letter-spacing:.02em;margin:0 0 10px}
+.contact-btns{display:flex;gap:10px;flex-wrap:wrap}
+.btn-reveal,.btn-whatsapp{padding:9px 16px;border-radius:8px;font-size:.85rem;font-weight:600;text-decoration:none;border:none;cursor:pointer}
+.btn-reveal{background:var(--green);color:#fff}
+.btn-reveal:disabled{background:#9bbf9e;cursor:default}
+.btn-whatsapp{background:#25D366;color:#fff}
+.disclaimer{font-size:.72rem;color:var(--muted);margin:10px 0 0}
+.btn-report{margin-top:16px;background:none;border:1px solid #d9534f;color:#d9534f;padding:8px 14px;border-radius:8px;font-size:.8rem;cursor:pointer}
+.btn-report:hover{background:#fdf1f0}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}

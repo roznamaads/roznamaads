@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title id="pageTitle">Ad Details — RoznamaAds.pk</title>
+<meta id="pageDesc" name="description" content="View full classified ad details on RoznamaAds.pk">
+<link id="canonicalLink" rel="canonical" href="https://roznamaads.pk/ad.html">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="hero" style="padding:20px 18px">
+  <div class="site-header-bar">
+    <a href="index.html" class="brand-row"><span class="dot"></span>RoznamaAds<span style="opacity:.7">.pk</span></a>
+  </div>
+</header>
+
+<div class="subheader">
+  <div class="wrap">
+    <div class="breadcrumb">
+      <a href="index.html">Home</a> / <a id="breadcrumbCatLink" href="category.html">Category</a> / <span id="breadcrumbAd">Ad</span>
+    </div>
+  </div>
+</div>
+
+<main id="main-content" style="margin-top:22px">
+
+  <div class="ad-detail-card">
+    <div class="ad-detail-imgbox" aria-hidden="true">🖼️</div>
+    <div class="ad-detail-body">
+      <span class="cat-tag" id="adCatTag">Category</span>
+      <h1 id="adTitle">Ad Title</h1>
+      <p class="ad-detail-meta" id="adMeta">City · Date</p>
+      <p class="ad-detail-price" id="adPrice"></p>
+
+      <div class="ad-detail-desc">
+        <h2>Description</h2>
+        <p id="adDesc">Is ad ki tafseel abhi placeholder hai — real newspaper data connect hone ke baad yahan asal description dikhegi.</p>
+      </div>
+
+      <div class="contact-box">
+        <h2>Contact</h2>
+        <p class="masked-number" id="adPhone">0300-XXX-1234</p>
+        <div class="contact-btns">
+          <button class="btn-reveal" id="revealBtn">📞 Reveal Number</button>
+          <a class="btn-whatsapp" href="#" id="waBtn">💬 WhatsApp</a>
+        </div>
+        <p class="disclaimer">Number pehle masked hai privacy ke liye — "Reveal" par click karke dekhein. RoznamaAds ad ki tasdeeq ki zimmedar nahi.</p>
+      </div>
+
+      <button class="btn-report" id="reportBtn">🚩 Report this ad</button>
+    </div>
+  </div>
+
+  <div class="section-title"><h2>Related Ads</h2></div>
+  <div class="ad-grid" id="relatedAds">
+    <div class="ad-card"><span class="cat-tag">Property</span><h4>7 Marla House — Bahria Town, Rawalpindi</h4><span class="meta">Rawalpindi · Sample listing</span></div>
+    <div class="ad-card"><span class="cat-tag">Property</span><h4>1 Kanal Plot — Model Town, Lahore</h4><span class="meta">Lahore · Sample listing</span></div>
+    <div class="ad-card"><span class="cat-tag">Property</span><h4>Commercial Shop for Rent — Blue Area</h4><span class="meta">Islamabad · Sample listing</span></div>
+  </div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-brand"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:#f5c94f;display:inline-block"></span>RoznamaAds.pk</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="#">Submit Ad</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+    </nav>
+    <p class="copy">© 2026 RoznamaAds.pk — Pakistani Newspaper Classifieds, Digital.</p>
+  </div>
+</footer>
+
+<script>
+const CATEGORIES = {
+  property:{label:"Property"}, jobs:{label:"Jobs"}, vehicles:{label:"Vehicles"},
+  matrimonial:{label:"Matrimonial / Rishta"}, visa:{label:"Visa & Immigration"},
+  auctions:{label:"Auctions"}, admissions:{label:"Admissions"}, tenders:{label:"Tenders"},
+  notices:{label:"Government / Public Notices"}, services:{label:"Services"}, electronics:{label:"Electronics"}
+};
+
+// Placeholder sample ad — will be replaced by real DB lookup using ?id= in later batch
+const params = new URLSearchParams(location.search);
+const catKey = (params.get('cat') || 'property').toLowerCase();
+const cat = CATEGORIES[catKey] || {label:"Category"};
+
+const sampleAd = {
+  title: "10 Marla Plot — DHA Phase 6, Lahore",
+  city: "Lahore",
+  date: "29 Aug 2026",
+  price: "PKR 1.85 Crore",
+  phoneMasked: "0300-XXX-4521"
+};
+
+document.getElementById('pageTitle').textContent = sampleAd.title + " — RoznamaAds.pk";
+document.getElementById('pageDesc').setAttribute('content', sampleAd.title + " — " + cat.label + " ad on RoznamaAds.pk");
+document.getElementById('adCatTag').textContent = cat.label;
+document.getElementById('breadcrumbCatLink').textContent = cat.label;
+document.getElementById('breadcrumbCatLink').href = 'category.html?cat=' + catKey;
+document.getElementById('breadcrumbAd').textContent = sampleAd.title;
+document.getElementById('adTitle').textContent = sampleAd.title;
+document.getElementById('adMeta').textContent = sampleAd.city + ' · ' + sampleAd.date;
+document.getElementById('adPrice').textContent = sampleAd.price;
+document.getElementById('adPhone').textContent = sampleAd.phoneMasked;
+
+document.getElementById('revealBtn').addEventListener('click', () => {
+  document.getElementById('adPhone').textContent = '0300-1234521 (sample)';
+  document.getElementById('revealBtn').textContent = '✅ Number Revealed';
+  document.getElementById('revealBtn').disabled = true;
+});
+
+document.getElementById('reportBtn').addEventListener('click', () => {
+  alert('Report submit ho gayi — admin isay review karega. (Placeholder — Batch 7+ mein backend connect hoga)');
+});
+</script>
+</body>
+</html>
