@@ -41,7 +41,8 @@ footer .foot-brand{display:flex;align-items:center;justify-content:center;gap:8p
 footer nav{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-bottom:16px}
 footer nav a{color:var(--green-dark);font-size:.85rem;text-decoration:none}
 footer nav a:hover{text-decoration:underline}
-footer .copy{text-align:center;margin-top:20px;color:var(--muted);font-size:.8rem}
+footer .copy{text-align:center;margin-top:20px;color:var(--muted);font-size:.8rem;line-height:1.8}
+footer .copy .foot-email{display:block;margin-top:6px}
 .skip-link{position:absolute;left:-9999px;top:0;background:var(--green-dark);color:#fff;padding:10px 16px;z-index:9999;border-radius:0 0 6px 0}
 .skip-link:focus{left:0}
 
