@@ -174,11 +174,21 @@ categorySelect.addEventListener('change', () => {
   `).join('');
 });
 
-// Image preview
+// Image preview + keep File objects for upload
+let selectedImageFiles = [];
 document.getElementById('images').addEventListener('change', (e) => {
   const box = document.getElementById('imagePreview');
   box.innerHTML = '';
-  const files = Array.from(e.target.files).slice(0, 5);
+  const errEl = document.getElementById('submitError');
+  errEl.textContent = '';
+
+  let files = Array.from(e.target.files).slice(0, 5);
+  const oversized = files.filter(f => f.size > 5 * 1024 * 1024);
+  if(oversized.length){
+    errEl.textContent = `${oversized.length} photo(s) 5MB se zyada hain — wo skip ho jayengi.`;
+    files = files.filter(f => f.size <= 5 * 1024 * 1024);
+  }
+  selectedImageFiles = files;
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -216,6 +226,20 @@ document.getElementById('submitAdForm').addEventListener('submit', async (e) => 
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
+  btn.textContent = 'Uploading photos...';
+
+  const imageUrls = [];
+  for(const file of selectedImageFiles){
+    try{
+      const ext = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await rzDb.storage.from('ad-images').upload(path, file);
+      if(upErr){ console.warn('Image upload failed:', upErr.message); continue; }
+      const { data: urlData } = rzDb.storage.from('ad-images').getPublicUrl(path);
+      imageUrls.push(urlData.publicUrl);
+    }catch(e){ console.warn('Image upload error:', e.message); }
+  }
+
   btn.textContent = 'Submitting...';
 
   const { error } = await rzDb.from('ads').insert([{
@@ -225,6 +249,7 @@ document.getElementById('submitAdForm').addEventListener('submit', async (e) => 
     description: description,
     contact_phone: contact,
     price: price,
+    images: imageUrls,
     extra_fields: extraFields,
     submitted_name: document.getElementById('submitterName').value.trim() || null,
     status: 'pending'

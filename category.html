@@ -112,7 +112,7 @@ async function loadCategoryAds(catKey, city, price){
   grid.innerHTML = '';
   countEl.textContent = 'Loading...';
   try{
-    let q = rzDb.from('ads').select('id, title, city, price, created_at').eq('status', 'live');
+    let q = rzDb.from('ads').select('id, title, city, price, created_at, images').eq('status', 'live');
     if(catKey) q = q.eq('category', catKey);
     if(city) q = q.eq('city', city);
     q = q.order('created_at', {ascending:false});
@@ -126,6 +126,7 @@ async function loadCategoryAds(catKey, city, price){
     countEl.textContent = `${data.length} ad(s) mile.`;
     grid.innerHTML = data.map(ad => `
       <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
+        ${ad.images && ad.images.length ? `<img class="thumb" src="${ad.images[0]}" alt="${ad.title}">` : ''}
         <h4>${ad.title}</h4>
         <span class="meta">${ad.city}${ad.price ? ' · ' + ad.price : ''} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
       </a>

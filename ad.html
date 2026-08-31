@@ -30,7 +30,7 @@
 <main id="main-content" style="margin-top:22px">
 
   <div class="ad-detail-card">
-    <div class="ad-detail-imgbox" aria-hidden="true">🖼️</div>
+    <div class="ad-detail-imgbox" id="adImgBox" aria-hidden="true">🖼️</div>
     <div class="ad-detail-body">
       <span class="cat-tag" id="adCatTag">Category</span>
       <h1 id="adTitle">Ad Title</h1>
@@ -124,6 +124,7 @@ async function loadRealAd(id){
       phoneMasked: masked,
       phoneFull: phone,
       description: data.description,
+      images: data.images || [],
       isSample: false
     });
   }catch(e){
@@ -144,6 +145,20 @@ function renderAd(ad){
   document.getElementById('adPhone').textContent = ad.phoneMasked;
   document.getElementById('adDesc').textContent = ad.description;
   window.__adPhoneFull = ad.phoneFull || '0300-1234521 (sample)';
+
+  const imgBox = document.getElementById('adImgBox');
+  if(ad.images && ad.images.length > 0){
+    imgBox.innerHTML = `<img src="${ad.images[0]}" alt="${ad.title}" style="width:100%;height:100%;object-fit:cover">`;
+    if(ad.images.length > 1){
+      const thumbRow = document.createElement('div');
+      thumbRow.className = 'ad-thumb-row';
+      thumbRow.innerHTML = ad.images.map((src,i) =>
+        `<img src="${src}" alt="Photo ${i+1}" class="ad-thumb" onclick="document.querySelector('#adImgBox img').src='${src}'">`
+      ).join('');
+      imgBox.insertAdjacentElement('afterend', thumbRow);
+    }
+  }
+
   if(ad.isSample){
     document.querySelector('.ad-detail-body').insertAdjacentHTML('afterbegin',
       '<p style="font-size:.72rem;color:var(--muted);margin:0 0 6px">⚠️ Ye sample ad hai (koi ?id= nahi diya gaya)</p>');

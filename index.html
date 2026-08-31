@@ -96,7 +96,7 @@ async function loadRecentAds(){
   await categoriesReady;
   try{
     const { data, error } = await rzDb.from('ads')
-      .select('id, category, title, city, created_at')
+      .select('id, category, title, city, created_at, images')
       .eq('status', 'live')
       .order('created_at', {ascending:false})
       .limit(6);
@@ -107,6 +107,7 @@ async function loadRecentAds(){
     }
     grid.innerHTML = data.map(ad => `
       <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
+        ${ad.images && ad.images.length ? `<img class="thumb" src="${ad.images[0]}" alt="${ad.title}">` : ''}
         <span class="cat-tag">${categoryLabels[ad.category] || ad.category}</span>
         <h4>${ad.title}</h4>
         <span class="meta">${ad.city} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
