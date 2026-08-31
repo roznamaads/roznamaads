@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blog — Newspaper Ads Guides &amp; Tips | RoznamaAds.pk</title>
+<meta name="description" content="Pakistani newspaper classified ads guides — property, jobs, vehicles, rishta ads kaise dhoondein. Local aur practical tips RoznamaAds.pk se.">
+<link rel="canonical" href="https://roznamaads.pk/blog.html">
+<link rel="stylesheet" href="styles.css">
+<script src="analytics-config.js"></script>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="hero" style="padding:22px 18px">
+  <div class="site-header-bar">
+    <a href="index.html" class="brand-row"><img src="logo.svg" alt="RoznamaAds.pk logo" class="logo-img">RoznamaAds<span style="opacity:.7">.pk</span></a>
+  </div>
+</header>
+
+<div class="subheader">
+  <div class="wrap">
+    <div class="breadcrumb"><a href="index.html">Home</a> / <span>Blog</span></div>
+    <h1>Newspaper Ads Guides &amp; Tips</h1>
+  </div>
+</div>
+
+<main id="main-content">
+  <p class="intro-text" style="margin-bottom:18px">Pakistani newspaper classifieds ko samajhne aur behtar istemal karne ke liye practical guides — property, jobs, vehicles, aur rishta ads ke liye.</p>
+
+  <div class="blog-tabs">
+    <button class="active" data-filter="all">Sab</button>
+    <button data-filter="guides">Ads Guides</button>
+    <button data-filter="tips">Category Tips</button>
+  </div>
+
+  <div class="blog-grid" id="blogGrid">
+    <a class="blog-card" href="blog/newspaper-ads-online-pakistan.html" data-cat="guides">
+      <span class="blog-tag">Ads Guide</span>
+      <h3>Jang, Express, Dawn Newspaper Ads Online Kaise Dekhein</h3>
+      <p>Pakistani newspaper classifieds ko print se digital tak search karne ka poora tareeqa.</p>
+    </a>
+    <a class="blog-card" href="blog/property-ads-newspaper-guide.html" data-cat="guides">
+      <span class="blog-tag">Ads Guide</span>
+      <h3>Property Ad Newspaper Mein Kaise Dhoondein</h3>
+      <p>Lahore, Karachi, Islamabad mein plot, ghar, aur rental ads dhoondne ka smart tareeqa.</p>
+    </a>
+    <a class="blog-card" href="blog/government-job-ads-pakistan-guide.html" data-cat="guides">
+      <span class="blog-tag">Ads Guide</span>
+      <h3>Government Job Ads Pakistan Newspaper — Complete Guide</h3>
+      <p>Newspaper mein government job ads dhoondne, samajhne, aur apply karne ka tareeqa.</p>
+    </a>
+    <a class="blog-card" href="blog/purani-gari-ads-newspaper-guide.html" data-cat="tips">
+      <span class="blog-tag">Category Tip</span>
+      <h3>Purani Gari Kaise Khareedein — Newspaper Vehicle Ads Guide</h3>
+      <p>Newspaper vehicle classifieds se safe tareeqe se purani gari khareedne ke tips.</p>
+    </a>
+    <a class="blog-card" href="blog/rishta-ads-newspaper-guide.html" data-cat="tips">
+      <span class="blog-tag">Category Tip</span>
+      <h3>Rishta Ads Newspaper Mein Kaise Dhoondein</h3>
+      <p>Matrimonial classifieds samajhne aur respectfully approach karne ka tareeqa.</p>
+    </a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-brand"><img src="logo.svg" alt="RoznamaAds.pk logo" class="foot-logo-img">RoznamaAds.pk</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="submit-ad.html">Submit Ad</a>
+      <a href="blog.html">Blog</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+    <p class="copy">© 2026 RoznamaAds.pk — Pakistani Newspaper Classifieds, Digital.<br><a href="mailto:roznamaads@gmail.com" class="foot-email">roznamaads@gmail.com</a></p>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll('.blog-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.blog-tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filter = btn.dataset.filter;
+    document.querySelectorAll('#blogGrid .blog-card').forEach(card => {
+      card.style.display = (filter === 'all' || card.dataset.cat === filter) ? 'flex' : 'none';
+    });
+  });
+});
+</script>
+</body>
+</html>

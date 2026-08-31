@@ -115,3 +115,21 @@ footer .copy .foot-email{display:block;margin-top:6px}
 .logo-img{width:32px;height:32px;border-radius:8px}
 .foot-logo-img{width:22px;height:22px;border-radius:6px}
 .legal-list{margin:0 0 10px;padding-left:20px;font-size:.9rem;line-height:1.8;color:var(--ink)}
+
+/* Blog */
+.blog-tabs{display:flex;gap:8px;overflow-x:auto;margin-bottom:18px}
+.blog-tabs button{flex-shrink:0;padding:7px 16px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:.8rem;cursor:pointer;color:var(--ink)}
+.blog-tabs button.active{background:var(--green);color:#fff;border-color:var(--green)}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.blog-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;text-decoration:none;color:var(--ink);display:flex;flex-direction:column;gap:8px}
+.blog-card .blog-tag{align-self:flex-start;background:var(--green-pale);color:var(--green-dark);font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:999px}
+.blog-card h3{font-size:1.05rem;color:var(--green-dark);margin:0}
+.blog-card p{font-size:.85rem;color:var(--muted);margin:0;line-height:1.6}
+.article-content{max-width:680px;margin:0 auto 40px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px}
+.article-content h1{font-size:1.4rem;color:var(--green-dark);margin:0 0 8px;line-height:1.35}
+.article-meta{font-size:.78rem;color:var(--muted);margin:0 0 20px}
+.article-content h2{font-size:1.05rem;color:var(--green-dark);margin:24px 0 10px}
+.article-content p{font-size:.92rem;line-height:1.75;color:var(--ink);margin:0 0 14px}
+.article-content ul{margin:0 0 14px;padding-left:22px;font-size:.92rem;line-height:1.8;color:var(--ink)}
+.article-cta{background:var(--green-pale);border-radius:10px;padding:16px;margin-top:20px;text-align:center}
+.article-cta a{display:inline-block;margin-top:8px;background:var(--green);color:#fff;padding:9px 20px;border-radius:8px;text-decoration:none;font-size:.85rem;font-weight:600}
