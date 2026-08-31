@@ -1,0 +1,46 @@
+{
+  "property": [
+    {"name": "Land & Plot Toolkit", "slug": "land-plot-toolkit"},
+    {"name": "Property Loan EMI & Mortgage Calculator", "slug": "property-loan-mortgage-calculator"},
+    {"name": "Rental Yield Calculator", "slug": "rental-yield-calculator"},
+    {"name": "Construction Cost Estimator", "slug": "construction-cost-estimator"},
+    {"name": "Property Document & Rent Agreement Studio", "slug": "property-document-studio"},
+    {"name": "Map Scale & Distance Calculator", "slug": "map-scale-distance-calculator"}
+  ],
+  "jobs": [
+    {"name": "Resume / CV Builder", "slug": "resume-cv-builder"},
+    {"name": "Invoice Generator", "slug": "invoice-generator"},
+    {"name": "Client Proposal & Scope Generator", "slug": "client-proposal-generator"},
+    {"name": "Instant Contract / Agreement Draft Generator", "slug": "contract-agreement-generator"},
+    {"name": "Business Card Maker", "slug": "business-card-maker"},
+    {"name": "Salary / Take-Home Pay Calculator", "slug": "salary-take-home-pay-calculator"}
+  ],
+  "matrimonial": [
+    {"name": "Rishta Biodata Studio", "slug": "rishta-biodata-studio"},
+    {"name": "Wedding & Shaadi Budget Planner", "slug": "wedding-shaadi-planner-studio"}
+  ],
+  "electronics": [
+    {"name": "Image Compressor", "slug": "image-compressor"},
+    {"name": "Photo Enhancer", "slug": "photo-enhancer"},
+    {"name": "Watermark Maker", "slug": "watermark-maker"}
+  ],
+  "services": [
+    {"name": "QR Code Generator & Scanner", "slug": "qr-code-generator-scanner"},
+    {"name": "WhatsApp Direct Chat", "slug": "whatsapp-direct-chat"},
+    {"name": "Invoice Generator", "slug": "invoice-generator"}
+  ],
+  "visa": [
+    {"name": "Document Photo Maker", "slug": "document-photo-maker"},
+    {"name": "Document Scanner & PDF Maker", "slug": "document-scanner-pdf-maker"}
+  ],
+  "auctions": [
+    {"name": "Document Scanner & PDF Maker", "slug": "document-scanner-pdf-maker"}
+  ],
+  "admissions": [
+    {"name": "Document Photo Maker", "slug": "document-photo-maker"},
+    {"name": "Document Scanner & PDF Maker", "slug": "document-scanner-pdf-maker"}
+  ],
+  "tenders": [
+    {"name": "Document Scanner & PDF Maker", "slug": "document-scanner-pdf-maker"}
+  ]
+}

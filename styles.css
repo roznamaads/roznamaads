@@ -133,3 +133,10 @@ footer .copy .foot-email{display:block;margin-top:6px}
 .article-content ul{margin:0 0 14px;padding-left:22px;font-size:.92rem;line-height:1.8;color:var(--ink)}
 .article-cta{background:var(--green-pale);border-radius:10px;padding:16px;margin-top:20px;text-align:center}
 .article-cta a{display:inline-block;margin-top:8px;background:var(--green);color:#fff;padding:9px 20px;border-radius:8px;text-decoration:none;font-size:.85rem;font-weight:600}
+
+/* ToolNest cross-promotion widget */
+.toolnest-widget{margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.toolnest-widget .tn-label{font-size:.78rem;color:var(--muted);margin:0 0 10px}
+.toolnest-widget iframe{width:100%;height:560px;border:0;border-radius:8px;display:block}
+.toolnest-widget .tn-credit{font-size:.75rem;color:var(--muted);text-align:right;margin-top:8px}
+.toolnest-widget .tn-credit a{color:var(--green-dark)}

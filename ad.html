@@ -54,6 +54,8 @@
       </div>
 
       <button class="btn-report" id="reportBtn">🚩 Report this ad</button>
+
+      <div id="toolnestWidget"></div>
     </div>
   </div>
 
@@ -97,8 +99,10 @@ function initAdPage(){
   if(adId){
     loadRealAd(adId);
   } else {
+    const sampleCatKey = (params.get('cat')||'property').toLowerCase();
     renderAd({
-      category: CATEGORIES[(params.get('cat')||'property').toLowerCase()] || {label:"Category"},
+      category: CATEGORIES[sampleCatKey] || {label:"Category"},
+      catKey: sampleCatKey,
       title: "10 Marla Plot — DHA Phase 6, Lahore",
       city: "Lahore",
       date: "29 Aug 2026",
@@ -165,6 +169,39 @@ function renderAd(ad){
     document.querySelector('.ad-detail-body').insertAdjacentHTML('afterbegin',
       '<p style="font-size:.72rem;color:var(--muted);margin:0 0 6px">⚠️ Ye sample ad hai (koi ?id= nahi diya gaya)</p>');
   }
+
+  loadToolnestWidget(ad.catKey);
+}
+
+const TOOLNEST_INTROS = {
+  property: "Property calculations chahiye? Ye free tool try karein:",
+  jobs: "Job apply karte waqt ye kaam aa sakta hai:",
+  matrimonial: "Rishta process ko asaan banane ke liye:",
+  electronics: "Photos ke liye ye free tool istemal karein:",
+  services: "Apni service business ke liye ye tool try karein:",
+  visa: "Visa documents taiyar karne mein madad ke liye:",
+  auctions: "Auction documents scan/organize karne ke liye:",
+  admissions: "Admission documents taiyar karne ke liye:",
+  tenders: "Tender documents scan/organize karne ke liye:"
+};
+
+async function loadToolnestWidget(catKey){
+  if(!catKey) return;
+  try{
+    const res = await fetch('toolnest-tools.json');
+    const map = await res.json();
+    const tools = map[catKey];
+    if(!tools || tools.length === 0) return;
+    const tool = tools[Math.floor(Math.random() * tools.length)];
+    const intro = TOOLNEST_INTROS[catKey] || "Ye related free tool try karein:";
+    document.getElementById('toolnestWidget').innerHTML = `
+      <div class="toolnest-widget">
+        <p class="tn-label">${intro}</p>
+        <iframe src="https://toolnest.link/${tool.slug}.html" title="${tool.name}" loading="lazy"></iframe>
+        <p class="tn-credit">Powered by <a href="https://toolnest.link/" target="_blank" rel="noopener">ToolNest</a> — 99 free tools</p>
+      </div>
+    `;
+  }catch(e){ /* widget is optional; fail silently */ }
 }
 
 document.getElementById('revealBtn').addEventListener('click', () => {
