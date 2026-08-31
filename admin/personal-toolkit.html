@@ -137,7 +137,12 @@
 
   <section class="panel" data-panel="dup-check"><h2>Duplicate Check</h2><p class="desc">Multi-newspaper mein repeat hone wali ads detect karega.</p><div class="stub"><div class="icon">🧬</div>Phase 3 feature — database aur multi-newspaper ingestion ke baad.</div></section>
 
-  <section class="panel" data-panel="expiry"><h2>Expiry Management</h2><p class="desc">30-din auto-expiry override / extend.</p><div class="stub"><div class="icon">⏳</div>Database connect hone ke baad functional hoga.</div></section>
+  <section class="panel" data-panel="expiry">
+    <h2>Expiry Management</h2>
+    <p class="desc">Live ads apni expiry date ke hisaab se — jaldi expire hone wali upar.</p>
+    <button class="btn" id="loadExpiry">📥 Load Ads</button>
+    <div id="expiryList" style="margin-top:14px"></div>
+  </section>
 
   <section class="panel" data-panel="reported">
     <h2>Reported Ads</h2>
@@ -867,6 +872,39 @@ async function dismissReport(id){
   try{
     await callAdminApi('dismiss-report', {method:'POST', body: JSON.stringify({id})});
     document.getElementById('loadReports').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* Expiry Management */
+document.getElementById('loadExpiry').addEventListener('click', async () => {
+  const box = document.getElementById('expiryList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('expiry-list');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi live/expired ad nahi hai.</div>'; return; }
+    const now = new Date();
+    box.innerHTML = data.map(ad => {
+      const exp = new Date(ad.expires_at);
+      const daysLeft = Math.ceil((exp - now) / (1000*60*60*24));
+      const statusTxt = ad.status === 'expired' ? '❌ Expired' : (daysLeft <= 5 ? `⚠️ ${daysLeft} din baaki` : `${daysLeft} din baaki`);
+      return `
+        <div class="cat-row" style="flex-direction:column;align-items:stretch">
+          <b>${ad.title}</b>
+          <span style="font-size:.78rem;color:var(--muted)">${ad.city} · ${statusTxt} · ${exp.toLocaleDateString('en-GB')}</span>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button class="btn" onclick="extendExpiry('${ad.id}')">+30 din Extend</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+async function extendExpiry(id){
+  try{
+    await callAdminApi('extend-expiry', {method:'POST', body: JSON.stringify({id, days:30})});
+    log('⏳ Expiry extended: ' + id);
+    document.getElementById('loadExpiry').click();
   }catch(e){ alert('Error: ' + e.message); }
 }
 </script>
