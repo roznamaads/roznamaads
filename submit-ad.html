@@ -45,6 +45,7 @@
         <option>Rawalpindi</option><option>Faisalabad</option><option>Multan</option>
         <option>Peshawar</option><option>Quetta</option><option>Other</option>
       </select>
+      <input type="text" id="cityOther" placeholder="Apne city ka naam likhein" style="display:none;margin-top:8px">
     </div>
 
     <!-- Dynamic category-specific fields render here -->
@@ -155,6 +156,23 @@ const FIELD_SETS = {
 
 const categorySelect = document.getElementById('category');
 const dynamicFieldsBox = document.getElementById('dynamicFields');
+const citySelect = document.getElementById('city');
+const cityOtherInput = document.getElementById('cityOther');
+
+citySelect.addEventListener('change', () => {
+  if(citySelect.value === 'Other'){
+    cityOtherInput.style.display = 'block';
+    cityOtherInput.setAttribute('required', 'required');
+  } else {
+    cityOtherInput.style.display = 'none';
+    cityOtherInput.removeAttribute('required');
+    cityOtherInput.value = '';
+  }
+});
+
+function getCityValue(){
+  return citySelect.value === 'Other' ? cityOtherInput.value.trim() : citySelect.value;
+}
 
 fetch('categories.json').then(r => r.json()).then(cats => {
   cats.filter(c => c.active).forEach(c => {
@@ -207,7 +225,7 @@ document.getElementById('submitAdForm').addEventListener('submit', async (e) => 
 
   if(!categorySelect.value){ errEl.textContent = 'Category select karna zaroori hai.'; return; }
   const title = document.getElementById('title').value.trim();
-  const city = document.getElementById('city').value;
+  const city = getCityValue();
   const description = document.getElementById('description').value.trim();
   const contact = document.getElementById('contact').value.trim();
   if(!title || !city || !description || !contact){ errEl.textContent = 'Sab * wale fields bharna zaroori hai.'; return; }
