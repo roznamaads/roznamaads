@@ -55,6 +55,15 @@
   .cat-row input[type=text]{flex:1;min-width:100px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;font-size:.82rem}
   .cat-row label{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted);white-space:nowrap}
   .cat-row .mini-btn{background:none;border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:.75rem;cursor:pointer}
+  .stat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  .stat-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
+  .stat-card .num{font-size:1.5rem;font-weight:800;color:var(--green-dark)}
+  .stat-card .lbl{font-size:.75rem;color:var(--muted)}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:.8rem}
+  .bar-row .name{width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar-row .bar-track{flex:1;background:var(--line);border-radius:4px;height:14px;overflow:hidden}
+  .bar-row .bar-fill{background:var(--green);height:100%}
+  .bar-row .count{width:28px;text-align:right;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -169,7 +178,12 @@
 
   <section class="panel" data-panel="seo-manager"><h2>SEO Manager</h2><p class="desc">Meta titles/descriptions, sitemap regeneration.</p><div class="stub"><div class="icon">🔍</div>Static sitemap.xml/robots.txt abhi manual hain — ye tool unhe automate karega.</div></section>
 
-  <section class="panel" data-panel="analytics"><h2>Analytics Dashboard</h2><p class="desc">Daily new ads, traffic, click-through.</p><div class="stub"><div class="icon">📊</div>GA4 + Search Console setup ke baad data yahan dikhega.</div></section>
+  <section class="panel" data-panel="analytics">
+    <h2>Analytics Dashboard</h2>
+    <p class="desc">Daily new ads, category/city breakdown.</p>
+    <button class="btn" id="loadStats">📥 Load Stats</button>
+    <div id="statsBox" style="margin-top:14px"></div>
+  </section>
 
   <!-- Website Health Monitor (functional) -->
   <section class="panel" data-panel="health">
@@ -941,6 +955,43 @@ async function extendExpiry(id){
     document.getElementById('loadExpiry').click();
   }catch(e){ alert('Error: ' + e.message); }
 }
+
+/* Analytics Dashboard */
+document.getElementById('loadStats').addEventListener('click', async () => {
+  const box = document.getElementById('statsBox');
+  box.innerHTML = 'Loading...';
+  try{
+    const s = await callAdminApi('stats');
+    const maxCat = Math.max(1, ...s.byCategory.map(c => c[1]));
+    const maxCity = Math.max(1, ...s.byCity.map(c => c[1]));
+
+    box.innerHTML = `
+      <div class="stat-cards">
+        <div class="stat-card"><div class="num">${s.byStatus.live || 0}</div><div class="lbl">Live Ads</div></div>
+        <div class="stat-card"><div class="num">${s.byStatus.pending || 0}</div><div class="lbl">Pending Review</div></div>
+        <div class="stat-card"><div class="num">${s.last7}</div><div class="lbl">Last 7 Days</div></div>
+        <div class="stat-card"><div class="num">${s.last30}</div><div class="lbl">Last 30 Days</div></div>
+      </div>
+      <h2 style="font-size:.9rem">By Category</h2>
+      ${s.byCategory.map(([cat,count]) => `
+        <div class="bar-row">
+          <span class="name">${categoryLabelsAdmin[cat]||cat}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${(count/maxCat*100)}%"></div></div>
+          <span class="count">${count}</span>
+        </div>
+      `).join('') || '<div class="stub">Koi live ad nahi.</div>'}
+      <h2 style="font-size:.9rem;margin-top:16px">By City (Top 8)</h2>
+      ${s.byCity.map(([city,count]) => `
+        <div class="bar-row">
+          <span class="name">${city}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${(count/maxCity*100)}%"></div></div>
+          <span class="count">${count}</span>
+        </div>
+      `).join('') || '<div class="stub">Koi live ad nahi.</div>'}
+      <p class="desc" style="margin-top:12px">Total ads (sab status): ${s.total}</p>
+    `;
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
 </script>
 </body>
 </html>
