@@ -2,6 +2,9 @@
   "crons": [
     { "path": "/api/cron/expire-ads", "schedule": "0 0 * * *" }
   ],
+  "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

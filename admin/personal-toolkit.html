@@ -820,24 +820,58 @@ async function rejectAd(id){
 }
 
 /* Ad Manager */
+let liveAdsCache = {};
 document.getElementById('loadLive').addEventListener('click', async () => {
   const box = document.getElementById('liveList');
   box.innerHTML = 'Loading...';
   try{
     const data = await callAdminApi('list?status=live');
     if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
+    data.forEach(ad => liveAdsCache[ad.id] = ad);
     box.innerHTML = data.map(ad => `
-      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+      <div class="cat-row" style="flex-direction:column;align-items:stretch" id="adRow_${ad.id}">
         <b>${ad.title}</b>
         <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city}</span>
         <div style="display:flex;gap:8px;margin-top:6px">
           <a class="mini-btn" href="../ad.html?id=${ad.id}" target="_blank" style="text-decoration:none;display:inline-block">👁️ View</a>
+          <button class="mini-btn" onclick="startEditAd('${ad.id}')">✏️ Edit</button>
           <button class="mini-btn" style="color:#c0392b" onclick="deleteAd('${ad.id}')">🗑️ Delete</button>
         </div>
       </div>
     `).join('');
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
 });
+
+function startEditAd(id){
+  const ad = liveAdsCache[id];
+  const row = document.getElementById('adRow_' + id);
+  row.innerHTML = `
+    <div class="field"><label>Title</label><input type="text" id="edit_title_${id}" value="${ad.title.replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>City</label><input type="text" id="edit_city_${id}" value="${ad.city.replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Price</label><input type="text" id="edit_price_${id}" value="${(ad.price||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Contact Phone</label><input type="text" id="edit_contact_phone_${id}" value="${(ad.contact_phone||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Description</label><textarea id="edit_description_${id}" rows="3">${ad.description||''}</textarea></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="saveEditAd('${id}')">💾 Save</button>
+      <button class="mini-btn" onclick="document.getElementById('loadLive').click()">Cancel</button>
+    </div>
+  `;
+}
+
+async function saveEditAd(id){
+  const fields = {
+    title: document.getElementById('edit_title_' + id).value.trim(),
+    city: document.getElementById('edit_city_' + id).value.trim(),
+    price: document.getElementById('edit_price_' + id).value.trim(),
+    contact_phone: document.getElementById('edit_contact_phone_' + id).value.trim(),
+    description: document.getElementById('edit_description_' + id).value.trim()
+  };
+  try{
+    await callAdminApi('update-ad', {method:'POST', body: JSON.stringify({id, fields})});
+    log('✏️ Ad updated: ' + id);
+    document.getElementById('loadLive').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
 
 async function deleteAd(id){
   if(!confirm('Ye ad permanently delete karni hai?')) return;
