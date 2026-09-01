@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="analytics-config.js"></script>
+<script src="badges.js"></script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -34,6 +35,7 @@
     <div class="ad-detail-imgbox" id="adImgBox" aria-hidden="true">🖼️</div>
     <div class="ad-detail-body">
       <span class="cat-tag" id="adCatTag">Category</span>
+      <div class="ad-detail-badges" id="adBadges"></div>
       <h1 id="adTitle">Ad Title</h1>
       <p class="ad-detail-meta" id="adMeta">City · Date</p>
       <p class="ad-detail-price" id="adPrice"></p>
@@ -131,6 +133,7 @@ async function loadRealAd(id){
       phoneFull: phone,
       description: data.description,
       images: data.images || [],
+      extraFields: data.extra_fields || {},
       isSample: false
     });
   }catch(e){
@@ -142,6 +145,7 @@ function renderAd(ad){
   document.getElementById('pageTitle').textContent = ad.title + " — RoznamaAds.pk";
   document.getElementById('pageDesc').setAttribute('content', ad.title + " — " + ad.category.label + " ad on RoznamaAds.pk");
   document.getElementById('adCatTag').textContent = ad.category.label;
+  document.getElementById('adBadges').innerHTML = rzBadgesHtml(ad.catKey, ad.extraFields);
   document.getElementById('breadcrumbCatLink').textContent = ad.category.label;
   document.getElementById('breadcrumbCatLink').href = 'category.html?cat=' + (ad.catKey || '');
   document.getElementById('breadcrumbAd').textContent = ad.title;

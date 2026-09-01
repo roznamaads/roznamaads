@@ -14,6 +14,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="analytics-config.js"></script>
+<script src="badges.js"></script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -98,7 +99,7 @@ async function loadRecentAds(){
   await categoriesReady;
   try{
     const { data, error } = await rzDb.from('ads')
-      .select('id, category, title, city, created_at, images')
+      .select('id, category, title, city, created_at, images, extra_fields')
       .eq('status', 'live')
       .order('created_at', {ascending:false})
       .limit(6);
@@ -111,6 +112,7 @@ async function loadRecentAds(){
       <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
         ${ad.images && ad.images.length ? `<img class="thumb" src="${ad.images[0]}" alt="${ad.title}">` : ''}
         <span class="cat-tag">${categoryLabels[ad.category] || ad.category}</span>
+        <span class="badge-row">${rzBadgesHtml(ad.category, ad.extra_fields)}</span>
         <h4>${ad.title}</h4>
         <span class="meta">${ad.city} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
       </a>

@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="analytics-config.js"></script>
+<script src="badges.js"></script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -97,7 +98,7 @@ async function performSearch(q, cat, city){
   summary.textContent = 'Searching...';
   grid.innerHTML = '';
   try{
-    let query = rzDb.from('ads').select('id, category, title, city, price, created_at').eq('status', 'live');
+    let query = rzDb.from('ads').select('id, category, title, city, price, created_at, extra_fields').eq('status', 'live');
     if(q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
     if(cat) query = query.eq('category', cat);
     if(city) query = query.eq('city', city);
@@ -112,6 +113,7 @@ async function performSearch(q, cat, city){
     summary.textContent = `${data.length} result(s) mile.`;
     grid.innerHTML = data.map(ad => `
       <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
+        <span class="badge-row">${rzBadgesHtml(ad.category, ad.extra_fields)}</span>
         <h4>${ad.title}</h4>
         <span class="meta">${ad.city}${ad.price ? ' · ' + ad.price : ''}</span>
       </a>
