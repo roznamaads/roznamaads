@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { category, title, city, price, description, contact_phone, extra_fields } = req.body || {};
+  const { category, title, city, price, description, contact_phone, extra_fields, images } = req.body || {};
   if (!category || !VALID_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Valid category required' });
   if (!title || !title.trim()) return res.status(400).json({ error: 'title required' });
   if (!description || !description.trim()) return res.status(400).json({ error: 'description required' });
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     price: (price || '').trim(),
     description: description.trim(),
     contact_phone: (contact_phone || '').trim(),
-    images: [],
+    images: Array.isArray(images) ? images : [],
     extra_fields: extra_fields && typeof extra_fields === 'object' ? extra_fields : {},
     submitted_name: 'AI Draft (Ad Post Generator)',
     status: 'pending'

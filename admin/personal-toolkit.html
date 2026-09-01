@@ -458,12 +458,16 @@ function fileToBase64(file){
 
 const EXTRACT_INSTRUCTIONS = `Kaam:
 1. Har alag classified ad/tender/notice ko identify karo. Agar koi cheez sirf ek naam/vendor ki list ya directory hai (jaise ek hi notice ke andar ke multiple names), usay TOOD kar mat karo — usay ek single ad/notice ki tarah treat karo.
-2. Har ad ka description apne alfaaz mein likho — newspaper ka original text hu-ba-hu copy mat karo (copyright ke liye zaroori hai), sirf facts/details use karo.
-3. Har ad ke liye category inhi values mein se choose karo: ${VALID_CATEGORIES.join(', ')}
-4. Agar visa/auction/tender/notice category ho to relevant extra_fields nikalo (jaise auctionDate, deadline, visaType, destination) — jo bhi mile.
+2. Description MUKAMMAL/COMPLETE honi chahiye — koi bhi zaroori detail chootni nahi chahiye. Agar ad mein table/list ho (lots, quantities, prices, dates, cost, security amount, deadlines waghera), to wo SAB values description mein plain-text table/list format mein zaroor likho (har row alag line par, "Lot 1: Hybrid Maize Seed — 50 MT — Rs. 25M — Bid Security Rs. 500,000 — arrival 1 month" jaisi format). Koi number/deadline/reference miss na ho.
+3. Description do hisso mein likho:
+   a) Pehle English mein mukammal detail (tables/lists included)
+   b) Phir "---" separator ke baad Roman Urdu mein wohi mukammal detail ka tarjuma/summary (kyunke local Pakistani users Roman Urdu mein bhi parhna pasand karte hain)
+   Newspaper ka original text hu-ba-hu copy mat karo — apne alfaaz mein likho, sirf facts/numbers same rakho.
+4. Har ad ke liye category inhi values mein se choose karo: ${VALID_CATEGORIES.join(', ')}
+5. Agar visa/auction/tender/notice category ho to relevant extra_fields nikalo (jaise auctionDate, deadline, visaType, destination, refNo) — jo bhi mile.
 
 Sirf valid JSON ARRAY return karo, koi aur text/markdown nahi, is exact shape mein:
-[{"category":"...","title":"short catchy title (max 80 chars)","city":"city name or empty string","price":"price/amount as plain text or empty string","description":"clean 2-4 sentence description in your own words","contact_phone":"phone number if found, else empty string","extra_fields":{}}]
+[{"category":"...","title":"short catchy title (max 80 chars)","city":"city name or empty string","price":"price/amount as plain text or empty string","description":"MUKAMMAL description: English section, phir --- , phir Roman Urdu section","contact_phone":"phone number if found, else empty string","extra_fields":{}}]
 
 Agar sirf ek hi ad mile to bhi ek-item wala array return karo.`;
 
@@ -473,6 +477,9 @@ document.getElementById('genDraft').addEventListener('click', async () => {
   const msg = document.getElementById('genMsg');
   const cardsBox = document.getElementById('draftCards');
   if(!file && !text){ alert('Image upload karein ya text paste karein.'); return; }
+
+  window._rzSourceImageFile = file || null;
+  window._rzSourceImageUrl = null;
 
   msg.textContent = '⏳ Gemini se draft(s) generate ho rahe hain... (image ho to thoda time lagega)';
   cardsBox.innerHTML = '';
@@ -506,8 +513,9 @@ document.getElementById('genDraft').addEventListener('click', async () => {
         <div class="field"><label>Title</label><input type="text" class="d-title" value="${(d.title||'').replace(/"/g,'&quot;')}"></div>
         <div class="field"><label>City</label><input type="text" class="d-city" value="${(d.city||'').replace(/"/g,'&quot;')}"></div>
         <div class="field"><label>Price</label><input type="text" class="d-price" value="${(d.price||'').replace(/"/g,'&quot;')}"></div>
-        <div class="field"><label>Description</label><textarea class="d-description" rows="3">${d.description||''}</textarea></div>
+        <div class="field"><label>Description (English + Roman Urdu)</label><textarea class="d-description" rows="10">${d.description||''}</textarea></div>
         <div class="field"><label>Contact Phone</label><input type="text" class="d-phone" value="${(d.contact_phone||'').replace(/"/g,'&quot;')}"></div>
+        ${file ? `<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);margin-bottom:10px"><input type="checkbox" class="d-attach-img" checked> Newspaper page ki original photo is ad ke saath attach karein (accuracy ke liye)</label>` : ''}
         <button class="btn saveDraftBtn">📝 Save as Draft (Pending)</button>
         <p class="desc save-msg" style="margin-top:8px"></p>
       `;
@@ -528,6 +536,28 @@ document.getElementById('draftCards').addEventListener('click', async (e) => {
   const saveMsg = card.querySelector('.save-msg');
   if(!secret){ alert('Admin API Secret daalein (database mein save karne ke liye).'); return; }
 
+  const attachImg = card.querySelector('.d-attach-img');
+  let images = [];
+  e.target.disabled = true;
+
+  if(attachImg && attachImg.checked && window._rzSourceImageFile){
+    try{
+      if(!window._rzSourceImageUrl){
+        saveMsg.textContent = '⏳ Image upload ho rahi hai...';
+        const file = window._rzSourceImageFile;
+        const ext = (file.name.split('.').pop() || 'jpg');
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await rzDb.storage.from('ad-images').upload(path, file);
+        if(upErr) throw new Error(upErr.message);
+        const { data: urlData } = rzDb.storage.from('ad-images').getPublicUrl(path);
+        window._rzSourceImageUrl = urlData.publicUrl;
+      }
+      images = [window._rzSourceImageUrl];
+    }catch(imgErr){
+      saveMsg.textContent = '⚠️ Image upload fail hui, ad text ke sath hi save ho rahi hai: ' + imgErr.message;
+    }
+  }
+
   const payload = {
     category: card.querySelector('.d-category').value,
     title: card.querySelector('.d-title').value.trim(),
@@ -535,12 +565,12 @@ document.getElementById('draftCards').addEventListener('click', async (e) => {
     price: card.querySelector('.d-price').value.trim(),
     description: card.querySelector('.d-description').value.trim(),
     contact_phone: card.querySelector('.d-phone').value.trim(),
-    extra_fields: JSON.parse(card.dataset.extraFields || '{}')
+    extra_fields: JSON.parse(card.dataset.extraFields || '{}'),
+    images
   };
-  if(!payload.title || !payload.description){ alert('Title aur Description zaroori hain.'); return; }
+  if(!payload.title || !payload.description){ alert('Title aur Description zaroori hain.'); e.target.disabled = false; return; }
 
   saveMsg.textContent = '⏳ Save ho raha hai...';
-  e.target.disabled = true;
   try{
     const r = await fetch('/api/admin/create-draft', {
       method: 'POST',
