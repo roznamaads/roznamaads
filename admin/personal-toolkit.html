@@ -138,7 +138,7 @@
     <p class="desc">Newspaper page ki <b>photo upload</b> karein — Gemini khud padh kar sab ads/tenders nikal degi (OCR ki zaroorat nahi). Ya neeche text bhi paste kar sakte hain agar text mila ho.</p>
     <div class="field"><label>Newspaper Page Image</label><input type="file" id="ocrImage" accept="image/*"></div>
     <div class="field"><label>Ya Raw Text (optional, image na ho to)</label><textarea id="ocrText" rows="4" placeholder="Agar image nahi hai to text yahan paste karein..."></textarea></div>
-    <div class="field"><label>Admin API Secret</label><input type="password" id="genSecret" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="genSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
     <button class="btn" id="genDraft">🧠 Generate Draft(s)</button>
     <p class="desc" id="genMsg" style="margin-top:8px"></p>
 
@@ -149,7 +149,7 @@
   <section class="panel" data-panel="draft-queue">
     <h2>Ad Draft Queue</h2>
     <p class="desc">User-submitted aur AI-generated pending ads — approve ya reject karein.</p>
-    <div class="field"><label>Admin API Secret</label><input type="password" id="serviceKey" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="serviceKey" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
     <p class="desc" style="color:#a86b00">⚠️ Ye ek chhota secret hai jo aap khud Vercel Environment Variables mein set karte hain — asal Supabase key kabhi browser mein nahi aati, wo sirf server (Vercel Function) par hoti hai.</p>
     <button class="btn" id="loadPending">📥 Load Pending Ads</button>
     <div id="pendingList" style="margin-top:14px"></div>
@@ -166,6 +166,7 @@
   <section class="panel" data-panel="dup-check">
     <h2>Duplicate Check</h2>
     <p class="desc">Multi-newspaper mein repeat hone wali ads detect karega — phone number match ya similar title se.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="dupSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
     <div class="field"><label>Category (optional, title match ke liye)</label>
       <select id="dupCategory">
         <option value="">— Sab categories —</option>
@@ -217,6 +218,7 @@
   <section class="panel" data-panel="social">
     <h2>Social Posting</h2>
     <p class="desc">Live ad chunein → Gemini se har platform ke liye alag caption banega (editable, individually regenerate ho sakta hai). Copy karke manually post karein — Facebook/Instagram auto-post Meta App Review approval ke baad milega (neeche checklist hai).</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="socialSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
     <button class="btn" id="loadLiveForSocial">📥 Load Live Ads</button>
     <div id="socialAdList" style="margin-top:12px"></div>
 
@@ -258,6 +260,7 @@
   <section class="panel" data-panel="whatsapp">
     <h2>WhatsApp Distribution</h2>
     <p class="desc">Opt-in WhatsApp Groups manage karein aur live ads ek-click mein share karein. Ye tareeqa koi Meta Business API approval nahi maangta (PECA-safe, plan ke mutabiq).</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="waSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
 
     <h3 style="margin:16px 0 6px;color:var(--green-dark);font-size:1rem">Groups</h3>
     <div id="waGroupList"></div>
@@ -1392,8 +1395,8 @@ document.getElementById('saveCatsToDeployer').addEventListener('click', () => {
 // This browser code only sends a small shared secret (ADMIN_API_SECRET) to
 // our own /api/admin/* endpoints, which then talk to Supabase server-side.
 function getAdminSecret(){
-  const key = document.getElementById('serviceKey').value.trim() || sessionStorage.getItem('rz_admin_secret');
-  if(!key){ alert('Pehle Admin API Secret daalein.'); return null; }
+  const key = sessionStorage.getItem('rz_admin_secret') || document.getElementById('serviceKey').value.trim();
+  if(!key){ alert('Pehle Admin API Secret daalein (kisi bhi tab mein, jahan ye field ho).'); return null; }
   sessionStorage.setItem('rz_admin_secret', key);
   return key;
 }
@@ -1410,8 +1413,13 @@ async function callAdminApi(path, options){
 }
 (function restoreServiceKey(){
   const saved = sessionStorage.getItem('rz_admin_secret');
-  if(saved) document.getElementById('serviceKey').value = saved;
+  if(saved){
+    document.querySelectorAll('.adminSecretField').forEach(el => el.value = saved);
+  }
 })();
+document.querySelectorAll('.adminSecretField').forEach(el => {
+  el.addEventListener('input', () => sessionStorage.setItem('rz_admin_secret', el.value.trim()));
+});
 
 let categoryLabelsAdmin = {};
 fetch('../categories.json').then(r => r.json()).then(cats => {
