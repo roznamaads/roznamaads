@@ -55,6 +55,8 @@
   .cat-row input[type=text]{flex:1;min-width:100px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;font-size:.82rem}
   .cat-row label{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted);white-space:nowrap}
   .cat-row .mini-btn{background:none;border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:.75rem;cursor:pointer}
+.draft-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.draft-card h4{margin:0 0 10px;color:var(--green-dark)}
   .stat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
   .stat-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
   .stat-card .num{font-size:1.5rem;font-weight:800;color:var(--green-dark)}
@@ -127,37 +129,14 @@
   <!-- Ad Post Generator (Newspaper Manager + OCR/AI Processing) -->
   <section class="panel" data-panel="ad-generator">
     <h2>Ad Post Generator</h2>
-    <p class="desc">Raw OCR text paste karein → AI category/city/price/description nikalega. (Gemini key "AI Settings" tab se aati hai.)</p>
-    <div class="field"><label>Raw OCR Text</label><textarea id="ocrText" rows="5" placeholder="Newspaper se OCR/copy kiya hua raw text yahan paste karein..."></textarea></div>
-    <button class="btn" id="genDraft">🧠 Generate Draft</button>
+    <p class="desc">Newspaper page ki <b>photo upload</b> karein — Gemini khud padh kar sab ads/tenders nikal degi (OCR ki zaroorat nahi). Ya neeche text bhi paste kar sakte hain agar text mila ho.</p>
+    <div class="field"><label>Newspaper Page Image</label><input type="file" id="ocrImage" accept="image/*"></div>
+    <div class="field"><label>Ya Raw Text (optional, image na ho to)</label><textarea id="ocrText" rows="4" placeholder="Agar image nahi hai to text yahan paste karein..."></textarea></div>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="genSecret" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
+    <button class="btn" id="genDraft">🧠 Generate Draft(s)</button>
     <p class="desc" id="genMsg" style="margin-top:8px"></p>
 
-    <div id="draftEditor" style="display:none;margin-top:16px">
-      <div class="field"><label>Category</label>
-        <select id="dCategory">
-          <option value="property">Property</option>
-          <option value="jobs">Jobs</option>
-          <option value="vehicles">Vehicles</option>
-          <option value="matrimonial">Matrimonial / Rishta</option>
-          <option value="visa">Visa & Immigration</option>
-          <option value="auctions">Auctions</option>
-          <option value="admissions">Admissions</option>
-          <option value="tenders">Tenders</option>
-          <option value="notices">Government / Public Notices</option>
-          <option value="services">Services</option>
-          <option value="electronics">Electronics</option>
-        </select>
-      </div>
-      <div class="field"><label>Title</label><input type="text" id="dTitle"></div>
-      <div class="field"><label>City</label><input type="text" id="dCity"></div>
-      <div class="field"><label>Price</label><input type="text" id="dPrice"></div>
-      <div class="field"><label>Description</label><textarea id="dDescription" rows="4"></textarea></div>
-      <div class="field"><label>Contact Phone</label><input type="text" id="dPhone"></div>
-      <div class="field"><label>Admin API Secret</label><input type="password" id="genSecret" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
-      <p class="desc">⚠️ Publish se pehle sab fields check/edit kar lein — ye seedha live nahi hoga, "Draft Queue" tab mein pending jayega, wahan se approve karna hoga.</p>
-      <button class="btn" id="saveDraft">📝 Save as Draft (Pending)</button>
-      <p class="desc" id="saveDraftMsg" style="margin-top:8px"></p>
-    </div>
+    <div id="draftCards" style="margin-top:16px"></div>
   </section>
 
   <!-- Ad Draft Queue -->
@@ -408,14 +387,17 @@ document.querySelector('.panel[data-panel="ai-settings"]').classList.add('active
 function rzGeminiKey(){ try{ return (JSON.parse(localStorage.getItem('rz_ai_settings')||'{}').key) || ''; }catch(e){ return ''; } }
 function rzGeminiModel(){ try{ return (JSON.parse(localStorage.getItem('rz_ai_settings')||'{}').model) || 'gemini-2.0-flash'; }catch(e){ return 'gemini-2.0-flash'; } }
 
-async function rzCallGemini(prompt){
+async function rzCallGemini(prompt, imagePart){
   const key = rzGeminiKey();
   if(!key) throw new Error('Gemini API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.');
   const model = rzGeminiModel();
+  const parts = [];
+  if(imagePart) parts.push({ inlineData: { mimeType: imagePart.mimeType, data: imagePart.data } });
+  parts.push({ text: prompt });
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3 } })
+    body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3 } })
   });
   if(!r.ok){
     const errText = await r.text();
@@ -463,71 +445,102 @@ document.getElementById('pgGenerate').addEventListener('click', async () => {
 });
 
 const VALID_CATEGORIES = ['property','jobs','vehicles','matrimonial','visa','auctions','admissions','tenders','notices','services','electronics'];
+const CAT_LABELS = {property:'Property',jobs:'Jobs',vehicles:'Vehicles',matrimonial:'Matrimonial / Rishta',visa:'Visa & Immigration',auctions:'Auctions',admissions:'Admissions',tenders:'Tenders',notices:'Government / Public Notices',services:'Services',electronics:'Electronics'};
+
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+const EXTRACT_INSTRUCTIONS = `Kaam:
+1. Har alag classified ad/tender/notice ko identify karo. Agar koi cheez sirf ek naam/vendor ki list ya directory hai (jaise ek hi notice ke andar ke multiple names), usay TOOD kar mat karo — usay ek single ad/notice ki tarah treat karo.
+2. Har ad ka description apne alfaaz mein likho — newspaper ka original text hu-ba-hu copy mat karo (copyright ke liye zaroori hai), sirf facts/details use karo.
+3. Har ad ke liye category inhi values mein se choose karo: ${VALID_CATEGORIES.join(', ')}
+4. Agar visa/auction/tender/notice category ho to relevant extra_fields nikalo (jaise auctionDate, deadline, visaType, destination) — jo bhi mile.
+
+Sirf valid JSON ARRAY return karo, koi aur text/markdown nahi, is exact shape mein:
+[{"category":"...","title":"short catchy title (max 80 chars)","city":"city name or empty string","price":"price/amount as plain text or empty string","description":"clean 2-4 sentence description in your own words","contact_phone":"phone number if found, else empty string","extra_fields":{}}]
+
+Agar sirf ek hi ad mile to bhi ek-item wala array return karo.`;
 
 document.getElementById('genDraft').addEventListener('click', async () => {
+  const file = document.getElementById('ocrImage').files[0];
   const text = document.getElementById('ocrText').value.trim();
   const msg = document.getElementById('genMsg');
-  if(!text){ alert('Pehle OCR text paste karein.'); return; }
+  const cardsBox = document.getElementById('draftCards');
+  if(!file && !text){ alert('Image upload karein ya text paste karein.'); return; }
 
-  msg.textContent = '⏳ Gemini se draft generate ho raha hai...';
-  document.getElementById('draftEditor').style.display = 'none';
-
-  const prompt = `Tum ek Pakistani newspaper classified ad ko process kar rahe ho. Neeche raw OCR text diya gaya hai (messy ho sakta hai, spelling mistakes ho sakti hain).
-
-Kaam:
-1. Ise samajh kar ek clean, structured classified ad draft banao.
-2. Description apne alfaaz mein likho — newspaper ka original text copy mat karo (copyright ke liye zaroori hai), sirf facts/details use karo.
-3. Category inhi values mein se choose karo: ${VALID_CATEGORIES.join(', ')}
-4. Agar visa/auction/tender/notice category ho to relevant extra_fields nikalo (jaise auctionDate, deadline, visaType, destination) — jo bhi text mein mile.
-
-Sirf valid JSON return karo, koi aur text/markdown nahi, is exact shape mein:
-{"category":"one of the allowed values","title":"short catchy title (max 80 chars)","city":"city name or empty string","price":"price as plain text or empty string","description":"clean 2-4 sentence description in your own words","contact_phone":"phone number if found, else empty string","extra_fields":{}}
-
-Raw OCR text:
-"""
-${text}
-"""`;
+  msg.textContent = '⏳ Gemini se draft(s) generate ho rahe hain... (image ho to thoda time lagega)';
+  cardsBox.innerHTML = '';
 
   try{
-    let raw = await rzCallGemini(prompt);
-    raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
-    let d;
-    try{ d = JSON.parse(raw); }
-    catch(e){ msg.textContent = '❌ AI ne valid JSON nahi diya. Raw output console mein hai.'; console.log(raw); return; }
+    let raw, imagePart = null;
+    if(file){
+      const base64 = await fileToBase64(file);
+      imagePart = { mimeType: file.type || 'image/jpeg', data: base64 };
+      raw = await rzCallGemini(`Ye ek Pakistani newspaper page ki photo hai jisme classified ads/tenders/notices hain.\n\n${EXTRACT_INSTRUCTIONS}`, imagePart);
+    } else {
+      raw = await rzCallGemini(`Tum ek Pakistani newspaper classified ad ko process kar rahe ho. Neeche raw OCR/text diya gaya hai (messy ho sakta hai).\n\n${EXTRACT_INSTRUCTIONS}\n\nRaw text:\n"""\n${text}\n"""`);
+    }
 
-    if(!VALID_CATEGORIES.includes(d.category)) d.category = 'services';
-    document.getElementById('dCategory').value = d.category;
-    document.getElementById('dTitle').value = (d.title||'').slice(0,120);
-    document.getElementById('dCity').value = d.city || '';
-    document.getElementById('dPrice').value = d.price || '';
-    document.getElementById('dDescription').value = d.description || '';
-    document.getElementById('dPhone').value = d.contact_phone || '';
-    document.getElementById('draftEditor').dataset.extraFields = JSON.stringify(d.extra_fields && typeof d.extra_fields === 'object' ? d.extra_fields : {});
-    document.getElementById('draftEditor').style.display = 'block';
-    msg.textContent = '✅ Draft ban gaya — neeche check/edit kar ke save karein.';
-    log('🧠 AI draft generate hua — category: ' + d.category);
+    raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+    let arr;
+    try{ arr = JSON.parse(raw); }
+    catch(e){ msg.textContent = '❌ AI ne valid JSON nahi diya. Raw output console mein hai.'; console.log(raw); return; }
+    if(!Array.isArray(arr)) arr = [arr];
+    if(arr.length === 0){ msg.textContent = '⚠️ Koi ad detect nahi hui.'; return; }
+
+    arr.forEach((d, i) => {
+      if(!VALID_CATEGORIES.includes(d.category)) d.category = 'services';
+      const opts = VALID_CATEGORIES.map(c => `<option value="${c}" ${c===d.category?'selected':''}>${CAT_LABELS[c]}</option>`).join('');
+      const card = document.createElement('div');
+      card.className = 'draft-card';
+      card.dataset.extraFields = JSON.stringify(d.extra_fields && typeof d.extra_fields === 'object' ? d.extra_fields : {});
+      card.innerHTML = `
+        <h4>Draft ${i+1}</h4>
+        <div class="field"><label>Category</label><select class="d-category">${opts}</select></div>
+        <div class="field"><label>Title</label><input type="text" class="d-title" value="${(d.title||'').replace(/"/g,'&quot;')}"></div>
+        <div class="field"><label>City</label><input type="text" class="d-city" value="${(d.city||'').replace(/"/g,'&quot;')}"></div>
+        <div class="field"><label>Price</label><input type="text" class="d-price" value="${(d.price||'').replace(/"/g,'&quot;')}"></div>
+        <div class="field"><label>Description</label><textarea class="d-description" rows="3">${d.description||''}</textarea></div>
+        <div class="field"><label>Contact Phone</label><input type="text" class="d-phone" value="${(d.contact_phone||'').replace(/"/g,'&quot;')}"></div>
+        <button class="btn saveDraftBtn">📝 Save as Draft (Pending)</button>
+        <p class="desc save-msg" style="margin-top:8px"></p>
+      `;
+      cardsBox.appendChild(card);
+    });
+
+    msg.textContent = `✅ ${arr.length} draft(s) ban gaye — neeche check/edit kar ke save karein. Publish se pehle "Draft Queue" tab se approve karna hoga.`;
+    log(`🧠 AI se ${arr.length} draft(s) generate hue.`);
   }catch(e){
     msg.textContent = '❌ ' + e.message;
   }
 });
 
-document.getElementById('saveDraft').addEventListener('click', async () => {
+document.getElementById('draftCards').addEventListener('click', async (e) => {
+  if(!e.target.classList.contains('saveDraftBtn')) return;
+  const card = e.target.closest('.draft-card');
   const secret = document.getElementById('genSecret').value.trim();
-  const saveMsg = document.getElementById('saveDraftMsg');
+  const saveMsg = card.querySelector('.save-msg');
   if(!secret){ alert('Admin API Secret daalein (database mein save karne ke liye).'); return; }
 
   const payload = {
-    category: document.getElementById('dCategory').value,
-    title: document.getElementById('dTitle').value.trim(),
-    city: document.getElementById('dCity').value.trim(),
-    price: document.getElementById('dPrice').value.trim(),
-    description: document.getElementById('dDescription').value.trim(),
-    contact_phone: document.getElementById('dPhone').value.trim(),
-    extra_fields: JSON.parse(document.getElementById('draftEditor').dataset.extraFields || '{}')
+    category: card.querySelector('.d-category').value,
+    title: card.querySelector('.d-title').value.trim(),
+    city: card.querySelector('.d-city').value.trim(),
+    price: card.querySelector('.d-price').value.trim(),
+    description: card.querySelector('.d-description').value.trim(),
+    contact_phone: card.querySelector('.d-phone').value.trim(),
+    extra_fields: JSON.parse(card.dataset.extraFields || '{}')
   };
   if(!payload.title || !payload.description){ alert('Title aur Description zaroori hain.'); return; }
 
   saveMsg.textContent = '⏳ Save ho raha hai...';
+  e.target.disabled = true;
   try{
     const r = await fetch('/api/admin/create-draft', {
       method: 'POST',
@@ -535,11 +548,12 @@ document.getElementById('saveDraft').addEventListener('click', async () => {
       body: JSON.stringify(payload)
     });
     const data = await r.json();
-    if(!r.ok){ saveMsg.textContent = '❌ ' + (data.error || 'Save fail hua.'); return; }
-    saveMsg.textContent = '✅ Draft Queue mein save ho gaya — "Draft Queue" tab mein ja kar approve karein.';
+    if(!r.ok){ saveMsg.textContent = '❌ ' + (data.error || 'Save fail hua.'); e.target.disabled = false; return; }
+    saveMsg.textContent = '✅ Draft Queue mein save ho gaya.';
     log('📝 Naya AI draft "Draft Queue" mein save hua.');
-  }catch(e){
-    saveMsg.textContent = '❌ Network error: ' + e.message;
+  }catch(e2){
+    saveMsg.textContent = '❌ Network error: ' + e2.message;
+    e.target.disabled = false;
   }
 });
 
