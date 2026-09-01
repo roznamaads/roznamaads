@@ -200,6 +200,25 @@ export default async function handler(req, res) {
         return res.status(200).json({ matches: Array.from(matches.values()) });
       }
 
+      case 'export-all': {
+        const r = await fetch(`${SB()}/rest/v1/ads?select=*&order=created_at.desc`, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'restore-import': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { rows } = req.body || {};
+        if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'rows array required' });
+        const r = await fetch(`${SB()}/rest/v1/ads?on_conflict=id`, {
+          method: 'POST',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify(rows)
+        });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
       default:
         return res.status(404).json({ error: 'Unknown admin action: ' + action });
     }

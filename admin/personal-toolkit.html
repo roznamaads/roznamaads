@@ -273,7 +273,30 @@
     <div id="waAdList" style="margin-top:12px"></div>
   </section>
 
-  <section class="panel" data-panel="seo-manager"><h2>SEO Manager</h2><p class="desc">Meta titles/descriptions, sitemap regeneration.</p><div class="stub"><div class="icon">🔍</div>Static sitemap.xml/robots.txt abhi manual hain — ye tool unhe automate karega.</div></section>
+  <section class="panel" data-panel="seo-manager">
+    <h2>SEO Manager</h2>
+    <p class="desc">Meta titles/descriptions, sitemap regeneration.</p>
+    <div class="stub"><div class="icon">🔍</div>Static sitemap.xml/robots.txt abhi manual hain — ye tool unhe automate karega.</div>
+
+    <div style="margin-top:20px">
+      <h3 style="margin:0 0 10px;color:var(--green-dark);font-size:1rem">📋 Google AdSense Readiness Checklist</h3>
+      <p class="desc">AdSense apply karne se pehle kam se kam kuch hafte consistent traffic/content hona chahiye. Technical side ka status:</p>
+      <ul class="desc" style="padding-left:18px;line-height:1.9">
+        <li>✅ Privacy Policy, Terms, About, Contact pages — mojood hain</li>
+        <li>✅ Har page par unique Title Tag + Meta Description + Canonical URL</li>
+        <li>✅ robots.txt + sitemap.xml — live hain</li>
+        <li>✅ Security Headers (X-Content-Type-Options, HSTS, X-Frame-Options, Referrer-Policy) — vercel.json mein set hain</li>
+        <li>✅ HTTPS — Vercel se automatic</li>
+        <li>✅ Mobile-responsive/viewport — sab pages par hai</li>
+        <li>⏳ Google Analytics (GA4) — hook ready hai (analytics-config.js), sirf Measurement ID daalna baaki hai jab GA4 property banayein</li>
+        <li>⏳ Google Search Console — property verify karna baaki hai (site ownership verify)</li>
+        <li>⏳ Structured Data (JSON-LD) — abhi nahi hai, listings ke liye add kiya ja sakta hai</li>
+        <li>⏳ Genuine traffic/content history — AdSense apply karne se pehle kuch hafte organic use zaroori hai</li>
+        <li>❌ ads.txt — sirf AdSense approval milne ke baad, publisher ID ke sath add hoga</li>
+      </ul>
+      <p class="desc" style="margin-top:10px"><b>Apply kab karein:</b> jab site par kuch hafte se consistent real ads/traffic ho, tab <a href="https://www.google.com/adsense/start/" target="_blank" rel="noopener">google.com/adsense</a> se apply karein. Approval milne ke baad publisher ID yahan (future update) daal sakte hain.</p>
+    </div>
+  </section>
 
   <section class="panel" data-panel="analytics">
     <h2>Analytics Dashboard</h2>
@@ -343,7 +366,31 @@
     <p class="desc" style="margin-top:10px;color:#a86b00">⚠️ GitHub token kahin save nahi hota — sirf is browser tab ki memory mein rehta hai jab tak page khula hai.</p>
   </section>
 
-  <section class="panel" data-panel="backup"><h2>Backup / Restore</h2><p class="desc">Database backup schedule aur manual restore.</p><div class="stub"><div class="icon">💾</div>Database connect hone ke baad ye tool functional hoga.</div></section>
+  <section class="panel" data-panel="backup">
+    <h2>Backup / Restore</h2>
+    <p class="desc">Sab ads ka JSON backup download karein, ya kisi purani backup se restore karein.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="backupSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+
+    <button class="btn" id="downloadBackupBtn">⬇️ Download Full Backup (JSON)</button>
+    <p class="desc" id="backupDownloadMsg" style="margin-top:8px"></p>
+
+    <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)">
+      <h3 style="margin:0 0 6px;color:#c0392b;font-size:1rem">⚠️ Restore (Danger Zone)</h3>
+      <p class="desc">Backup file upload karne se, us file ki har ad database mein <b>upsert</b> hoti hai (agar same ID pehle se exist karti hai to overwrite ho jayegi). Sirf apni khud ki li hui backup file use karein.</p>
+      <div class="field"><label>Backup File (.json)</label><input type="file" id="restoreFileInput" accept="application/json"></div>
+      <button class="btn alt" id="restoreBackupBtn">⬆️ Restore from Backup</button>
+      <p class="desc" id="restoreMsg" style="margin-top:8px"></p>
+    </div>
+
+    <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)">
+      <h3 style="margin:0 0 6px;color:var(--green-dark);font-size:1rem">💡 Backup Tips</h3>
+      <ul class="desc" style="padding-left:18px;line-height:1.7">
+        <li>Har hafte ek backup download kar ke apne Google Drive/phone mein save kar lein</li>
+        <li>Bade update (naya batch deploy) se pehle bhi ek backup zaroor lein</li>
+        <li>Supabase khud bhi apne data ka snapshot rakhta hai, lekin ye manual backup aapke apne control mein extra safety hai</li>
+      </ul>
+    </div>
+  </section>
 
   <section class="panel" data-panel="system">
     <h2>System Settings</h2>
@@ -1320,6 +1367,48 @@ document.getElementById('clearSocialHistoryBtn').addEventListener('click', () =>
   renderSocialHistory();
 });
 renderSocialHistory();
+
+/* ---------- Backup / Restore ---------- */
+document.getElementById('downloadBackupBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('backupDownloadMsg');
+  msg.textContent = '⏳ Backup taiyar ho raha hai...';
+  try{
+    const data = await callAdminApi('export-all');
+    if(!data){ msg.textContent = ''; return; }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `roznamaads-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    msg.textContent = `✅ ${data.length} ads ki backup download ho gayi.`;
+    log(`💾 Backup downloaded — ${data.length} ads.`);
+  }catch(e){ msg.textContent = '❌ ' + e.message; }
+});
+
+document.getElementById('restoreBackupBtn').addEventListener('click', async () => {
+  const fileInput = document.getElementById('restoreFileInput');
+  const msg = document.getElementById('restoreMsg');
+  const file = fileInput.files[0];
+  if(!file){ alert('Pehle backup .json file chunein.'); return; }
+  if(!confirm('Ye backup file ki ads database mein upsert (add/overwrite) ho jayengi. Confirm karein?')) return;
+
+  msg.textContent = '⏳ Reading file...';
+  try{
+    const text = await file.text();
+    const rows = JSON.parse(text);
+    if(!Array.isArray(rows)) throw new Error('Ye file valid backup format mein nahi hai.');
+    msg.textContent = `⏳ ${rows.length} ads restore ho rahi hain...`;
+    const data = await callAdminApi('restore-import', { method:'POST', body: JSON.stringify({ rows }) });
+    if(!data) return;
+    msg.textContent = `✅ Restore mukammal — ${Array.isArray(data)?data.length:rows.length} ads process hui.`;
+    log(`⬆️ Restore hua — ${rows.length} ads.`);
+  }catch(e){ msg.textContent = '❌ ' + e.message; }
+});
 
 /* ---------- Category Manager ---------- */
 let catData = [];
