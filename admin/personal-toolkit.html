@@ -157,7 +157,30 @@
     <div id="liveList" style="margin-top:14px"></div>
   </section>
 
-  <section class="panel" data-panel="dup-check"><h2>Duplicate Check</h2><p class="desc">Multi-newspaper mein repeat hone wali ads detect karega.</p><div class="stub"><div class="icon">🧬</div>Phase 3 feature — database aur multi-newspaper ingestion ke baad.</div></section>
+  <section class="panel" data-panel="dup-check">
+    <h2>Duplicate Check</h2>
+    <p class="desc">Multi-newspaper mein repeat hone wali ads detect karega — phone number match ya similar title se.</p>
+    <div class="field"><label>Category (optional, title match ke liye)</label>
+      <select id="dupCategory">
+        <option value="">— Sab categories —</option>
+        <option value="property">Property</option>
+        <option value="jobs">Jobs</option>
+        <option value="vehicles">Vehicles</option>
+        <option value="matrimonial">Matrimonial / Rishta</option>
+        <option value="visa">Visa & Immigration</option>
+        <option value="auctions">Auctions</option>
+        <option value="admissions">Admissions</option>
+        <option value="tenders">Tenders</option>
+        <option value="notices">Government / Public Notices</option>
+        <option value="services">Services</option>
+        <option value="electronics">Electronics</option>
+      </select>
+    </div>
+    <div class="field"><label>Title / Keywords</label><input type="text" id="dupTitle" placeholder="e.g. Hybrid Seed Tender"></div>
+    <div class="field"><label>Contact Phone</label><input type="text" id="dupPhone" placeholder="e.g. 042-99212563"></div>
+    <button class="btn" id="checkDupBtn">🔍 Check Duplicates</button>
+    <div id="dupResults" style="margin-top:14px"></div>
+  </section>
 
   <section class="panel" data-panel="expiry">
     <h2>Expiry Management</h2>
@@ -528,7 +551,9 @@ document.getElementById('genDraft').addEventListener('click', async () => {
           <textarea class="d-extra-fields" rows="5" style="font-family:monospace;font-size:.75rem;width:100%;margin-top:6px">${JSON.stringify(extraFields, null, 2)}</textarea>
         </details>
         ${file ? `<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);margin-bottom:10px"><input type="checkbox" class="d-attach-img" checked> Newspaper page ki original photo is ad ke saath attach karein (accuracy ke liye)</label>` : ''}
+        <button class="btn alt checkDupCardBtn" style="margin-right:8px">🔍 Check Duplicate</button>
         <button class="btn saveDraftBtn">📝 Save as Draft (Pending)</button>
+        <div class="dup-result" style="margin-top:8px"></div>
         <p class="desc save-msg" style="margin-top:8px"></p>
       `;
       cardsBox.appendChild(card);
@@ -542,6 +567,31 @@ document.getElementById('genDraft').addEventListener('click', async () => {
 });
 
 document.getElementById('draftCards').addEventListener('click', async (e) => {
+  if(e.target.classList.contains('checkDupCardBtn')){
+    const card = e.target.closest('.draft-card');
+    const secret = document.getElementById('genSecret').value.trim();
+    const resultBox = card.querySelector('.dup-result');
+    if(!secret){ alert('Admin API Secret daalein.'); return; }
+    resultBox.innerHTML = 'Checking...';
+    try{
+      const r = await fetch('/api/admin/check-duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify({
+          title: card.querySelector('.d-title').value.trim(),
+          contact_phone: card.querySelector('.d-phone').value.trim(),
+          category: card.querySelector('.d-category').value
+        })
+      });
+      const data = await r.json();
+      if(!r.ok){ resultBox.innerHTML = `<p class="desc">❌ ${data.error||'Error'}</p>`; return; }
+      const matches = data.matches || [];
+      resultBox.innerHTML = matches.length
+        ? `<p class="desc" style="color:#a86b00">⚠️ ${matches.length} possible duplicate(s) mile:</p>` + matches.map(m => `<div class="cat-row" style="flex-direction:column;align-items:stretch"><b>${m.title}</b><span style="font-size:.75rem;color:var(--muted)">${m.city||''} · ${m.contact_phone||''} · status: ${m.status} · matched by: ${m.matchedBy}</span></div>`).join('')
+        : '<p class="desc">✅ Koi duplicate nahi mila.</p>';
+    }catch(err){ resultBox.innerHTML = `<p class="desc">❌ ${err.message}</p>`; }
+    return;
+  }
   if(!e.target.classList.contains('saveDraftBtn')) return;
   const card = e.target.closest('.draft-card');
   const secret = document.getElementById('genSecret').value.trim();
@@ -1063,6 +1113,29 @@ fetch('../categories.json').then(r => r.json()).then(cats => {
 }).catch(() => {});
 
 /* Draft Queue */
+function renderDupMatches(matches){
+  if(!matches.length) return '<p class="desc">✅ Koi duplicate nahi mila.</p>';
+  return matches.map(m => `
+    <div class="cat-row" style="flex-direction:column;align-items:stretch">
+      <b>${m.title}</b>
+      <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[m.category]||m.category} · ${m.city||''} · ${m.contact_phone||''} · status: ${m.status} · matched by: ${m.matchedBy}</span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('checkDupBtn').addEventListener('click', async () => {
+  const box = document.getElementById('dupResults');
+  const title = document.getElementById('dupTitle').value.trim();
+  const contact_phone = document.getElementById('dupPhone').value.trim();
+  const category = document.getElementById('dupCategory').value;
+  if(!title && !contact_phone){ alert('Title ya Phone daalein.'); return; }
+  box.innerHTML = 'Checking...';
+  try{
+    const data = await callAdminApi('check-duplicate', { method:'POST', body: JSON.stringify({ title, contact_phone, category }) });
+    box.innerHTML = renderDupMatches(data.matches || []);
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
 document.getElementById('loadPending').addEventListener('click', async () => {
   const box = document.getElementById('pendingList');
   box.innerHTML = 'Loading...';
