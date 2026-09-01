@@ -57,6 +57,12 @@
   .cat-row .mini-btn{background:none;border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:.75rem;cursor:pointer}
 .draft-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
 .draft-card h4{margin:0 0 10px;color:var(--green-dark)}
+.lang-tab{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.8rem;cursor:pointer}
+.lang-tab.active{background:var(--green-dark);color:#fff;border-color:var(--green-dark)}
+.platform-block{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;background:var(--card)}
+.platform-block h4{margin:0 0 8px;font-size:.9rem;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.platform-block textarea{width:100%;min-height:90px;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:.85rem;font-family:inherit}
+.platform-actions{display:flex;gap:6px;margin-top:6px}
   .stat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
   .stat-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
   .stat-card .num{font-size:1.5rem;font-weight:800;color:var(--green-dark)}
@@ -210,10 +216,27 @@
 
   <section class="panel" data-panel="social">
     <h2>Social Posting</h2>
-    <p class="desc">Live ad chunein → Gemini se Facebook/Instagram/X/WhatsApp Status ke liye captions banega. Abhi copy-paste karke manually post karna hoga (Facebook/Instagram auto-post Meta App Review approval ke baad milega — neeche checklist hai).</p>
+    <p class="desc">Live ad chunein → Gemini se har platform ke liye alag caption banega (editable, individually regenerate ho sakta hai). Copy karke manually post karein — Facebook/Instagram auto-post Meta App Review approval ke baad milega (neeche checklist hai).</p>
     <button class="btn" id="loadLiveForSocial">📥 Load Live Ads</button>
     <div id="socialAdList" style="margin-top:12px"></div>
-    <div id="socialCaptions" style="margin-top:16px"></div>
+
+    <div id="socialCaptionsSection" style="display:none;margin-top:18px">
+      <h3 style="margin:0 0 8px;color:var(--green-dark);font-size:1rem" id="socialAdTitleLabel"></h3>
+      <label style="font-size:.8rem;color:var(--muted)">Language</label>
+      <div class="lang-tabs" id="socialLangTabs" style="display:flex;gap:6px;margin:6px 0 14px">
+        <button type="button" class="lang-tab active" data-lang="en">English</button>
+        <button type="button" class="lang-tab" data-lang="ur">Roman Urdu</button>
+        <button type="button" class="lang-tab" data-lang="both">Both</button>
+      </div>
+      <button class="btn alt" id="copyAllCaptionsBtn" style="margin-bottom:12px">📋 Copy All</button>
+      <div id="captionBlocks"></div>
+    </div>
+
+    <div style="margin-top:22px">
+      <h3 style="margin:0 0 8px;color:var(--green-dark);font-size:1rem">🕒 Recent History <span style="font-weight:400;font-size:.72rem;color:var(--muted)">(is device par save)</span></h3>
+      <div id="socialHistoryList" class="desc">Koi history nahi hai.</div>
+      <button class="mini-btn" id="clearSocialHistoryBtn" style="margin-top:6px">Clear History</button>
+    </div>
 
     <details style="margin-top:20px"><summary style="cursor:pointer;font-weight:600;color:var(--green-dark)">📋 Meta App Review Checklist (Facebook/Instagram auto-post ke liye)</summary>
       <div class="desc" style="margin-top:10px">
@@ -1132,7 +1155,17 @@ document.getElementById('waAdList').addEventListener('click', (e) => {
   log('💬 WhatsApp share khola: ' + btn.dataset.title);
 });
 
-/* ---------- Social Posting (caption generator) ---------- */
+/* ---------- Social Posting (rich caption generator, ToolNest-style) ---------- */
+const SOCIAL_PLATFORMS = [
+  {key:'facebook', label:'📘 Facebook'},
+  {key:'instagram', label:'📷 Instagram'},
+  {key:'x', label:'✕ X (Twitter)'},
+  {key:'whatsapp_status', label:'💬 WhatsApp Status'}
+];
+let currentSocialAd = null;
+let currentSocialLang = 'en';
+let currentCaptions = {};
+
 document.getElementById('loadLiveForSocial').addEventListener('click', async () => {
   const box = document.getElementById('socialAdList');
   box.innerHTML = 'Loading...';
@@ -1149,29 +1182,141 @@ document.getElementById('loadLiveForSocial').addEventListener('click', async () 
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
 });
 
+function langInstruction(lang){
+  if(lang==='ur') return 'Sirf Roman Urdu mein likho.';
+  if(lang==='both') return 'Pehle chota English version likho, phir "\\n---\\n" ke baad Roman Urdu version likho.';
+  return 'Sirf English mein likho.';
+}
+
+async function generateCaption(platform, ad, lang){
+  const url = `${siteBaseUrl()}/ad.html?id=${ad.id}`;
+  const rules = {
+    facebook: '2-3 sentences, friendly tone, link included.',
+    instagram: 'Short caption + 3-5 relevant hashtags at the end.',
+    x: 'Under 280 characters total (including link), punchy.',
+    whatsapp_status: 'Bohot short, ek line, ek emoji ke sath.'
+  };
+  const prompt = `Classified ad (RoznamaAds.pk):\nTitle: ${ad.title}\nDescription: ${ad.description}\nLink: ${url}\n\n${platform} ke liye ek social media caption likho. ${rules[platform]} ${langInstruction(lang)}\nSirf caption text return karo, koi extra quotes/markdown/labels nahi.`;
+  const raw = await rzCallGemini(prompt);
+  return raw.trim().replace(/^["']|["']$/g, '');
+}
+
+function renderCaptionBlocks(){
+  document.getElementById('captionBlocks').innerHTML = SOCIAL_PLATFORMS.map(p => `
+    <div class="platform-block">
+      <h4>${p.label} <span><button type="button" class="mini-btn regenBtn" data-platform="${p.key}">🤖 Regenerate</button> <button type="button" class="mini-btn copyBtn" data-platform="${p.key}">📋 Copy</button></span></h4>
+      <textarea class="captionTextarea" data-platform="${p.key}">${currentCaptions[p.key]||''}</textarea>
+    </div>
+  `).join('');
+}
+
 document.getElementById('socialAdList').addEventListener('click', async (e) => {
   if(!e.target.classList.contains('genCaptionBtn')) return;
   const btn = e.target;
-  const out = document.getElementById('socialCaptions');
-  out.innerHTML = '⏳ Generating...';
-  const url = `${siteBaseUrl()}/ad.html?id=${btn.dataset.id}`;
-  const prompt = `Ye ek classified ad hai website RoznamaAds.pk ke liye:\nTitle: ${btn.dataset.title}\nDescription: ${btn.dataset.desc}\nLink: ${url}\n\nIs ad ke liye alag alag platform ke captions banao. Sirf valid JSON return karo, koi markdown nahi:\n{"facebook":"...","instagram":"...","x":"...","whatsapp_status":"..."}\nFacebook: 2-3 sentences, friendly tone, link included.\nInstagram: short + hashtags (3-5 relevant Urdu/English mix hashtags).\nX (Twitter): under 280 characters, link included.\nWhatsApp Status: bohot short, ek line, emoji ke sath.`;
+  currentSocialAd = { id: btn.dataset.id, title: btn.dataset.title, description: btn.dataset.desc };
+  document.getElementById('socialAdTitleLabel').textContent = currentSocialAd.title;
+  document.getElementById('socialCaptionsSection').style.display = 'block';
+  document.getElementById('captionBlocks').innerHTML = '⏳ Generating...';
+
   try{
-    let raw = await rzCallGemini(prompt);
-    raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
-    const c = JSON.parse(raw);
-    out.innerHTML = ['facebook','instagram','x','whatsapp_status'].map(k => `
-      <div class="cat-row" style="flex-direction:column;align-items:stretch">
-        <b style="text-transform:capitalize">${k.replace('_',' ')}</b>
-        <span style="font-size:.85rem;white-space:pre-wrap">${c[k]||''}</span>
-        <button class="mini-btn" style="margin-top:6px;align-self:flex-start" onclick="navigator.clipboard.writeText(${JSON.stringify(c[k]||'')});this.textContent='✅ Copied'">📋 Copy</button>
-      </div>
-    `).join('');
-    log('✍️ Captions generate hue: ' + btn.dataset.title);
+    const results = await Promise.all(SOCIAL_PLATFORMS.map(p => generateCaption(p.key, currentSocialAd, currentSocialLang)));
+    currentCaptions = {};
+    SOCIAL_PLATFORMS.forEach((p,i) => currentCaptions[p.key] = results[i]);
+    renderCaptionBlocks();
+    saveSocialHistory();
+    log('✍️ Captions generate hue: ' + currentSocialAd.title);
   }catch(err){
-    out.innerHTML = `<div class="stub">❌ ${err.message}</div>`;
+    document.getElementById('captionBlocks').innerHTML = `<div class="stub">❌ ${err.message}</div>`;
   }
 });
+
+document.getElementById('socialLangTabs').addEventListener('click', async (e) => {
+  if(!e.target.classList.contains('lang-tab')) return;
+  document.querySelectorAll('#socialLangTabs .lang-tab').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  currentSocialLang = e.target.dataset.lang;
+  if(!currentSocialAd) return;
+  document.getElementById('captionBlocks').innerHTML = '⏳ Regenerating in new language...';
+  try{
+    const results = await Promise.all(SOCIAL_PLATFORMS.map(p => generateCaption(p.key, currentSocialAd, currentSocialLang)));
+    SOCIAL_PLATFORMS.forEach((p,i) => currentCaptions[p.key] = results[i]);
+    renderCaptionBlocks();
+    saveSocialHistory();
+  }catch(err){
+    document.getElementById('captionBlocks').innerHTML = `<div class="stub">❌ ${err.message}</div>`;
+  }
+});
+
+document.getElementById('captionBlocks').addEventListener('click', async (e) => {
+  if(e.target.classList.contains('regenBtn')){
+    const platform = e.target.dataset.platform;
+    const ta = document.querySelector(`.captionTextarea[data-platform="${platform}"]`);
+    e.target.disabled = true;
+    try{
+      const text = await generateCaption(platform, currentSocialAd, currentSocialLang);
+      currentCaptions[platform] = text;
+      ta.value = text;
+      saveSocialHistory();
+    }catch(err){ alert('Error: ' + err.message); }
+    e.target.disabled = false;
+  }
+  if(e.target.classList.contains('copyBtn')){
+    const platform = e.target.dataset.platform;
+    const ta = document.querySelector(`.captionTextarea[data-platform="${platform}"]`);
+    navigator.clipboard.writeText(ta.value);
+    e.target.textContent = '✅ Copied';
+    setTimeout(() => { e.target.textContent = '📋 Copy'; }, 1500);
+  }
+});
+
+document.getElementById('copyAllCaptionsBtn').addEventListener('click', () => {
+  const all = SOCIAL_PLATFORMS.map(p => `${p.label}:\n${document.querySelector(`.captionTextarea[data-platform="${p.key}"]`)?.value || ''}`).join('\n\n---\n\n');
+  navigator.clipboard.writeText(all);
+  const btn = document.getElementById('copyAllCaptionsBtn');
+  btn.textContent = '✅ Copied All';
+  setTimeout(() => { btn.textContent = '📋 Copy All'; }, 1500);
+});
+
+function saveSocialHistory(){
+  if(!currentSocialAd) return;
+  let hist = JSON.parse(localStorage.getItem('rz_social_history') || '[]');
+  hist = hist.filter(h => h.adId !== currentSocialAd.id);
+  hist.unshift({ adId: currentSocialAd.id, adTitle: currentSocialAd.title, lang: currentSocialLang, captions: {...currentCaptions}, when: new Date().toLocaleString() });
+  hist = hist.slice(0, 10);
+  localStorage.setItem('rz_social_history', JSON.stringify(hist));
+  renderSocialHistory();
+}
+
+function renderSocialHistory(){
+  const hist = JSON.parse(localStorage.getItem('rz_social_history') || '[]');
+  const box = document.getElementById('socialHistoryList');
+  if(!hist.length){ box.textContent = 'Koi history nahi hai.'; return; }
+  box.innerHTML = hist.map((h,i) => `
+    <div class="cat-row" style="justify-content:space-between">
+      <span>${h.adTitle} <span style="color:var(--muted);font-size:.75rem">· ${h.when}</span></span>
+      <button class="mini-btn viewHistBtn" data-idx="${i}">👁️ View</button>
+    </div>
+  `).join('');
+}
+document.getElementById('socialHistoryList').addEventListener('click', (e) => {
+  if(!e.target.classList.contains('viewHistBtn')) return;
+  const hist = JSON.parse(localStorage.getItem('rz_social_history') || '[]');
+  const h = hist[parseInt(e.target.dataset.idx)];
+  if(!h) return;
+  currentSocialAd = { id: h.adId, title: h.adTitle };
+  currentSocialLang = h.lang;
+  currentCaptions = h.captions;
+  document.getElementById('socialAdTitleLabel').textContent = h.adTitle;
+  document.getElementById('socialCaptionsSection').style.display = 'block';
+  document.querySelectorAll('#socialLangTabs .lang-tab').forEach(t => t.classList.toggle('active', t.dataset.lang === h.lang));
+  renderCaptionBlocks();
+});
+document.getElementById('clearSocialHistoryBtn').addEventListener('click', () => {
+  if(!confirm('Poori history clear karni hai?')) return;
+  localStorage.removeItem('rz_social_history');
+  renderSocialHistory();
+});
+renderSocialHistory();
 
 /* ---------- Category Manager ---------- */
 let catData = [];
