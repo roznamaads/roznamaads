@@ -187,14 +187,19 @@ function renderAd(ad){
 
   const imgBox = document.getElementById('adImgBox');
   if(ad.images && ad.images.length > 0){
-    imgBox.innerHTML = `<img src="${ad.images[0]}" alt="${ad.title}" style="width:100%;height:100%;object-fit:cover">`;
+    imgBox.innerHTML = `<img src="${ad.images[0]}" alt="${ad.title}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.__adCurrentFullImg && window.open(window.__adCurrentFullImg,'_blank')">`;
+    window.__adCurrentFullImg = ad.images[0];
+    const viewLink = document.createElement('div');
+    viewLink.style.cssText = 'text-align:center;margin-top:6px';
+    viewLink.innerHTML = `<a href="${ad.images[0]}" target="_blank" rel="noopener" download style="font-size:.8rem;color:var(--green-dark);font-weight:600;text-decoration:none">🔍 Original Photo Poora Dekhein / Download Karein</a>`;
+    imgBox.insertAdjacentElement('afterend', viewLink);
     if(ad.images.length > 1){
       const thumbRow = document.createElement('div');
       thumbRow.className = 'ad-thumb-row';
       thumbRow.innerHTML = ad.images.map((src,i) =>
-        `<img src="${src}" alt="Photo ${i+1}" class="ad-thumb" onclick="document.querySelector('#adImgBox img').src='${src}'">`
+        `<img src="${src}" alt="Photo ${i+1}" class="ad-thumb" onclick="document.querySelector('#adImgBox img').src='${src}'; window.__adCurrentFullImg='${src}'">`
       ).join('');
-      imgBox.insertAdjacentElement('afterend', thumbRow);
+      viewLink.insertAdjacentElement('afterend', thumbRow);
     }
   }
 
