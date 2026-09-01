@@ -114,6 +114,16 @@
     <div class="field" style="margin-top:14px"><label>Output</label><div class="stub" id="pgOutput" style="text-align:left">Output yahan dikhega.</div></div>
   </section>
 
+  <section class="panel" data-panel="newspaper-manager">
+    <h2>Newspaper Manager</h2>
+    <p class="desc">Newspaper sources track karein — access method, ToS/permission status, test priority.</p>
+    <p class="desc" style="color:#a86b00">⚠️ Ye list sirf is browser mein (localStorage) save hoti hai — site par publish nahi hoti, sirf apna internal tracking hai.</p>
+    <div id="npManagerList" style="margin-top:14px"></div>
+    <button class="btn alt" id="addNpBtn" style="margin-top:10px">+ Add Newspaper</button>
+    <button class="btn" id="saveNpBtn" style="margin-top:10px">💾 Save</button>
+    <p class="desc" id="npSaveMsg" style="margin-top:8px"></p>
+  </section>
+
   <!-- Ad Post Generator (Newspaper Manager + OCR/AI Processing) -->
   <section class="panel" data-panel="ad-generator">
     <h2>Ad Post Generator</h2>
@@ -330,6 +340,7 @@ document.getElementById('changePassBtn').addEventListener('click', () => {
 const TOOLS = [
   {id:'ai-settings', label:'AI Settings'},
   {id:'ai-playground', label:'AI Playground'},
+  {id:'newspaper-manager', label:'Newspaper Mgr'},
   {id:'ad-generator', label:'Ad Post Generator'},
   {id:'draft-queue', label:'Draft Queue'},
   {id:'ad-manager', label:'Ad Manager'},
@@ -695,6 +706,58 @@ document.getElementById('depCommitBtn').onclick = async () => {
 };
 
 depRenderFileList();
+
+/* ---------- Newspaper Manager (localStorage only) ---------- */
+const NP_DEFAULTS = [
+  {name:'Express', access:'Website/e-paper', tos:'Reviewing', test:true, notes:'Test source FINALISED — Phase 1 prototype yahin se shuru.'},
+  {name:'Jang', access:'e-paper', tos:'Not Checked', test:false, notes:''},
+  {name:'Nawa-i-Waqt', access:'e-paper', tos:'Not Checked', test:false, notes:''},
+  {name:'Dawn', access:'Website', tos:'Not Checked', test:false, notes:''}
+];
+let npData = JSON.parse(localStorage.getItem('rz_newspapers') || 'null') || NP_DEFAULTS.map(n => ({...n}));
+
+function renderNpManager(){
+  const box = document.getElementById('npManagerList');
+  box.innerHTML = npData.map((n, i) => `
+    <div class="cat-row" data-idx="${i}">
+      <input type="text" value="${n.name}" placeholder="Newspaper name" data-field="name">
+      <input type="text" value="${n.access||''}" placeholder="Access method (Website/e-paper/Manual)" data-field="access">
+      <select data-field="tos">
+        <option ${n.tos==='Not Checked'?'selected':''}>Not Checked</option>
+        <option ${n.tos==='Reviewing'?'selected':''}>Reviewing</option>
+        <option ${n.tos==='Approved'?'selected':''}>Approved</option>
+        <option ${n.tos==='Blocked'?'selected':''}>Blocked</option>
+      </select>
+      <label><input type="checkbox" ${n.test ? 'checked' : ''} data-field="test"> Test Source</label>
+      <input type="text" value="${n.notes||''}" placeholder="Notes" data-field="notes" style="flex-basis:100%">
+      <button class="mini-btn" style="color:#c0392b" onclick="removeNp(${i})">✕</button>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const field = inp.dataset.field;
+        npData[idx][field] = field === 'test' ? inp.checked : inp.value;
+      });
+    });
+  });
+}
+function removeNp(i){
+  if(!confirm('Ye newspaper list se hatana hai?')) return;
+  npData.splice(i, 1);
+  renderNpManager();
+}
+document.getElementById('addNpBtn').addEventListener('click', () => {
+  npData.push({name:'', access:'', tos:'Not Checked', test:false, notes:''});
+  renderNpManager();
+});
+document.getElementById('saveNpBtn').addEventListener('click', () => {
+  localStorage.setItem('rz_newspapers', JSON.stringify(npData));
+  document.getElementById('npSaveMsg').textContent = '✅ Save ho gaya (is browser mein).';
+  log('📰 Newspaper Manager list save hui — ' + npData.length + ' sources.');
+});
+renderNpManager();
 
 /* ---------- Category Manager ---------- */
 let catData = [];
