@@ -208,9 +208,44 @@
 
   <section class="panel" data-panel="user-ads"><h2>User Submitted Ads</h2><p class="desc">Submit Ad page se aane wali ads ki moderation queue.</p><div class="stub"><div class="icon">👤</div>Backend connect hone ke baad submissions yahan aayengi.</div></section>
 
-  <section class="panel" data-panel="social"><h2>Social Posting</h2><p class="desc">Facebook / Instagram auto-post controls.</p><div class="stub"><div class="icon">📣</div>Phase 2 — Facebook/Instagram Graph API approval ke baad.</div></section>
+  <section class="panel" data-panel="social">
+    <h2>Social Posting</h2>
+    <p class="desc">Live ad chunein → Gemini se Facebook/Instagram/X/WhatsApp Status ke liye captions banega. Abhi copy-paste karke manually post karna hoga (Facebook/Instagram auto-post Meta App Review approval ke baad milega — neeche checklist hai).</p>
+    <button class="btn" id="loadLiveForSocial">📥 Load Live Ads</button>
+    <div id="socialAdList" style="margin-top:12px"></div>
+    <div id="socialCaptions" style="margin-top:16px"></div>
 
-  <section class="panel" data-panel="whatsapp"><h2>WhatsApp Distribution</h2><p class="desc">"Send to Groups" controls.</p><div class="stub"><div class="icon">💬</div>WhatsApp Groups infrastructure set hone ke baad (Phase 2).</div></section>
+    <details style="margin-top:20px"><summary style="cursor:pointer;font-weight:600;color:var(--green-dark)">📋 Meta App Review Checklist (Facebook/Instagram auto-post ke liye)</summary>
+      <div class="desc" style="margin-top:10px">
+        <p><b>Zaroori cheezein (2026 ke hisab se, review ~20 din leta hai):</b></p>
+        <ul style="padding-left:18px;line-height:1.7">
+          <li>Facebook Developer account + Meta App banayein (developers.facebook.com)</li>
+          <li>App mein "Pages API" product add karein</li>
+          <li>Business Verification (utility bill/tax document se) — Meta Business Manager mein</li>
+          <li>Public Privacy Policy URL — ✅ already hai: privacy.html</li>
+          <li>Public Terms of Service URL — ✅ already hai: terms.html</li>
+          <li>Ek screencast video jisme <code>pages_manage_posts</code> permission ka real use dikhaya ho (RoznamaAds ka demo)</li>
+          <li>App Review submit karein — sirf wahi permissions maangein jo chahiye (zyada permissions maangna rejection ki wajah banta hai)</li>
+          <li>Approval milne ke baad Page Access Token generate karke yahan (future update mein) daal sakenge</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel" data-panel="whatsapp">
+    <h2>WhatsApp Distribution</h2>
+    <p class="desc">Opt-in WhatsApp Groups manage karein aur live ads ek-click mein share karein. Ye tareeqa koi Meta Business API approval nahi maangta (PECA-safe, plan ke mutabiq).</p>
+
+    <h3 style="margin:16px 0 6px;color:var(--green-dark);font-size:1rem">Groups</h3>
+    <div id="waGroupList"></div>
+    <button class="btn alt" id="addWaGroupBtn" style="margin-top:8px">+ Add Group</button>
+    <button class="btn" id="saveWaGroupsBtn" style="margin-top:8px">💾 Save Groups</button>
+    <p class="desc" id="waGroupSaveMsg" style="margin-top:6px"></p>
+
+    <h3 style="margin:20px 0 6px;color:var(--green-dark);font-size:1rem">Send an Ad</h3>
+    <button class="btn" id="loadLiveForWa">📥 Load Live Ads</button>
+    <div id="waAdList" style="margin-top:12px"></div>
+  </section>
 
   <section class="panel" data-panel="seo-manager"><h2>SEO Manager</h2><p class="desc">Meta titles/descriptions, sitemap regeneration.</p><div class="stub"><div class="icon">🔍</div>Static sitemap.xml/robots.txt abhi manual hain — ye tool unhe automate karega.</div></section>
 
@@ -1029,6 +1064,114 @@ document.getElementById('saveNpBtn').addEventListener('click', () => {
   log('📰 Newspaper Manager list save hui — ' + npData.length + ' sources.');
 });
 renderNpManager();
+
+/* ---------- WhatsApp Groups (localStorage) ---------- */
+const WA_DEFAULTS = [
+  {name:'Property Group', category:'property', link:'', notes:''},
+  {name:'Jobs Group', category:'jobs', link:'', notes:''}
+];
+let waGroupData = JSON.parse(localStorage.getItem('rz_wa_groups') || 'null') || WA_DEFAULTS.map(g => ({...g}));
+
+function renderWaGroups(){
+  const box = document.getElementById('waGroupList');
+  box.innerHTML = waGroupData.map((g, i) => `
+    <div class="cat-row" data-idx="${i}">
+      <input type="text" value="${g.name}" placeholder="Group name" data-field="name">
+      <input type="text" value="${g.category||''}" placeholder="Category (optional)" data-field="category">
+      <input type="text" value="${g.link||''}" placeholder="Group invite link (optional, join karne ke liye)" data-field="link" style="flex-basis:100%">
+      <button class="mini-btn" style="color:#c0392b" onclick="removeWaGroup(${i})">✕</button>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', () => { waGroupData[idx][inp.dataset.field] = inp.value; });
+    });
+  });
+}
+function removeWaGroup(i){
+  if(!confirm('Ye group hatana hai?')) return;
+  waGroupData.splice(i,1);
+  renderWaGroups();
+}
+document.getElementById('addWaGroupBtn').addEventListener('click', () => {
+  waGroupData.push({name:'', category:'', link:'', notes:''});
+  renderWaGroups();
+});
+document.getElementById('saveWaGroupsBtn').addEventListener('click', () => {
+  localStorage.setItem('rz_wa_groups', JSON.stringify(waGroupData));
+  document.getElementById('waGroupSaveMsg').textContent = '✅ Save ho gaya (is browser mein).';
+  log('💬 WhatsApp Groups list save hui — ' + waGroupData.length + ' groups.');
+});
+renderWaGroups();
+
+function siteBaseUrl(){ return location.origin; }
+
+document.getElementById('loadLiveForWa').addEventListener('click', async () => {
+  const box = document.getElementById('waAdList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('list?status=live');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
+    box.innerHTML = data.slice(0,30).map(ad => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${ad.title}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city}</span>
+        <button class="btn alt shareWaBtn" style="margin-top:6px" data-id="${ad.id}" data-title="${ad.title.replace(/"/g,'&quot;')}" data-city="${(ad.city||'').replace(/"/g,'&quot;')}">💬 Share via WhatsApp</button>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('waAdList').addEventListener('click', (e) => {
+  if(!e.target.classList.contains('shareWaBtn')) return;
+  const btn = e.target;
+  const url = `${siteBaseUrl()}/ad.html?id=${btn.dataset.id}`;
+  const text = `📢 ${btn.dataset.title}\n📍 ${btn.dataset.city}\n\nDetails/Contact: ${url}\n\nVia RoznamaAds.pk — Pakistani newspaper classifieds, ek jagah.`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  log('💬 WhatsApp share khola: ' + btn.dataset.title);
+});
+
+/* ---------- Social Posting (caption generator) ---------- */
+document.getElementById('loadLiveForSocial').addEventListener('click', async () => {
+  const box = document.getElementById('socialAdList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('list?status=live');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
+    box.innerHTML = data.slice(0,30).map(ad => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${ad.title}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city}</span>
+        <button class="btn genCaptionBtn" style="margin-top:6px" data-id="${ad.id}" data-title="${ad.title.replace(/"/g,'&quot;')}" data-desc="${(ad.description||'').replace(/"/g,'&quot;')}">✍️ Generate Captions</button>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('socialAdList').addEventListener('click', async (e) => {
+  if(!e.target.classList.contains('genCaptionBtn')) return;
+  const btn = e.target;
+  const out = document.getElementById('socialCaptions');
+  out.innerHTML = '⏳ Generating...';
+  const url = `${siteBaseUrl()}/ad.html?id=${btn.dataset.id}`;
+  const prompt = `Ye ek classified ad hai website RoznamaAds.pk ke liye:\nTitle: ${btn.dataset.title}\nDescription: ${btn.dataset.desc}\nLink: ${url}\n\nIs ad ke liye alag alag platform ke captions banao. Sirf valid JSON return karo, koi markdown nahi:\n{"facebook":"...","instagram":"...","x":"...","whatsapp_status":"..."}\nFacebook: 2-3 sentences, friendly tone, link included.\nInstagram: short + hashtags (3-5 relevant Urdu/English mix hashtags).\nX (Twitter): under 280 characters, link included.\nWhatsApp Status: bohot short, ek line, emoji ke sath.`;
+  try{
+    let raw = await rzCallGemini(prompt);
+    raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+    const c = JSON.parse(raw);
+    out.innerHTML = ['facebook','instagram','x','whatsapp_status'].map(k => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b style="text-transform:capitalize">${k.replace('_',' ')}</b>
+        <span style="font-size:.85rem;white-space:pre-wrap">${c[k]||''}</span>
+        <button class="mini-btn" style="margin-top:6px;align-self:flex-start" onclick="navigator.clipboard.writeText(${JSON.stringify(c[k]||'')});this.textContent='✅ Copied'">📋 Copy</button>
+      </div>
+    `).join('');
+    log('✍️ Captions generate hue: ' + btn.dataset.title);
+  }catch(err){
+    out.innerHTML = `<div class="stub">❌ ${err.message}</div>`;
+  }
+});
 
 /* ---------- Category Manager ---------- */
 let catData = [];
