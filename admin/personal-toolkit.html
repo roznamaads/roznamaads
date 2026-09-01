@@ -458,18 +458,17 @@ function fileToBase64(file){
 
 const EXTRACT_INSTRUCTIONS = `Kaam:
 1. Har alag classified ad/tender/notice ko identify karo. Agar koi cheez sirf ek naam/vendor ki list ya directory hai (jaise ek hi notice ke andar ke multiple names), usay TOOD kar mat karo — usay ek single ad/notice ki tarah treat karo.
-2. Description MUKAMMAL/COMPLETE honi chahiye — koi bhi zaroori detail chootni nahi chahiye. Agar ad mein table/list ho (lots, quantities, prices, dates, cost, security amount, deadlines waghera), to wo SAB values description mein plain-text table/list format mein zaroor likho (har row alag line par, "Lot 1: Hybrid Maize Seed — 50 MT — Rs. 25M — Bid Security Rs. 500,000 — arrival 1 month" jaisi format). Koi number/deadline/reference miss na ho.
-3. Description do hisso mein likho:
-   a) Pehle English mein mukammal detail (tables/lists included)
-   b) Phir "---" separator ke baad Roman Urdu mein wohi mukammal detail ka tarjuma/summary (kyunke local Pakistani users Roman Urdu mein bhi parhna pasand karte hain)
-   Newspaper ka original text hu-ba-hu copy mat karo — apne alfaaz mein likho, sirf facts/numbers same rakho.
-4. Har ad ke liye category inhi values mein se choose karo: ${VALID_CATEGORIES.join(', ')}
-5. Agar visa/auction/tender/notice category ho to relevant extra_fields nikalo (jaise auctionDate, deadline, visaType, destination, refNo) — jo bhi mile.
+2. Description SHORT aur PADHNE MEIN AASAN honi chahiye — sirf 2-4 sentences ka clean summary, koi lambi list/table description ke andar mat likho.
+3. Agar ad mein table/list ho (lots, quantities, prices, dates, cost, security amount, deadlines waghera), to wo data description mein MAT likho — us data ko ALAG se "table" field mein structured format mein do (neeche shape dekhein), taake website par ek asal table ki tarah dikhaya ja sake.
+4. Description format: pehle chota English paragraph (2-4 sentences), phir "---" separator, phir Roman Urdu mein sirf 1-2 line ka KHULASA (summary) — poori details Roman Urdu mein dobara mat likhna, sirf gist.
+5. Newspaper ka original text hu-ba-hu copy mat karo — apne alfaaz mein likho, sirf facts/numbers same rakho.
+6. Har ad ke liye category inhi values mein se choose karo: ${VALID_CATEGORIES.join(', ')}
+7. Agar visa/auction/tender/notice category ho to relevant extra_fields nikalo (jaise auctionDate, deadline, visaType, destination, refNo).
 
 Sirf valid JSON ARRAY return karo, koi aur text/markdown nahi, is exact shape mein:
-[{"category":"...","title":"short catchy title (max 80 chars)","city":"city name or empty string","price":"price/amount as plain text or empty string","description":"MUKAMMAL description: English section, phir --- , phir Roman Urdu section","contact_phone":"phone number if found, else empty string","extra_fields":{}}]
+[{"category":"...","title":"short catchy title (max 80 chars)","city":"city name or empty string","price":"price/amount as plain text or empty string","description":"short English summary --- short Roman Urdu khulasa","contact_phone":"phone number if found, else empty string","extra_fields":{"table":{"headers":["col1","col2"],"rows":[["val1","val2"]]}}}]
 
-Agar sirf ek hi ad mile to bhi ek-item wala array return karo.`;
+Agar koi structured table/list nahi mili to extra_fields.table field bilkul chhod do (mat likho). Agar sirf ek hi ad mile to bhi ek-item wala array return karo.`;
 
 document.getElementById('genDraft').addEventListener('click', async () => {
   const file = document.getElementById('ocrImage').files[0];
@@ -504,17 +503,30 @@ document.getElementById('genDraft').addEventListener('click', async () => {
     arr.forEach((d, i) => {
       if(!VALID_CATEGORIES.includes(d.category)) d.category = 'services';
       const opts = VALID_CATEGORIES.map(c => `<option value="${c}" ${c===d.category?'selected':''}>${CAT_LABELS[c]}</option>`).join('');
+      const extraFields = d.extra_fields && typeof d.extra_fields === 'object' ? d.extra_fields : {};
+      const tbl = extraFields.table;
+      let tablePreview = '';
+      if(tbl && Array.isArray(tbl.headers) && Array.isArray(tbl.rows) && tbl.rows.length){
+        tablePreview = `<div class="field"><label>Table Preview (website par asal table ki tarah dikhegi)</label>
+          <div style="overflow-x:auto"><table class="ad-table" style="font-size:.75rem">
+            <thead><tr>${tbl.headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+            <tbody>${tbl.rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table></div></div>`;
+      }
       const card = document.createElement('div');
       card.className = 'draft-card';
-      card.dataset.extraFields = JSON.stringify(d.extra_fields && typeof d.extra_fields === 'object' ? d.extra_fields : {});
       card.innerHTML = `
         <h4>Draft ${i+1}</h4>
         <div class="field"><label>Category</label><select class="d-category">${opts}</select></div>
         <div class="field"><label>Title</label><input type="text" class="d-title" value="${(d.title||'').replace(/"/g,'&quot;')}"></div>
         <div class="field"><label>City</label><input type="text" class="d-city" value="${(d.city||'').replace(/"/g,'&quot;')}"></div>
         <div class="field"><label>Price</label><input type="text" class="d-price" value="${(d.price||'').replace(/"/g,'&quot;')}"></div>
-        <div class="field"><label>Description (English + Roman Urdu)</label><textarea class="d-description" rows="10">${d.description||''}</textarea></div>
+        <div class="field"><label>Description (chota English + chota Roman Urdu khulasa)</label><textarea class="d-description" rows="5">${d.description||''}</textarea></div>
         <div class="field"><label>Contact Phone</label><input type="text" class="d-phone" value="${(d.contact_phone||'').replace(/"/g,'&quot;')}"></div>
+        ${tablePreview}
+        <details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:.8rem;color:var(--muted)">Advanced: Extra Fields (JSON) — table/deadline data yahan edit kar sakte hain</summary>
+          <textarea class="d-extra-fields" rows="5" style="font-family:monospace;font-size:.75rem;width:100%;margin-top:6px">${JSON.stringify(extraFields, null, 2)}</textarea>
+        </details>
         ${file ? `<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);margin-bottom:10px"><input type="checkbox" class="d-attach-img" checked> Newspaper page ki original photo is ad ke saath attach karein (accuracy ke liye)</label>` : ''}
         <button class="btn saveDraftBtn">📝 Save as Draft (Pending)</button>
         <p class="desc save-msg" style="margin-top:8px"></p>
@@ -558,6 +570,15 @@ document.getElementById('draftCards').addEventListener('click', async (e) => {
     }
   }
 
+  let extraFieldsParsed = {};
+  try{
+    extraFieldsParsed = JSON.parse(card.querySelector('.d-extra-fields').value || '{}');
+  }catch(jsonErr){
+    alert('Extra Fields JSON mein ghalti hai — check kar ke theek karein.');
+    e.target.disabled = false;
+    return;
+  }
+
   const payload = {
     category: card.querySelector('.d-category').value,
     title: card.querySelector('.d-title').value.trim(),
@@ -565,7 +586,7 @@ document.getElementById('draftCards').addEventListener('click', async (e) => {
     price: card.querySelector('.d-price').value.trim(),
     description: card.querySelector('.d-description').value.trim(),
     contact_phone: card.querySelector('.d-phone').value.trim(),
-    extra_fields: JSON.parse(card.dataset.extraFields || '{}'),
+    extra_fields: extraFieldsParsed,
     images
   };
   if(!payload.title || !payload.description){ alert('Title aur Description zaroori hain.'); e.target.disabled = false; return; }

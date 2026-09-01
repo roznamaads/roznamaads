@@ -39,6 +39,10 @@ main{max-width:960px;margin:28px auto 56px;padding:0 16px}
 .badge-deadline.soon{background:#fff4de;color:#a66200}
 .badge-deadline.expired{background:#eee;color:#777}
 .ad-detail-badges{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.ad-table{width:100%;border-collapse:collapse;font-size:.85rem;background:var(--card)}
+.ad-table th,.ad-table td{border:1px solid var(--line);padding:8px 10px;text-align:left;white-space:nowrap}
+.ad-table th{background:var(--green-pale);color:var(--green-dark);font-weight:700}
+.ad-table tr:nth-child(even) td{background:#fafaf5}
 .ad-card h4{font-size:.95rem;margin:0}
 .ad-card .meta{font-size:.78rem;color:var(--muted)}
 .faq-block details{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:8px;background:var(--card)}

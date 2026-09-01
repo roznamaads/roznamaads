@@ -45,6 +45,18 @@
         <p id="adDesc">Is ad ki tafseel abhi placeholder hai — real newspaper data connect hone ke baad yahan asal description dikhegi.</p>
       </div>
 
+      <div id="adTableBox" style="display:none;margin:16px 0">
+        <h2>Details</h2>
+        <div style="overflow-x:auto">
+          <table class="ad-table" id="adTable"></table>
+        </div>
+      </div>
+
+      <div class="ad-detail-desc" id="adUrduBox" style="display:none">
+        <h2>خلاصہ (Roman Urdu)</h2>
+        <p id="adDescUrdu"></p>
+      </div>
+
       <div class="contact-box">
         <h2>Contact</h2>
         <p class="masked-number" id="adPhone">0300-XXX-1234</p>
@@ -155,6 +167,23 @@ function renderAd(ad){
   document.getElementById('adPhone').textContent = ad.phoneMasked;
   document.getElementById('adDesc').textContent = ad.description;
   window.__adPhoneFull = ad.phoneFull || '0300-1234521 (sample)';
+
+  // Split bilingual description on "---" separator (English part shown above, Roman Urdu summary below)
+  const descParts = (ad.description || '').split(/\n?---\n?/);
+  if(descParts.length > 1){
+    document.getElementById('adDesc').textContent = descParts[0].trim();
+    document.getElementById('adDescUrdu').textContent = descParts[1].trim();
+    document.getElementById('adUrduBox').style.display = 'block';
+  }
+
+  // Render structured table if AI extracted one (extra_fields.table = {headers:[], rows:[[]]})
+  const tbl = ad.extraFields && ad.extraFields.table;
+  if(tbl && Array.isArray(tbl.headers) && Array.isArray(tbl.rows) && tbl.rows.length){
+    const thead = '<thead><tr>' + tbl.headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
+    const tbody = '<tbody>' + tbl.rows.map(row => '<tr>' + row.map(c => `<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody>';
+    document.getElementById('adTable').innerHTML = thead + tbody;
+    document.getElementById('adTableBox').style.display = 'block';
+  }
 
   const imgBox = document.getElementById('adImgBox');
   if(ad.images && ad.images.length > 0){
