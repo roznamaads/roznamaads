@@ -895,7 +895,7 @@ document.getElementById('depCommitBtn').onclick = async () => {
     depProg(0.1);
 
     log('Step 2/5: Uploading blobs (parallel)...');
-    const treeItems = await depPool(depSelectedFiles, 4, async (f) => {
+    const newBlobs = await depPool(depSelectedFiles, 4, async (f) => {
       const repoPath = prefix ? `${prefix}/${f.path}` : f.path;
       const base64Content = await depReadFileAsBase64(f.file);
       const blobRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/blobs`, {
@@ -906,19 +906,37 @@ document.getElementById('depCommitBtn').onclick = async () => {
       const blobData = await blobRes.json();
       log(`  ✓ ${repoPath}`);
       return {path: repoPath, mode: '100644', type: 'blob', sha: blobData.sha};
-    }, (done, total) => depProg(0.1 + (done/total) * 0.6));
+    }, (done, total) => depProg(0.1 + (done/total) * 0.5));
 
     const deletePaths = document.getElementById('depDeletePaths').value.split(',').map(s => s.trim()).filter(Boolean);
-    for(const dp of deletePaths){
-      treeItems.push({path: dp, mode: '100644', type: 'blob', sha: null});
-      log(`  🗑️ marked for deletion: ${dp}`);
-    }
     if(deletePaths.length && isEmptyRepo){
       throw new Error('Empty repo mein files delete nahi ho sakti (kuch bhi exist hi nahi karta).');
     }
 
+    // Poori tree khud rebuild karte hain (existing + new - deleted) — GitHub ke base_tree+null-sha
+    // deletion tareeqe mein kabhi kabhi "BadObjectState" error aata hai, isliye ye zyada reliable hai.
+    log('Step 2.5/5: Fetching current tree state...');
+    const treeMap = new Map();
+    if(baseTreeSha){
+      const fullTreeRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${baseTreeSha}?recursive=1`, {headers: depGhHeaders(token)});
+      if(!fullTreeRes.ok) throw new Error(`Full tree fetch failed: ${fullTreeRes.status}`);
+      const fullTreeData = await fullTreeRes.json();
+      for(const node of fullTreeData.tree){
+        if(node.type === 'blob') treeMap.set(node.path, {path: node.path, mode: node.mode, type: 'blob', sha: node.sha});
+      }
+    }
+    for(const dp of deletePaths){
+      treeMap.delete(dp);
+      log(`  🗑️ removed from tree: ${dp}`);
+    }
+    for(const nb of newBlobs){
+      treeMap.set(nb.path, nb);
+    }
+    const treeItems = Array.from(treeMap.values());
+    depProg(0.7);
+
     log('Step 3/5: Creating tree...');
-    const treeBody = baseTreeSha ? {base_tree: baseTreeSha, tree: treeItems} : {tree: treeItems};
+    const treeBody = {tree: treeItems};
     const treeRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
       method: 'POST', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'}, body: JSON.stringify(treeBody)
     });
