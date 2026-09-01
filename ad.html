@@ -232,12 +232,16 @@ async function loadToolnestWidget(catKey){
     if(!tools || tools.length === 0) return;
     const tool = tools[Math.floor(Math.random() * tools.length)];
     const intro = TOOLNEST_INTROS[catKey] || "Ye related free tool try karein:";
+    const toolUrl = `https://toolnest.link/${tool.slug}.html`;
     document.getElementById('toolnestWidget').innerHTML = `
-      <div class="toolnest-widget">
-        <p class="tn-label">${intro}</p>
-        <iframe src="https://toolnest.link/${tool.slug}.html" title="${tool.name}" loading="lazy"></iframe>
-        <p class="tn-credit">Powered by <a href="https://toolnest.link/" target="_blank" rel="noopener">ToolNest</a> — 99 free tools</p>
-      </div>
+      <a class="toolnest-card" href="${toolUrl}" target="_blank" rel="noopener">
+        <div class="tn-card-icon">🧰</div>
+        <div class="tn-card-text">
+          <p class="tn-label">${intro}</p>
+          <p class="tn-tool-name">${tool.name} <span class="tn-arrow">↗</span></p>
+          <p class="tn-credit">Powered by ToolNest — 99 free tools</p>
+        </div>
+      </a>
     `;
   }catch(e){ /* widget is optional; fail silently */ }
 }
