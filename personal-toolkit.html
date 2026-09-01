@@ -55,6 +55,15 @@
   .cat-row input[type=text]{flex:1;min-width:100px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;font-size:.82rem}
   .cat-row label{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted);white-space:nowrap}
   .cat-row .mini-btn{background:none;border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:.75rem;cursor:pointer}
+  .stat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  .stat-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
+  .stat-card .num{font-size:1.5rem;font-weight:800;color:var(--green-dark)}
+  .stat-card .lbl{font-size:.75rem;color:var(--muted)}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:.8rem}
+  .bar-row .name{width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar-row .bar-track{flex:1;background:var(--line);border-radius:4px;height:14px;overflow:hidden}
+  .bar-row .bar-fill{background:var(--green);height:100%}
+  .bar-row .count{width:28px;text-align:right;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -105,6 +114,16 @@
     <div class="field" style="margin-top:14px"><label>Output</label><div class="stub" id="pgOutput" style="text-align:left">Output yahan dikhega.</div></div>
   </section>
 
+  <section class="panel" data-panel="newspaper-manager">
+    <h2>Newspaper Manager</h2>
+    <p class="desc">Newspaper sources track karein — access method, ToS/permission status, test priority.</p>
+    <p class="desc" style="color:#a86b00">⚠️ Ye list sirf is browser mein (localStorage) save hoti hai — site par publish nahi hoti, sirf apna internal tracking hai.</p>
+    <div id="npManagerList" style="margin-top:14px"></div>
+    <button class="btn alt" id="addNpBtn" style="margin-top:10px">+ Add Newspaper</button>
+    <button class="btn" id="saveNpBtn" style="margin-top:10px">💾 Save</button>
+    <p class="desc" id="npSaveMsg" style="margin-top:8px"></p>
+  </section>
+
   <!-- Ad Post Generator (Newspaper Manager + OCR/AI Processing) -->
   <section class="panel" data-panel="ad-generator">
     <h2>Ad Post Generator</h2>
@@ -121,8 +140,8 @@
   <section class="panel" data-panel="draft-queue">
     <h2>Ad Draft Queue</h2>
     <p class="desc">User-submitted aur AI-generated pending ads — approve ya reject karein.</p>
-    <div class="field"><label>Supabase Service Role Key</label><input type="password" id="serviceKey" placeholder="service_role key paste karein"></div>
-    <p class="desc" style="color:#a86b00">⚠️ Ye key sab RLS bypass kar sakti hai — kabhi public files mein na daalein. Draft Queue, Ad Manager, Reported Ads teeno isi key ko use karte hain.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="serviceKey" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <p class="desc" style="color:#a86b00">⚠️ Ye ek chhota secret hai jo aap khud Vercel Environment Variables mein set karte hain — asal Supabase key kabhi browser mein nahi aati, wo sirf server (Vercel Function) par hoti hai.</p>
     <button class="btn" id="loadPending">📥 Load Pending Ads</button>
     <div id="pendingList" style="margin-top:14px"></div>
   </section>
@@ -137,7 +156,12 @@
 
   <section class="panel" data-panel="dup-check"><h2>Duplicate Check</h2><p class="desc">Multi-newspaper mein repeat hone wali ads detect karega.</p><div class="stub"><div class="icon">🧬</div>Phase 3 feature — database aur multi-newspaper ingestion ke baad.</div></section>
 
-  <section class="panel" data-panel="expiry"><h2>Expiry Management</h2><p class="desc">30-din auto-expiry override / extend.</p><div class="stub"><div class="icon">⏳</div>Database connect hone ke baad functional hoga.</div></section>
+  <section class="panel" data-panel="expiry">
+    <h2>Expiry Management</h2>
+    <p class="desc">Live ads apni expiry date ke hisaab se — jaldi expire hone wali upar.</p>
+    <button class="btn" id="loadExpiry">📥 Load Ads</button>
+    <div id="expiryList" style="margin-top:14px"></div>
+  </section>
 
   <section class="panel" data-panel="reported">
     <h2>Reported Ads</h2>
@@ -164,7 +188,12 @@
 
   <section class="panel" data-panel="seo-manager"><h2>SEO Manager</h2><p class="desc">Meta titles/descriptions, sitemap regeneration.</p><div class="stub"><div class="icon">🔍</div>Static sitemap.xml/robots.txt abhi manual hain — ye tool unhe automate karega.</div></section>
 
-  <section class="panel" data-panel="analytics"><h2>Analytics Dashboard</h2><p class="desc">Daily new ads, traffic, click-through.</p><div class="stub"><div class="icon">📊</div>GA4 + Search Console setup ke baad data yahan dikhega.</div></section>
+  <section class="panel" data-panel="analytics">
+    <h2>Analytics Dashboard</h2>
+    <p class="desc">Daily new ads, category/city breakdown.</p>
+    <button class="btn" id="loadStats">📥 Load Stats</button>
+    <div id="statsBox" style="margin-top:14px"></div>
+  </section>
 
   <!-- Website Health Monitor (functional) -->
   <section class="panel" data-panel="health">
@@ -311,6 +340,7 @@ document.getElementById('changePassBtn').addEventListener('click', () => {
 const TOOLS = [
   {id:'ai-settings', label:'AI Settings'},
   {id:'ai-playground', label:'AI Playground'},
+  {id:'newspaper-manager', label:'Newspaper Mgr'},
   {id:'ad-generator', label:'Ad Post Generator'},
   {id:'draft-queue', label:'Draft Queue'},
   {id:'ad-manager', label:'Ad Manager'},
@@ -677,7 +707,59 @@ document.getElementById('depCommitBtn').onclick = async () => {
 
 depRenderFileList();
 
-/* ---------- Category Manager ---------- */
+/* ---------- Newspaper Manager (localStorage only) ---------- */
+const NP_DEFAULTS = [
+  {name:'Express', access:'Website/e-paper', tos:'Reviewing', test:true, notes:'Test source FINALISED — Phase 1 prototype yahin se shuru.'},
+  {name:'Jang', access:'e-paper', tos:'Not Checked', test:false, notes:''},
+  {name:'Nawa-i-Waqt', access:'e-paper', tos:'Not Checked', test:false, notes:''},
+  {name:'Dawn', access:'Website', tos:'Not Checked', test:false, notes:''}
+];
+let npData = JSON.parse(localStorage.getItem('rz_newspapers') || 'null') || NP_DEFAULTS.map(n => ({...n}));
+
+function renderNpManager(){
+  const box = document.getElementById('npManagerList');
+  box.innerHTML = npData.map((n, i) => `
+    <div class="cat-row" data-idx="${i}">
+      <input type="text" value="${n.name}" placeholder="Newspaper name" data-field="name">
+      <input type="text" value="${n.access||''}" placeholder="Access method (Website/e-paper/Manual)" data-field="access">
+      <select data-field="tos">
+        <option ${n.tos==='Not Checked'?'selected':''}>Not Checked</option>
+        <option ${n.tos==='Reviewing'?'selected':''}>Reviewing</option>
+        <option ${n.tos==='Approved'?'selected':''}>Approved</option>
+        <option ${n.tos==='Blocked'?'selected':''}>Blocked</option>
+      </select>
+      <label><input type="checkbox" ${n.test ? 'checked' : ''} data-field="test"> Test Source</label>
+      <input type="text" value="${n.notes||''}" placeholder="Notes" data-field="notes" style="flex-basis:100%">
+      <button class="mini-btn" style="color:#c0392b" onclick="removeNp(${i})">✕</button>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const field = inp.dataset.field;
+        npData[idx][field] = field === 'test' ? inp.checked : inp.value;
+      });
+    });
+  });
+}
+function removeNp(i){
+  if(!confirm('Ye newspaper list se hatana hai?')) return;
+  npData.splice(i, 1);
+  renderNpManager();
+}
+document.getElementById('addNpBtn').addEventListener('click', () => {
+  npData.push({name:'', access:'', tos:'Not Checked', test:false, notes:''});
+  renderNpManager();
+});
+document.getElementById('saveNpBtn').addEventListener('click', () => {
+  localStorage.setItem('rz_newspapers', JSON.stringify(npData));
+  document.getElementById('npSaveMsg').textContent = '✅ Save ho gaya (is browser mein).';
+  log('📰 Newspaper Manager list save hui — ' + npData.length + ' sources.');
+});
+renderNpManager();
+
+
 let catData = [];
 
 function renderCatManager(){
@@ -746,38 +828,29 @@ document.getElementById('saveCatsToDeployer').addEventListener('click', () => {
   log('📤 categories.json Deployer mein queue ho gayi.');
 });
 
-/* ---------- Admin DB access (service_role key, session-only) ---------- */
-// NOTE: supabase-js deliberately blocks service_role keys in browser contexts.
-// We call the REST API directly instead — same key, same risk profile,
-// but appropriate here since this key never leaves this password-gated
-// session (not saved to disk/GitHub, cleared on Lock).
-function getServiceKey(){
-  const key = document.getElementById('serviceKey').value.trim() || sessionStorage.getItem('rz_service_key');
-  if(!key){ alert('Pehle Supabase Service Role Key daalein.'); return null; }
-  sessionStorage.setItem('rz_service_key', key);
+/* ---------- Admin DB access via Vercel serverless functions ---------- */
+// The Supabase service_role key now lives ONLY on the server (Vercel env vars).
+// This browser code only sends a small shared secret (ADMIN_API_SECRET) to
+// our own /api/admin/* endpoints, which then talk to Supabase server-side.
+function getAdminSecret(){
+  const key = document.getElementById('serviceKey').value.trim() || sessionStorage.getItem('rz_admin_secret');
+  if(!key){ alert('Pehle Admin API Secret daalein.'); return null; }
+  sessionStorage.setItem('rz_admin_secret', key);
   return key;
 }
-function adminHeaders(key, prefer){
-  const h = {'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'};
-  if(prefer) h['Prefer'] = prefer;
-  return h;
-}
-async function adminRest(path, options){
-  const key = getServiceKey();
-  if(!key) return null;
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+async function callAdminApi(path, options){
+  const secret = getAdminSecret();
+  if(!secret) return null;
+  const res = await fetch(`../api/admin/${path}`, {
     ...options,
-    headers: {...adminHeaders(key, options?.prefer), ...(options?.headers||{})}
+    headers: {'Content-Type':'application/json', 'x-admin-secret': secret, ...(options?.headers||{})}
   });
-  if(!res.ok){
-    const errText = await res.text();
-    throw new Error(`${res.status}: ${errText}`);
-  }
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
 }
 (function restoreServiceKey(){
-  const saved = sessionStorage.getItem('rz_service_key');
+  const saved = sessionStorage.getItem('rz_admin_secret');
   if(saved) document.getElementById('serviceKey').value = saved;
 })();
 
@@ -791,7 +864,7 @@ document.getElementById('loadPending').addEventListener('click', async () => {
   const box = document.getElementById('pendingList');
   box.innerHTML = 'Loading...';
   try{
-    const data = await adminRest('ads?status=eq.pending&order=created_at.desc&select=*');
+    const data = await callAdminApi('list?status=pending');
     if(!data.length){ box.innerHTML = '<div class="stub">Koi pending ad nahi hai.</div>'; return; }
     box.innerHTML = data.map(ad => `
       <div class="cat-row" style="flex-direction:column;align-items:stretch">
@@ -809,7 +882,7 @@ document.getElementById('loadPending').addEventListener('click', async () => {
 
 async function approveAd(id){
   try{
-    await adminRest(`ads?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({status:'live', approved_at: new Date().toISOString()})});
+    await callAdminApi('update-status', {method:'POST', body: JSON.stringify({id, status:'live'})});
     log('✅ Ad approved: ' + id);
     document.getElementById('loadPending').click();
   }catch(e){ alert('Error: ' + e.message); }
@@ -817,25 +890,28 @@ async function approveAd(id){
 async function rejectAd(id){
   if(!confirm('Ye ad reject karni hai?')) return;
   try{
-    await adminRest(`ads?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({status:'rejected'})});
+    await callAdminApi('update-status', {method:'POST', body: JSON.stringify({id, status:'rejected'})});
     log('❌ Ad rejected: ' + id);
     document.getElementById('loadPending').click();
   }catch(e){ alert('Error: ' + e.message); }
 }
 
 /* Ad Manager */
+let liveAdsCache = {};
 document.getElementById('loadLive').addEventListener('click', async () => {
   const box = document.getElementById('liveList');
   box.innerHTML = 'Loading...';
   try{
-    const data = await adminRest('ads?status=eq.live&order=created_at.desc&select=*');
+    const data = await callAdminApi('list?status=live');
     if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
+    data.forEach(ad => liveAdsCache[ad.id] = ad);
     box.innerHTML = data.map(ad => `
-      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+      <div class="cat-row" style="flex-direction:column;align-items:stretch" id="adRow_${ad.id}">
         <b>${ad.title}</b>
         <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city}</span>
         <div style="display:flex;gap:8px;margin-top:6px">
           <a class="mini-btn" href="../ad.html?id=${ad.id}" target="_blank" style="text-decoration:none;display:inline-block">👁️ View</a>
+          <button class="mini-btn" onclick="startEditAd('${ad.id}')">✏️ Edit</button>
           <button class="mini-btn" style="color:#c0392b" onclick="deleteAd('${ad.id}')">🗑️ Delete</button>
         </div>
       </div>
@@ -843,10 +919,41 @@ document.getElementById('loadLive').addEventListener('click', async () => {
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
 });
 
+function startEditAd(id){
+  const ad = liveAdsCache[id];
+  const row = document.getElementById('adRow_' + id);
+  row.innerHTML = `
+    <div class="field"><label>Title</label><input type="text" id="edit_title_${id}" value="${ad.title.replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>City</label><input type="text" id="edit_city_${id}" value="${ad.city.replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Price</label><input type="text" id="edit_price_${id}" value="${(ad.price||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Contact Phone</label><input type="text" id="edit_contact_phone_${id}" value="${(ad.contact_phone||'').replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Description</label><textarea id="edit_description_${id}" rows="3">${ad.description||''}</textarea></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="saveEditAd('${id}')">💾 Save</button>
+      <button class="mini-btn" onclick="document.getElementById('loadLive').click()">Cancel</button>
+    </div>
+  `;
+}
+
+async function saveEditAd(id){
+  const fields = {
+    title: document.getElementById('edit_title_' + id).value.trim(),
+    city: document.getElementById('edit_city_' + id).value.trim(),
+    price: document.getElementById('edit_price_' + id).value.trim(),
+    contact_phone: document.getElementById('edit_contact_phone_' + id).value.trim(),
+    description: document.getElementById('edit_description_' + id).value.trim()
+  };
+  try{
+    await callAdminApi('update-ad', {method:'POST', body: JSON.stringify({id, fields})});
+    log('✏️ Ad updated: ' + id);
+    document.getElementById('loadLive').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
 async function deleteAd(id){
   if(!confirm('Ye ad permanently delete karni hai?')) return;
   try{
-    await adminRest(`ads?id=eq.${id}`, {method:'DELETE'});
+    await callAdminApi('delete-ad', {method:'POST', body: JSON.stringify({id})});
     log('🗑️ Ad deleted: ' + id);
     document.getElementById('loadLive').click();
   }catch(e){ alert('Error: ' + e.message); }
@@ -857,7 +964,7 @@ document.getElementById('loadReports').addEventListener('click', async () => {
   const box = document.getElementById('reportsList');
   box.innerHTML = 'Loading...';
   try{
-    const data = await adminRest('ad_reports?select=*,ads(title,status)&order=reported_at.desc');
+    const data = await callAdminApi('reports');
     if(!data.length){ box.innerHTML = '<div class="stub">Koi report nahi hai.</div>'; return; }
     box.innerHTML = data.map(r => `
       <div class="cat-row" style="flex-direction:column;align-items:stretch">
@@ -874,10 +981,80 @@ document.getElementById('loadReports').addEventListener('click', async () => {
 
 async function dismissReport(id){
   try{
-    await adminRest(`ad_reports?id=eq.${id}`, {method:'DELETE'});
+    await callAdminApi('dismiss-report', {method:'POST', body: JSON.stringify({id})});
     document.getElementById('loadReports').click();
   }catch(e){ alert('Error: ' + e.message); }
 }
+
+/* Expiry Management */
+document.getElementById('loadExpiry').addEventListener('click', async () => {
+  const box = document.getElementById('expiryList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('expiry-list');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi live/expired ad nahi hai.</div>'; return; }
+    const now = new Date();
+    box.innerHTML = data.map(ad => {
+      const exp = new Date(ad.expires_at);
+      const daysLeft = Math.ceil((exp - now) / (1000*60*60*24));
+      const statusTxt = ad.status === 'expired' ? '❌ Expired' : (daysLeft <= 5 ? `⚠️ ${daysLeft} din baaki` : `${daysLeft} din baaki`);
+      return `
+        <div class="cat-row" style="flex-direction:column;align-items:stretch">
+          <b>${ad.title}</b>
+          <span style="font-size:.78rem;color:var(--muted)">${ad.city} · ${statusTxt} · ${exp.toLocaleDateString('en-GB')}</span>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button class="btn" onclick="extendExpiry('${ad.id}')">+30 din Extend</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+async function extendExpiry(id){
+  try{
+    await callAdminApi('extend-expiry', {method:'POST', body: JSON.stringify({id, days:30})});
+    log('⏳ Expiry extended: ' + id);
+    document.getElementById('loadExpiry').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* Analytics Dashboard */
+document.getElementById('loadStats').addEventListener('click', async () => {
+  const box = document.getElementById('statsBox');
+  box.innerHTML = 'Loading...';
+  try{
+    const s = await callAdminApi('stats');
+    const maxCat = Math.max(1, ...s.byCategory.map(c => c[1]));
+    const maxCity = Math.max(1, ...s.byCity.map(c => c[1]));
+
+    box.innerHTML = `
+      <div class="stat-cards">
+        <div class="stat-card"><div class="num">${s.byStatus.live || 0}</div><div class="lbl">Live Ads</div></div>
+        <div class="stat-card"><div class="num">${s.byStatus.pending || 0}</div><div class="lbl">Pending Review</div></div>
+        <div class="stat-card"><div class="num">${s.last7}</div><div class="lbl">Last 7 Days</div></div>
+        <div class="stat-card"><div class="num">${s.last30}</div><div class="lbl">Last 30 Days</div></div>
+      </div>
+      <h2 style="font-size:.9rem">By Category</h2>
+      ${s.byCategory.map(([cat,count]) => `
+        <div class="bar-row">
+          <span class="name">${categoryLabelsAdmin[cat]||cat}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${(count/maxCat*100)}%"></div></div>
+          <span class="count">${count}</span>
+        </div>
+      `).join('') || '<div class="stub">Koi live ad nahi.</div>'}
+      <h2 style="font-size:.9rem;margin-top:16px">By City (Top 8)</h2>
+      ${s.byCity.map(([city,count]) => `
+        <div class="bar-row">
+          <span class="name">${city}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${(count/maxCity*100)}%"></div></div>
+          <span class="count">${count}</span>
+        </div>
+      `).join('') || '<div class="stub">Koi live ad nahi.</div>'}
+      <p class="desc" style="margin-top:12px">Total ads (sab status): ${s.total}</p>
+    `;
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
 </script>
 </body>
 </html>
