@@ -110,11 +110,11 @@ async function loadRecentAds(){
     }
     grid.innerHTML = data.map(ad => `
       <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
-        ${ad.images && ad.images.length ? `<img class="thumb" src="${ad.images[0]}" alt="${ad.title}">` : ''}
-        <span class="cat-tag">${categoryLabels[ad.category] || ad.category}</span>
+        ${ad.images && ad.images.length ? `<img class="thumb" src="${escapeHtml(ad.images[0])}" alt="${escapeHtml(ad.title)}">` : ''}
+        <span class="cat-tag">${escapeHtml(categoryLabels[ad.category] || ad.category)}</span>
         <span class="badge-row">${rzBadgesHtml(ad.category, ad.extra_fields)}</span>
-        <h4>${ad.title}</h4>
-        <span class="meta">${ad.city} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
+        <h4>${escapeHtml(ad.title)}</h4>
+        <span class="meta">${escapeHtml(ad.city)} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
       </a>
     `).join('');
   }catch(e){

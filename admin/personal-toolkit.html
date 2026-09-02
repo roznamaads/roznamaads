@@ -409,6 +409,17 @@
 </div>
 
 <script>
+/* ---------- XSS guard: escape any user/AI-submitted text before innerHTML ---------- */
+function escapeHtml(str){
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /* ---------- Password Gate ---------- */
 // Password is stored in localStorage (per-browser). Default on first use only.
 const DEFAULT_PASSWORD = "roznama2026";
@@ -640,8 +651,8 @@ document.getElementById('genDraft').addEventListener('click', async () => {
       if(tbl && Array.isArray(tbl.headers) && Array.isArray(tbl.rows) && tbl.rows.length){
         tablePreview = `<div class="field"><label>Table Preview (website par asal table ki tarah dikhegi)</label>
           <div style="overflow-x:auto"><table class="ad-table" style="font-size:.75rem">
-            <thead><tr>${tbl.headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-            <tbody>${tbl.rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+            <thead><tr>${tbl.headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+            <tbody>${tbl.rows.map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody>
           </table></div></div>`;
       }
       const card = document.createElement('div');
@@ -649,14 +660,14 @@ document.getElementById('genDraft').addEventListener('click', async () => {
       card.innerHTML = `
         <h4>Draft ${i+1}</h4>
         <div class="field"><label>Category</label><select class="d-category">${opts}</select></div>
-        <div class="field"><label>Title</label><input type="text" class="d-title" value="${(d.title||'').replace(/"/g,'&quot;')}"></div>
-        <div class="field"><label>City</label><input type="text" class="d-city" value="${(d.city||'').replace(/"/g,'&quot;')}"></div>
-        <div class="field"><label>Price</label><input type="text" class="d-price" value="${(d.price||'').replace(/"/g,'&quot;')}"></div>
-        <div class="field"><label>Description (chota English + chota Roman Urdu khulasa)</label><textarea class="d-description" rows="5">${d.description||''}</textarea></div>
-        <div class="field"><label>Contact Phone</label><input type="text" class="d-phone" value="${(d.contact_phone||'').replace(/"/g,'&quot;')}"></div>
+        <div class="field"><label>Title</label><input type="text" class="d-title" value="${escapeHtml(d.title||'')}"></div>
+        <div class="field"><label>City</label><input type="text" class="d-city" value="${escapeHtml(d.city||'')}"></div>
+        <div class="field"><label>Price</label><input type="text" class="d-price" value="${escapeHtml(d.price||'')}"></div>
+        <div class="field"><label>Description (chota English + chota Roman Urdu khulasa)</label><textarea class="d-description" rows="5">${escapeHtml(d.description||'')}</textarea></div>
+        <div class="field"><label>Contact Phone</label><input type="text" class="d-phone" value="${escapeHtml(d.contact_phone||'')}"></div>
         ${tablePreview}
         <details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:.8rem;color:var(--muted)">Advanced: Extra Fields (JSON) — table/deadline data yahan edit kar sakte hain</summary>
-          <textarea class="d-extra-fields" rows="5" style="font-family:monospace;font-size:.75rem;width:100%;margin-top:6px">${JSON.stringify(extraFields, null, 2)}</textarea>
+          <textarea class="d-extra-fields" rows="5" style="font-family:monospace;font-size:.75rem;width:100%;margin-top:6px">${escapeHtml(JSON.stringify(extraFields, null, 2))}</textarea>
         </details>
         ${file ? `<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);margin-bottom:10px"><input type="checkbox" class="d-attach-img" checked> Newspaper page ki original photo is ad ke saath attach karein (accuracy ke liye)</label>` : ''}
         <button class="btn alt checkDupCardBtn" style="margin-right:8px">🔍 Check Duplicate</button>
@@ -1188,9 +1199,9 @@ document.getElementById('loadLiveForWa').addEventListener('click', async () => {
     if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
     box.innerHTML = data.slice(0,30).map(ad => `
       <div class="cat-row" style="flex-direction:column;align-items:stretch">
-        <b>${ad.title}</b>
-        <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city}</span>
-        <button class="btn alt shareWaBtn" style="margin-top:6px" data-id="${ad.id}" data-title="${ad.title.replace(/"/g,'&quot;')}" data-city="${(ad.city||'').replace(/"/g,'&quot;')}">💬 Share via WhatsApp</button>
+        <b>${escapeHtml(ad.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)}</span>
+        <button class="btn alt shareWaBtn" style="margin-top:6px" data-id="${escapeHtml(ad.id)}" data-title="${escapeHtml(ad.title)}" data-city="${escapeHtml(ad.city||'')}">💬 Share via WhatsApp</button>
       </div>
     `).join('');
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
@@ -1224,9 +1235,9 @@ document.getElementById('loadLiveForSocial').addEventListener('click', async () 
     if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
     box.innerHTML = data.slice(0,30).map(ad => `
       <div class="cat-row" style="flex-direction:column;align-items:stretch">
-        <b>${ad.title}</b>
-        <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city}</span>
-        <button class="btn genCaptionBtn" style="margin-top:6px" data-id="${ad.id}" data-title="${ad.title.replace(/"/g,'&quot;')}" data-desc="${(ad.description||'').replace(/"/g,'&quot;')}">✍️ Generate Captions</button>
+        <b>${escapeHtml(ad.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)}</span>
+        <button class="btn genCaptionBtn" style="margin-top:6px" data-id="${escapeHtml(ad.id)}" data-title="${escapeHtml(ad.title)}" data-desc="${escapeHtml(ad.description||'')}">✍️ Generate Captions</button>
       </div>
     `).join('');
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
@@ -1255,7 +1266,7 @@ function renderCaptionBlocks(){
   document.getElementById('captionBlocks').innerHTML = SOCIAL_PLATFORMS.map(p => `
     <div class="platform-block">
       <h4>${p.label} <span><button type="button" class="mini-btn regenBtn" data-platform="${p.key}">🤖 Regenerate</button> <button type="button" class="mini-btn copyBtn" data-platform="${p.key}">📋 Copy</button></span></h4>
-      <textarea class="captionTextarea" data-platform="${p.key}">${currentCaptions[p.key]||''}</textarea>
+      <textarea class="captionTextarea" data-platform="${p.key}">${escapeHtml(currentCaptions[p.key]||'')}</textarea>
     </div>
   `).join('');
 }
@@ -1520,8 +1531,8 @@ function renderDupMatches(matches){
   if(!matches.length) return '<p class="desc">✅ Koi duplicate nahi mila.</p>';
   return matches.map(m => `
     <div class="cat-row" style="flex-direction:column;align-items:stretch">
-      <b>${m.title}</b>
-      <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[m.category]||m.category} · ${m.city||''} · ${m.contact_phone||''} · status: ${m.status} · matched by: ${m.matchedBy}</span>
+      <b>${escapeHtml(m.title)}</b>
+      <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[m.category]||m.category)} · ${escapeHtml(m.city||'')} · ${escapeHtml(m.contact_phone||'')} · status: ${escapeHtml(m.status)} · matched by: ${escapeHtml(m.matchedBy)}</span>
     </div>
   `).join('');
 }
@@ -1547,12 +1558,12 @@ document.getElementById('loadPending').addEventListener('click', async () => {
     if(!data.length){ box.innerHTML = '<div class="stub">Koi pending ad nahi hai.</div>'; return; }
     box.innerHTML = data.map(ad => `
       <div class="cat-row" style="flex-direction:column;align-items:stretch">
-        <b>${ad.title}</b>
-        <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city} · ${ad.contact_phone}${ad.price ? ' · '+ad.price : ''}</span>
-        <span style="font-size:.8rem">${ad.description}</span>
+        <b>${escapeHtml(ad.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)} · ${escapeHtml(ad.contact_phone)}${ad.price ? ' · '+escapeHtml(ad.price) : ''}</span>
+        <span style="font-size:.8rem">${escapeHtml(ad.description)}</span>
         <div style="display:flex;gap:8px;margin-top:6px">
-          <button class="btn" onclick="approveAd('${ad.id}')">✅ Approve</button>
-          <button class="mini-btn" style="color:#c0392b" onclick="rejectAd('${ad.id}')">❌ Reject</button>
+          <button class="btn" onclick="approveAd('${escapeHtml(ad.id)}')">✅ Approve</button>
+          <button class="mini-btn" style="color:#c0392b" onclick="rejectAd('${escapeHtml(ad.id)}')">❌ Reject</button>
         </div>
       </div>
     `).join('');
@@ -1586,8 +1597,8 @@ document.getElementById('loadLive').addEventListener('click', async () => {
     data.forEach(ad => liveAdsCache[ad.id] = ad);
     box.innerHTML = data.map(ad => `
       <div class="cat-row" style="flex-direction:column;align-items:stretch" id="adRow_${ad.id}">
-        <b>${ad.title}</b>
-        <span style="font-size:.78rem;color:var(--muted)">${categoryLabelsAdmin[ad.category]||ad.category} · ${ad.city}</span>
+        <b>${escapeHtml(ad.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)}</span>
         <div style="display:flex;gap:8px;margin-top:6px">
           <a class="mini-btn" href="../ad.html?id=${ad.id}" target="_blank" style="text-decoration:none;display:inline-block">👁️ View</a>
           <button class="mini-btn" onclick="startEditAd('${ad.id}')">✏️ Edit</button>
@@ -1602,11 +1613,11 @@ function startEditAd(id){
   const ad = liveAdsCache[id];
   const row = document.getElementById('adRow_' + id);
   row.innerHTML = `
-    <div class="field"><label>Title</label><input type="text" id="edit_title_${id}" value="${ad.title.replace(/"/g,'&quot;')}"></div>
-    <div class="field"><label>City</label><input type="text" id="edit_city_${id}" value="${ad.city.replace(/"/g,'&quot;')}"></div>
-    <div class="field"><label>Price</label><input type="text" id="edit_price_${id}" value="${(ad.price||'').replace(/"/g,'&quot;')}"></div>
-    <div class="field"><label>Contact Phone</label><input type="text" id="edit_contact_phone_${id}" value="${(ad.contact_phone||'').replace(/"/g,'&quot;')}"></div>
-    <div class="field"><label>Description</label><textarea id="edit_description_${id}" rows="3">${ad.description||''}</textarea></div>
+    <div class="field"><label>Title</label><input type="text" id="edit_title_${id}" value="${escapeHtml(ad.title)}"></div>
+    <div class="field"><label>City</label><input type="text" id="edit_city_${id}" value="${escapeHtml(ad.city)}"></div>
+    <div class="field"><label>Price</label><input type="text" id="edit_price_${id}" value="${escapeHtml(ad.price||'')}"></div>
+    <div class="field"><label>Contact Phone</label><input type="text" id="edit_contact_phone_${id}" value="${escapeHtml(ad.contact_phone||'')}"></div>
+    <div class="field"><label>Description</label><textarea id="edit_description_${id}" rows="3">${escapeHtml(ad.description||'')}</textarea></div>
     <div style="display:flex;gap:8px">
       <button class="btn" onclick="saveEditAd('${id}')">💾 Save</button>
       <button class="mini-btn" onclick="document.getElementById('loadLive').click()">Cancel</button>
@@ -1647,7 +1658,7 @@ document.getElementById('loadReports').addEventListener('click', async () => {
     if(!data.length){ box.innerHTML = '<div class="stub">Koi report nahi hai.</div>'; return; }
     box.innerHTML = data.map(r => `
       <div class="cat-row" style="flex-direction:column;align-items:stretch">
-        <b>${r.ads?.title || '(ad deleted)'}</b>
+        <b>${escapeHtml(r.ads?.title || '(ad deleted)')}</b>
         <span style="font-size:.78rem;color:var(--muted)">Reported: ${new Date(r.reported_at).toLocaleString()} · Status: ${r.ads?.status || '—'}</span>
         <div style="display:flex;gap:8px;margin-top:6px">
           ${r.ad_id ? `<button class="mini-btn" style="color:#c0392b" onclick="deleteAd('${r.ad_id}')">🗑️ Remove Ad</button>` : ''}
@@ -1679,8 +1690,8 @@ document.getElementById('loadExpiry').addEventListener('click', async () => {
       const statusTxt = ad.status === 'expired' ? '❌ Expired' : (daysLeft <= 5 ? `⚠️ ${daysLeft} din baaki` : `${daysLeft} din baaki`);
       return `
         <div class="cat-row" style="flex-direction:column;align-items:stretch">
-          <b>${ad.title}</b>
-          <span style="font-size:.78rem;color:var(--muted)">${ad.city} · ${statusTxt} · ${exp.toLocaleDateString('en-GB')}</span>
+          <b>${escapeHtml(ad.title)}</b>
+          <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(ad.city)} · ${statusTxt} · ${exp.toLocaleDateString('en-GB')}</span>
           <div style="display:flex;gap:8px;margin-top:6px">
             <button class="btn" onclick="extendExpiry('${ad.id}')">+30 din Extend</button>
           </div>

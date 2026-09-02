@@ -114,8 +114,8 @@ async function performSearch(q, cat, city){
     grid.innerHTML = data.map(ad => `
       <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
         <span class="badge-row">${rzBadgesHtml(ad.category, ad.extra_fields)}</span>
-        <h4>${ad.title}</h4>
-        <span class="meta">${ad.city}${ad.price ? ' · ' + ad.price : ''}</span>
+        <h4>${escapeHtml(ad.title)}</h4>
+        <span class="meta">${escapeHtml(ad.city)}${ad.price ? ' · ' + escapeHtml(ad.price) : ''}</span>
       </a>
     `).join('');
   }catch(e){

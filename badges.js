@@ -1,3 +1,14 @@
+// Escape user-supplied text before inserting into innerHTML (XSS fix)
+function escapeHtml(str){
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Shared badge helpers — Visa & Auction special badges (Batch: badges)
 function rzDaysLeft(dateStr){
   if(!dateStr) return null;

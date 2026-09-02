@@ -6,6 +6,11 @@
 <title id="pageTitle">Category — RoznamaAds.pk</title>
 <meta id="pageDesc" name="description" content="Browse classified ads by category on RoznamaAds.pk">
 <link id="canonicalLink" rel="canonical" href="https://roznamaads.pk/category.html">
+<meta property="og:title" content="Category — RoznamaAds.pk">
+<meta property="og:description" content="Browse classified ads by category on RoznamaAds.pk — Property, Jobs, Vehicles, Matrimonial, Visa, Auctions, Tenders.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://roznamaads.pk/category.html">
+<meta property="og:image" content="https://roznamaads.pk/logo.svg">
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
@@ -129,10 +134,10 @@ async function loadCategoryAds(catKey, city, price){
     countEl.textContent = `${data.length} ad(s) mile.`;
     grid.innerHTML = data.map(ad => `
       <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
-        ${ad.images && ad.images.length ? `<img class="thumb" src="${ad.images[0]}" alt="${ad.title}">` : ''}
+        ${ad.images && ad.images.length ? `<img class="thumb" src="${escapeHtml(ad.images[0])}" alt="${escapeHtml(ad.title)}">` : ''}
         <span class="badge-row">${rzBadgesHtml(ad.category, ad.extra_fields)}</span>
-        <h4>${ad.title}</h4>
-        <span class="meta">${ad.city}${ad.price ? ' · ' + ad.price : ''} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
+        <h4>${escapeHtml(ad.title)}</h4>
+        <span class="meta">${escapeHtml(ad.city)}${ad.price ? ' · ' + escapeHtml(ad.price) : ''} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
       </a>
     `).join('');
   }catch(e){

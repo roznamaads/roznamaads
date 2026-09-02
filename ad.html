@@ -6,6 +6,11 @@
 <title id="pageTitle">Ad Details — RoznamaAds.pk</title>
 <meta id="pageDesc" name="description" content="View full classified ad details on RoznamaAds.pk">
 <link id="canonicalLink" rel="canonical" href="https://roznamaads.pk/ad.html">
+<meta property="og:title" id="ogTitle" content="Ad Details — RoznamaAds.pk">
+<meta property="og:description" id="ogDesc" content="View full classified ad details on RoznamaAds.pk">
+<meta property="og:type" content="website">
+<meta property="og:url" id="ogUrl" content="https://roznamaads.pk/ad.html">
+<meta property="og:image" id="ogImage" content="https://roznamaads.pk/logo.svg">
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
@@ -156,6 +161,10 @@ async function loadRealAd(id){
 function renderAd(ad){
   document.getElementById('pageTitle').textContent = ad.title + " — RoznamaAds.pk";
   document.getElementById('pageDesc').setAttribute('content', ad.title + " — " + ad.category.label + " ad on RoznamaAds.pk");
+  document.getElementById('ogTitle').setAttribute('content', ad.title + " — RoznamaAds.pk");
+  document.getElementById('ogDesc').setAttribute('content', ad.category.label + (ad.city ? ' · ' + ad.city : '') + (ad.price ? ' · ' + ad.price : ''));
+  document.getElementById('ogUrl').setAttribute('content', location.href);
+  if(ad.images && ad.images.length) document.getElementById('ogImage').setAttribute('content', ad.images[0]);
   document.getElementById('adCatTag').textContent = ad.category.label;
   document.getElementById('adBadges').innerHTML = rzBadgesHtml(ad.catKey, ad.extraFields);
   document.getElementById('breadcrumbCatLink').textContent = ad.category.label;
@@ -179,26 +188,33 @@ function renderAd(ad){
   // Render structured table if AI extracted one (extra_fields.table = {headers:[], rows:[[]]})
   const tbl = ad.extraFields && ad.extraFields.table;
   if(tbl && Array.isArray(tbl.headers) && Array.isArray(tbl.rows) && tbl.rows.length){
-    const thead = '<thead><tr>' + tbl.headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
-    const tbody = '<tbody>' + tbl.rows.map(row => '<tr>' + row.map(c => `<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody>';
+    const thead = '<thead><tr>' + tbl.headers.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr></thead>';
+    const tbody = '<tbody>' + tbl.rows.map(row => '<tr>' + row.map(c => `<td>${escapeHtml(c)}</td>`).join('') + '</tr>').join('') + '</tbody>';
     document.getElementById('adTable').innerHTML = thead + tbody;
     document.getElementById('adTableBox').style.display = 'block';
   }
 
   const imgBox = document.getElementById('adImgBox');
   if(ad.images && ad.images.length > 0){
-    imgBox.innerHTML = `<img src="${ad.images[0]}" alt="${ad.title}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.__adCurrentFullImg && window.open(window.__adCurrentFullImg,'_blank')">`;
+    imgBox.innerHTML = `<img src="${escapeHtml(ad.images[0])}" alt="${escapeHtml(ad.title)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.__adCurrentFullImg && window.open(window.__adCurrentFullImg,'_blank')">`;
     window.__adCurrentFullImg = ad.images[0];
     const viewLink = document.createElement('div');
     viewLink.style.cssText = 'text-align:center;margin-top:6px';
-    viewLink.innerHTML = `<a href="${ad.images[0]}" target="_blank" rel="noopener" download style="font-size:.8rem;color:var(--green-dark);font-weight:600;text-decoration:none">🔍 Original Photo Poora Dekhein / Download Karein</a>`;
+    viewLink.innerHTML = `<a href="${escapeHtml(ad.images[0])}" target="_blank" rel="noopener" download style="font-size:.8rem;color:var(--green-dark);font-weight:600;text-decoration:none">🔍 Original Photo Poora Dekhein / Download Karein</a>`;
     imgBox.insertAdjacentElement('afterend', viewLink);
     if(ad.images.length > 1){
       const thumbRow = document.createElement('div');
       thumbRow.className = 'ad-thumb-row';
       thumbRow.innerHTML = ad.images.map((src,i) =>
-        `<img src="${src}" alt="Photo ${i+1}" class="ad-thumb" onclick="document.querySelector('#adImgBox img').src='${src}'; window.__adCurrentFullImg='${src}'">`
+        `<img src="${escapeHtml(src)}" alt="Photo ${i+1}" class="ad-thumb" data-src="${escapeHtml(src)}">`
       ).join('');
+      thumbRow.querySelectorAll('.ad-thumb').forEach(img => {
+        img.addEventListener('click', () => {
+          const s = img.getAttribute('data-src');
+          document.querySelector('#adImgBox img').src = s;
+          window.__adCurrentFullImg = s;
+        });
+      });
       viewLink.insertAdjacentElement('afterend', thumbRow);
     }
   }
