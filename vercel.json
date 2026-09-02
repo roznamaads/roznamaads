@@ -7,9 +7,6 @@
     { "source": "/api/admin/:action*", "destination": "/api/admin/router?action=:action*" },
     { "source": "/ad.html", "destination": "/api/ad-meta" }
   ],
-  "functions": {
-    "api/ad-meta.js": { "includeFiles": "ad.html" }
-  },
   "headers": [
     {
       "source": "/(.*)",
