@@ -26,6 +26,12 @@
 
   <form id="submitAdForm" class="ad-form" novalidate>
 
+    <!-- Honeypot field — hidden from real users, bots often auto-fill every input -->
+    <div style="position:absolute;left:-9999px;top:-9999px" aria-hidden="true">
+      <label for="website_url">Website (leave blank)</label>
+      <input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off">
+    </div>
+
     <div class="form-section">
       <label for="category">Category *</label>
       <select id="category" required>
@@ -107,6 +113,8 @@
 </footer>
 
 <script>
+window.__formLoadedAt = Date.now();
+
 // Category-specific field definitions
 const FIELD_SETS = {
   property: [
@@ -224,6 +232,18 @@ document.getElementById('submitAdForm').addEventListener('submit', async (e) => 
   e.preventDefault();
   const errEl = document.getElementById('submitError');
   errEl.textContent = '';
+
+  // Spam guard: honeypot field must stay empty, and form must take at least
+  // a couple seconds to fill (bots submit instantly). Fail silently (fake
+  // success) so bots don't learn they were caught.
+  const honeypot = document.getElementById('website_url').value.trim();
+  const filledInMs = Date.now() - window.__formLoadedAt;
+  if(honeypot !== '' || filledInMs < 2000){
+    document.getElementById('submitAdForm').style.display = 'none';
+    document.getElementById('successState').style.display = 'block';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+    return;
+  }
 
   if(!categorySelect.value){ errEl.textContent = 'Category select karna zaroori hai.'; return; }
   const title = document.getElementById('title').value.trim();

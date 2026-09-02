@@ -65,6 +65,9 @@
   <p class="result-count" id="resultCount">Loading...</p>
 
   <div class="ad-grid" id="catAdsGrid"></div>
+  <div style="text-align:center;margin-top:18px">
+    <button id="loadMoreBtn" class="btn alt" style="display:none">Load More Ads</button>
+  </div>
 </main>
 
 <footer>
@@ -117,22 +120,19 @@ function initPage(){
 async function loadCategoryAds(catKey, city, price){
   const grid = document.getElementById('catAdsGrid');
   const countEl = document.getElementById('resultCount');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
   grid.innerHTML = '';
   countEl.textContent = 'Loading...';
-  try{
-    let q = rzDb.from('ads').select('id, category, title, city, price, created_at, images, extra_fields').eq('status', 'live');
-    if(catKey) q = q.eq('category', catKey);
-    if(city) q = q.eq('city', city);
-    q = q.order('created_at', {ascending:false});
-    const { data, error } = await q;
-    if(error) throw error;
-    if(!data || data.length === 0){
-      countEl.textContent = '0 ads mile.';
-      grid.innerHTML = `<div style="grid-column:1/-1" class="empty-state"><div class="icon">🗂️</div>Is category mein abhi koi live ad nahi hai. <a href="submit-ad.html">Apni ad submit karein</a>!</div>`;
-      return;
-    }
-    countEl.textContent = `${data.length} ad(s) mile.`;
-    grid.innerHTML = data.map(ad => `
+  loadMoreBtn.style.display = 'none';
+
+  window.__catPageState = { catKey, city, price, page: 0, totalShown: 0 };
+  await fetchCategoryPage();
+}
+
+const PAGE_SIZE = 24;
+
+function renderAdCards(data){
+  return data.map(ad => `
       <a class="ad-card" href="ad.html?id=${ad.id}" style="text-decoration:none;color:inherit">
         ${ad.images && ad.images.length ? `<img class="thumb" src="${escapeHtml(ad.images[0])}" alt="${escapeHtml(ad.title)}">` : ''}
         <span class="badge-row">${rzBadgesHtml(ad.category, ad.extra_fields)}</span>
@@ -140,10 +140,42 @@ async function loadCategoryAds(catKey, city, price){
         <span class="meta">${escapeHtml(ad.city)}${ad.price ? ' · ' + escapeHtml(ad.price) : ''} · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
       </a>
     `).join('');
+}
+
+async function fetchCategoryPage(){
+  const grid = document.getElementById('catAdsGrid');
+  const countEl = document.getElementById('resultCount');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  const st = window.__catPageState;
+  try{
+    let q = rzDb.from('ads').select('id, category, title, city, price, created_at, images, extra_fields').eq('status', 'live');
+    if(st.catKey) q = q.eq('category', st.catKey);
+    if(st.city) q = q.eq('city', st.city);
+    const from = st.page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    q = q.order('created_at', {ascending:false}).range(from, to);
+    const { data, error } = await q;
+    if(error) throw error;
+
+    if(st.page === 0 && (!data || data.length === 0)){
+      countEl.textContent = '0 ads mile.';
+      grid.innerHTML = `<div style="grid-column:1/-1" class="empty-state"><div class="icon">🗂️</div>Is category mein abhi koi live ad nahi hai. <a href="submit-ad.html">Apni ad submit karein</a>!</div>`;
+      return;
+    }
+
+    grid.insertAdjacentHTML('beforeend', renderAdCards(data || []));
+    st.totalShown += (data || []).length;
+    countEl.textContent = `${st.totalShown} ad(s) mile.`;
+    loadMoreBtn.style.display = (data && data.length === PAGE_SIZE) ? 'inline-block' : 'none';
   }catch(e){
     countEl.textContent = 'Ads load nahi ho sakin.';
   }
 }
+
+document.getElementById('loadMoreBtn').addEventListener('click', async () => {
+  window.__catPageState.page += 1;
+  await fetchCategoryPage();
+});
 
 document.getElementById('applyFilters').addEventListener('click', () => {
   const params = new URLSearchParams(location.search);
