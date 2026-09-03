@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Risk / Fraud Report Karein — RoznamaAds.pk</title>
+<meta name="description" content="Kisi society, visa agency, job, company, tender, auction, phone number ya website ke baray mein risk/fraud report karein — admin moderation ke baad review hoga.">
+<link rel="canonical" href="https://roznamaads.pk/report-risk.html">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="analytics-config.js"></script>
+<style>
+  .rr-wrap{max-width:640px;margin:24px auto;padding:0 16px 40px}
+  .rr-wrap .field{margin-bottom:14px}
+  .rr-wrap label{display:block;font-size:.85rem;font-weight:700;color:var(--ink);margin-bottom:5px}
+  .rr-wrap input, .rr-wrap select, .rr-wrap textarea{width:100%;padding:11px 13px;border-radius:8px;border:1px solid var(--line);font-size:.95rem;font-family:inherit}
+  .rr-wrap textarea{min-height:100px}
+  .rr-submit{width:100%;padding:13px;border:none;border-radius:8px;background:var(--green);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;margin-top:6px}
+  .rr-note{background:#fff6e0;border:1px solid #f0d98a;border-radius:10px;padding:12px 14px;font-size:.8rem;color:#5c4a10;line-height:1.6;margin-bottom:18px}
+  .rr-success{background:#eaf6ee;border:1px solid #b6e0c2;border-radius:10px;padding:16px;text-align:center;color:var(--green-dark);font-weight:700}
+  .rr-privacy{font-size:.75rem;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="hero" style="padding:20px 18px">
+  <div class="site-header-bar">
+    <a href="index.html" class="brand-row"><img src="logo.svg" alt="RoznamaAds.pk logo" class="logo-img">RoznamaAds<span style="opacity:.7">.pk</span></a>
+  </div>
+  <h1 style="font-size:1.4rem">🚩 Risk / Fraud Report Karein</h1>
+  <p style="max-width:560px;margin:0 auto;font-size:.88rem;color:#e5ecdf">Aapki report admin ke review ke baad hi kisi public warning mein badalti hai. Koi report khud-ba-khud publish nahi hoti.</p>
+</header>
+
+<main id="main-content" class="rr-wrap">
+  <div class="rr-note">⚠️ Ye galat ilzaam lagane ke liye nahi hai. Sirf woh maloomat den jo aapko khud maloom ho ya jiska saboot ho. Har report admin manually review karta hai publish/action se pehle.</div>
+
+  <form id="rrForm">
+    <div class="field">
+      <label>Target Type</label>
+      <select id="rrType" required>
+        <option value="society">🏘️ Property / Housing Society</option>
+        <option value="visa_agency">🛂 Visa / OEP Agency</option>
+        <option value="job">💼 Job / Recruiter</option>
+        <option value="institute">🎓 Institute / Admissions</option>
+        <option value="company">🏢 Company / Business</option>
+        <option value="tender">📄 Tender / Supplier</option>
+        <option value="auction">🔨 Auction</option>
+        <option value="phone">📞 Phone Number</option>
+        <option value="url">🌐 Website / URL</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Naam / Number / Website (jise report kar rahe hain)</label>
+      <input type="text" id="rrReference" required placeholder="e.g. XYZ Housing Society, ya 03xx-xxxxxxx, ya example.com">
+    </div>
+
+    <div class="field">
+      <label>Reason</label>
+      <select id="rrReason" required>
+        <option value="Fake Job">Fake Job</option>
+        <option value="Fake Visa">Fake Visa</option>
+        <option value="Property Fraud">Property Fraud</option>
+        <option value="Advance Payment Demand">Advance Payment Demand</option>
+        <option value="Fake Company">Fake Company</option>
+        <option value="Fake Tender">Fake Tender</option>
+        <option value="Fake Auction">Fake Auction</option>
+        <option value="Wrong Contact">Wrong Contact</option>
+        <option value="Duplicate/Suspicious Ad">Duplicate/Suspicious Ad</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Tafseel (description)</label>
+      <textarea id="rrDescription" placeholder="Kya hua, kab hua, kya request/demand kiya gaya..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Evidence (optional)</label>
+      <input type="text" id="rrEvidence" placeholder="Screenshot/receipt ka link, ya tafseel">
+      <p class="rr-privacy">Direct file upload abhi available nahi — koi image link ya Google Drive/WhatsApp link paste kar sakte hain.</p>
+    </div>
+
+    <div class="field">
+      <label>Aapki maloomat (optional)</label>
+      <input type="text" id="rrReporterInfo" placeholder="Naam/contact — sirf agar aap dena chahein">
+      <p class="rr-privacy">Ye sirf admin dekhta hai, kabhi public nahi hoti.</p>
+    </div>
+
+    <button type="submit" class="rr-submit">🚩 Report Submit Karein</button>
+  </form>
+
+  <div id="rrResult" style="margin-top:16px"></div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-brand"><img src="logo.svg" alt="RoznamaAds.pk logo" class="foot-logo-img">RoznamaAds.pk</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="submit-ad.html">Submit Ad</a>
+      <a href="verify.html">Society/Visa Verify</a>
+      <a href="scam-checker.html">Scam Checker</a>
+      <a href="blog.html">Blog</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+    <p class="copy">© 2026 RoznamaAds.pk — Pakistani Newspaper Classifieds, Digital.<br><a href="mailto:roznamaads@gmail.com" class="foot-email">roznamaads@gmail.com</a></p>
+  </div>
+</footer>
+
+<script>
+document.getElementById('rrForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = e.target.querySelector('.rr-submit');
+  const resultBox = document.getElementById('rrResult');
+  const payload = {
+    target_type: document.getElementById('rrType').value,
+    target_reference: document.getElementById('rrReference').value.trim(),
+    reason: document.getElementById('rrReason').value,
+    description: document.getElementById('rrDescription').value.trim() || null,
+    evidence_reference: document.getElementById('rrEvidence').value.trim() || null,
+    reporter_info: document.getElementById('rrReporterInfo').value.trim() || null,
+    status: 'new'
+  };
+  if(!payload.target_reference){ alert('Naam/number/website likhna zaroori hai.'); return; }
+
+  btn.disabled = true; btn.textContent = 'Submit ho raha hai...';
+  try{
+    const { error } = await rzDb.from('reports_risk').insert(payload);
+    if(error) throw error;
+    document.getElementById('rrForm').style.display = 'none';
+    resultBox.innerHTML = '<div class="rr-success">✅ Report submit ho gayi. Admin review karega — shukriya!</div>';
+  }catch(err){
+    resultBox.innerHTML = '❌ Masla hua: ' + (err.message || String(err));
+    btn.disabled = false; btn.textContent = '🚩 Report Submit Karein';
+  }
+});
+</script>
+</body>
+</html>
