@@ -150,6 +150,44 @@ function renderSignalsList(signals){
   `).join('');
 }
 
+// Normalizes a Pakistani phone number to its local 10-digit form (03XXXXXXXXX),
+// stripping spaces/dashes/country code, so different formats of the same number match.
+function normalizePkPhone(raw){
+  let d = (raw || '').replace(/\D/g, '');
+  if(d.startsWith('0092')) d = d.slice(4);
+  else if(d.startsWith('92')) d = d.slice(2);
+  if(d.length === 10 && !d.startsWith('0')) d = '0' + d;
+  return d;
+}
+
+// Phone Intelligence (section 7): uses ONLY RoznamaAds' own public ad-posting data —
+// never telecom subscriber/CNIC/SIM-owner data. Purely a pattern signal, never a fraud verdict.
+async function fetchPhoneAdSignals(rawPhone){
+  const norm = normalizePkPhone(rawPhone);
+  if(norm.length < 10) return null;
+  const last10 = norm.slice(-10);
+  const { data, error } = await rzDb
+    .from('ads')
+    .select('category, submitted_name, title')
+    .eq('status', 'live')
+    .ilike('contact_phone', `%${last10}%`)
+    .limit(200);
+  if(error || !data) return null;
+
+  const names = new Set(data.map(a => (a.submitted_name || a.title || '').trim().toLowerCase()).filter(Boolean));
+  const categories = [...new Set(data.map(a => a.category).filter(Boolean))];
+
+  const syntheticSignals = [];
+  if(names.size >= 3){
+    syntheticSignals.push({ severity:'caution', reason:`Ye number ${names.size} mukhtalif naamon ke saath ads mein use hua hai`, source_type:'roznamaads_internal', source_url:null });
+  }
+  if(categories.length >= 3){
+    syntheticSignals.push({ severity:'caution', reason:`Ye number ${categories.length} mukhtalif/ghair-mutalliqa categories mein use hua hai (${categories.join(', ')})`, source_type:'roznamaads_internal', source_url:null });
+  }
+
+  return { adsCount: data.length, distinctNames: names.size, categories, syntheticSignals };
+}
+
 async function runScamCheck(){
   const type = document.getElementById('scType').value;
   const q = document.getElementById('scSearchInput').value.trim();
@@ -182,6 +220,30 @@ async function runScamCheck(){
     if(sigError) throw sigError;
 
     const cards = [];
+
+    // Phone Number Risk Checker (section 7): dedicated path, uses RoznamaAds' own ad-posting
+    // patterns as a supporting signal — never telecom subscriber/SIM-owner data.
+    if(type === 'phone'){
+      const phoneInfo = await fetchPhoneAdSignals(q);
+      const allSignals = [...(signalRows || []), ...((phoneInfo && phoneInfo.syntheticSignals) || [])];
+      const final = computeFinalStatus(null, allSignals);
+      cards.push(`
+        <div class="vcard">
+          <span class="vstatus ${final.cls}">${final.label}</span>
+          <h3>${escapeHtml(q)}</h3>
+          <div class="vmeta">${TARGET_LABELS[type]}</div>
+          ${phoneInfo ? `
+            <div class="vrow"><b>RoznamaAds par ads:</b> ${phoneInfo.adsCount}</div>
+            <div class="vrow"><b>Mukhtalif naam:</b> ${phoneInfo.distinctNames}</div>
+            <div class="vrow"><b>Categories:</b> ${escapeHtml(phoneInfo.categories.join(', ') || '—')}</div>
+          ` : '<div class="vrow">RoznamaAds par is number ki koi ad activity nahi mili.</div>'}
+          ${renderSignalsList(allSignals)}
+        </div>
+      `);
+      box.className = cards.length ? '' : 'vempty';
+      box.innerHTML = cards.length ? cards.join('') : 'Koi maloomat nahi mili.';
+      return;
+    }
 
     // Cards backed by an official verification record (society/visa_agency)
     verificationRows.forEach(v => {
