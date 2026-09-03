@@ -188,6 +188,19 @@ async function fetchPhoneAdSignals(rawPhone){
   return { adsCount: data.length, distinctNames: names.size, categories, syntheticSignals };
 }
 
+// URL/Website Risk Checker (section 8): calls the server-side /api/url-check function,
+// which does HTTPS/redirect checks + compares against official records — evidence-based only.
+function urlRiskStatusLabel(riskStatus){
+  const map = {
+    verified: { cls:'ok', label:'✅ Verified / Official Record Match' },
+    needs_caution: { cls:'caution', label:'⚠️ Needs Caution' },
+    multiple_risk_signals: { cls:'multi', label:'⚠️ Multiple Risk Signals' },
+    official_warning: { cls:'warning', label:'🚫 Official Warning / Contradiction Found' },
+    insufficient_information: { cls:'unknown', label:'❔ Insufficient Information' }
+  };
+  return map[riskStatus] || map.insufficient_information;
+}
+
 async function runScamCheck(){
   const type = document.getElementById('scType').value;
   const q = document.getElementById('scSearchInput').value.trim();
@@ -242,6 +255,41 @@ async function runScamCheck(){
       `);
       box.className = cards.length ? '' : 'vempty';
       box.innerHTML = cards.length ? cards.join('') : 'Koi maloomat nahi mili.';
+      return;
+    }
+
+    // URL/Website Risk Checker (section 8): server-side HTTPS/redirect check via /api/url-check
+    if(type === 'url'){
+      let apiResult = null;
+      try{
+        const resp = await fetch('/api/url-check?url=' + encodeURIComponent(q));
+        apiResult = await resp.json();
+      }catch(e){ /* fall through, show whatever signals exist */ }
+
+      if(apiResult && apiResult.error){
+        box.className = 'vempty';
+        box.innerHTML = '❌ ' + escapeHtml(apiResult.error);
+        return;
+      }
+
+      const rs = apiResult ? urlRiskStatusLabel(apiResult.riskStatus) : { cls:'unknown', label:'❔ Insufficient Information' };
+      cards.push(`
+        <div class="vcard">
+          <span class="vstatus ${rs.cls}">${rs.label}</span>
+          <h3>${escapeHtml(apiResult ? apiResult.domain : q)}</h3>
+          <div class="vmeta">${TARGET_LABELS[type]}</div>
+          ${apiResult ? `
+            <div class="vrow"><b>HTTPS check:</b> ${escapeHtml(apiResult.httpsResult)}</div>
+            <div class="vrow"><b>Redirect:</b> ${escapeHtml(apiResult.redirectResult)}</div>
+            ${apiResult.claimedIdentity ? `<div class="vrow"><b>Page title (claimed identity):</b> ${escapeHtml(apiResult.claimedIdentity)}</div>` : ''}
+            <div class="vrow"><b>Official record match:</b> ${escapeHtml(apiResult.officialMatchSignal)}</div>
+            <div class="vrow"><b>RoznamaAds par reports:</b> ${apiResult.roznamaadsReports}</div>
+          ` : '<div class="vrow">Check nahi ho saka — site reachable nahi thi.</div>'}
+          ${renderSignalsList(signalRows || [])}
+        </div>
+      `);
+      box.className = '';
+      box.innerHTML = cards.join('');
       return;
     }
 
