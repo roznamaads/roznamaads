@@ -211,7 +211,7 @@ async function runScamCheck(){
 
   try{
     let verificationRows = [];
-    if(type === 'society' || type === 'visa_agency'){
+    if(['society','visa_agency','institute','company','tender'].includes(type)){
       const { data, error } = await rzDb
         .from('verifications')
         .select('*')

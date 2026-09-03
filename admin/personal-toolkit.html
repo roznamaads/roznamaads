@@ -222,6 +222,9 @@
           <option value="">All</option>
           <option value="society">Society</option>
           <option value="visa_agency">Visa Agency</option>
+          <option value="institute">Institute</option>
+          <option value="company">Company</option>
+          <option value="tender">Tender/Supplier</option>
         </select>
       </div>
     </div>
@@ -238,6 +241,9 @@
       <select id="extractorType">
         <option value="society">Society</option>
         <option value="visa_agency">Visa Agency</option>
+        <option value="institute">Institute</option>
+        <option value="company">Company</option>
+        <option value="tender">Tender/Supplier</option>
       </select>
     </div>
     <div class="field"><label>Raw text (official PDF/notice se copy karein)</label>
@@ -1794,6 +1800,9 @@ function renderVerifSources(){
         <select data-field="target_type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
           <option value="society" ${s.target_type==='society'?'selected':''}>Society</option>
           <option value="visa_agency" ${s.target_type==='visa_agency'?'selected':''}>Visa Agency</option>
+          <option value="institute" ${s.target_type==='institute'?'selected':''}>Institute</option>
+          <option value="company" ${s.target_type==='company'?'selected':''}>Company</option>
+          <option value="tender" ${s.target_type==='tender'?'selected':''}>Tender/Supplier</option>
         </select>
       </div>
       <input type="text" value="${escapeHtml(s.official_url||'')}" placeholder="Official URL" data-field="official_url" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
@@ -1876,6 +1885,9 @@ function renderVerifRecords(){
         <select data-field="type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
           <option value="society" ${v.type==='society'?'selected':''}>Society</option>
           <option value="visa_agency" ${v.type==='visa_agency'?'selected':''}>Visa Agency</option>
+          <option value="institute" ${v.type==='institute'?'selected':''}>Institute</option>
+          <option value="company" ${v.type==='company'?'selected':''}>Company</option>
+          <option value="tender" ${v.type==='tender'?'selected':''}>Tender/Supplier</option>
         </select>
         <input type="text" value="${escapeHtml(v.name||'')}" placeholder="Name" data-field="name" style="flex:2;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
         <input type="text" value="${escapeHtml(v.city||'')}" placeholder="City" data-field="city" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
@@ -1962,7 +1974,14 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
   const type = document.getElementById('extractorType').value;
   if(!rawText){ alert('Pehle official text paste karein.'); return; }
   box.innerHTML = '⏳ Gemini se extract ho raha hai...';
-  const prompt = `Tum ek data-extraction assistant ho. Neeche diya gaya raw official text ek Pakistani ${type === 'society' ? 'housing society/property authority notice' : 'visa/overseas employment agency licence record'} se hai.
+  const typeDescriptions = {
+    society: 'housing society/property authority notice',
+    visa_agency: 'visa/overseas employment agency licence record',
+    institute: 'educational institute recognition/accreditation notice (e.g. HEC)',
+    company: 'company registration/verification record (e.g. SECP)',
+    tender: 'tender/supplier blacklist or registration record (e.g. PPRA)'
+  };
+  const prompt = `Tum ek data-extraction assistant ho. Neeche diya gaya raw official text ek Pakistani ${typeDescriptions[type] || 'official verification record'} se hai.
 Ismein se sirf ye JSON object return karo (kuch aur text/markdown nahi, sirf JSON):
 {
   "name": "",
