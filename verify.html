@@ -57,7 +57,7 @@
 </div>
 
 <div class="verify-search-wrap">
-  <input type="text" id="vSearchInput" placeholder="Society ya agency ka naam likhein...">
+  <input type="text" id="vSearchInput" placeholder="Naam ya License/Reference No. likhein...">
   <button id="vSearchBtn">🔍 Search</button>
 </div>
 
@@ -155,7 +155,7 @@ async function runVerifySearch(){
       .select('*')
       .eq('type', vType)
       .eq('published', true)
-      .or(`name.ilike.%${q}%,aliases.cs.{${q}}`)
+      .or(`name.ilike.%${q}%,aliases.cs.{${q}},reference_no.ilike.%${q}%`)
       .limit(20);
     if(error) throw error;
     renderVerifyResults(data || []);
