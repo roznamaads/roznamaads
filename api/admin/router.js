@@ -338,6 +338,83 @@ export default async function handler(req, res) {
         return res.status(r.status).json({ ok: r.ok });
       }
 
+      /* ---------- Part B: Risk Signals ---------- */
+
+      case 'risk-signals-list': {
+        const status = req.query.status;
+        const target_type = req.query.target_type;
+        let url = `${SB()}/rest/v1/risk_signals?order=created_at.desc&select=*`;
+        if (status) url += `&status=eq.${encodeURIComponent(status)}`;
+        if (target_type) url += `&target_type=eq.${encodeURIComponent(target_type)}`;
+        const r = await fetch(url, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'risk-signal-save': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id, target_type, target_reference, verification_id, signal_type, severity, reason, source_type, source_url, status, reviewed_by } = req.body || {};
+        if (!target_type || !target_reference || !signal_type || !source_type) {
+          return res.status(400).json({ error: 'target_type, target_reference, signal_type, source_type zaroori hain' });
+        }
+        const row = {
+          target_type, target_reference,
+          verification_id: verification_id || null,
+          signal_type, severity: severity || 'caution', reason: reason || null,
+          source_type, source_url: source_url || null,
+          status: status || 'pending',
+          reviewed_by: reviewed_by || null
+        };
+        let r;
+        if (id) {
+          r = await fetch(`${SB()}/rest/v1/risk_signals?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify(row)
+          });
+        } else {
+          r = await fetch(`${SB()}/rest/v1/risk_signals`, {
+            method: 'POST',
+            headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify(row)
+          });
+        }
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'risk-signal-delete': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id } = req.body || {};
+        if (!id) return res.status(400).json({ error: 'id required' });
+        const r = await fetch(`${SB()}/rest/v1/risk_signals?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+        return res.status(r.status).json({ ok: r.ok });
+      }
+
+      /* ---------- Part B: Risk Reports Queue (reports_risk) ---------- */
+
+      case 'reports-risk-list': {
+        const status = req.query.status;
+        let url = `${SB()}/rest/v1/reports_risk?order=created_at.desc&select=*`;
+        if (status) url += `&status=eq.${encodeURIComponent(status)}`;
+        const r = await fetch(url, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'reports-risk-update': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id, status, admin_action } = req.body || {};
+        if (!id || !status) return res.status(400).json({ error: 'id, status zaroori hain' });
+        const r = await fetch(`${SB()}/rest/v1/reports_risk?id=eq.${id}`, {
+          method: 'PATCH',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify({ status, admin_action: admin_action || null, reviewed_at: new Date().toISOString() })
+        });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
       default:
         return res.status(404).json({ error: 'Unknown admin action: ' + action });
     }

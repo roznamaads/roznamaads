@@ -262,6 +262,45 @@
     <div id="diffResult" style="margin-top:14px"></div>
   </section>
 
+  <section class="panel" data-panel="risk-signals">
+    <h2>Risk Signals</h2>
+    <p class="desc">9 target types (society, visa, job, institute, company, tender, auction, phone, url) ke rule-based signals. "Active" hone par hi public scam-checker par dikhega.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="riskSigSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field-row">
+      <div class="field"><label>Status Filter</label>
+        <select id="riskSigStatusFilter">
+          <option value="">All</option>
+          <option value="pending" selected>Pending</option>
+          <option value="active">Active</option>
+          <option value="dismissed">Dismissed</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" id="loadRiskSignals">📥 Load Signals</button>
+    <button class="btn alt" id="addRiskSignalBtn">+ Add Signal</button>
+    <div id="riskSignalsList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="risk-reports">
+    <h2>Risk Reports Queue</h2>
+    <p class="desc">User reports (Fake Job/Visa/Property Fraud/Advance Payment waghera) — moderate karein. Reporter privacy protected hai, sirf jo unhon ne khud diya wo dikhega.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="riskRepSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field-row">
+      <div class="field"><label>Status Filter</label>
+        <select id="riskRepStatusFilter">
+          <option value="">All</option>
+          <option value="new" selected>New</option>
+          <option value="under_review">Under Review</option>
+          <option value="verified_concern">Verified Concern</option>
+          <option value="dismissed">Dismissed</option>
+          <option value="resolved">Resolved</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" id="loadRiskReports">📥 Load Reports</button>
+    <div id="riskReportsList" style="margin-top:14px"></div>
+  </section>
+
   <section class="panel" data-panel="category-manager">
     <h2>Category Manager</h2>
     <p class="desc">Categories add/edit/reorder karein — Save karne ke baad Deployer se site par push karein.</p>
@@ -555,6 +594,8 @@ const TOOLS = [
   {id:'verif-records', label:'Verification Records'},
   {id:'ai-extractor', label:'AI Data Extractor'},
   {id:'diff-checker', label:'Diff Checker'},
+  {id:'risk-signals', label:'Risk Signals'},
+  {id:'risk-reports', label:'Risk Reports Queue'},
   {id:'category-manager', label:'Category Mgr'},
   {id:'user-ads', label:'User Ads'},
   {id:'social', label:'Social Posting'},
@@ -2013,6 +2054,155 @@ ${newText}
       </div>`;
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
 });
+
+/* ---------- Risk Signals (Part B) ---------- */
+let riskSignalsData = [];
+const RISK_TARGET_TYPES = ['society','visa_agency','job','institute','company','tender','auction','phone','url'];
+
+function renderRiskSignals(){
+  const box = document.getElementById('riskSignalsList');
+  if(!riskSignalsData.length){ box.innerHTML = '<div class="stub">Koi signal nahi hai — "+ Add Signal" se banayein.</div>'; return; }
+  box.innerHTML = riskSignalsData.map((s, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <div class="field-row">
+        <select data-field="target_type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          ${RISK_TARGET_TYPES.map(t => `<option value="${t}" ${s.target_type===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+        <input type="text" value="${escapeHtml(s.target_reference||'')}" placeholder="Target name/reference" data-field="target_reference" style="flex:2;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      </div>
+      <div class="field-row" style="margin-top:6px">
+        <input type="text" value="${escapeHtml(s.signal_type||'')}" placeholder="Signal type (e.g. official_warning)" data-field="signal_type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <select data-field="severity" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="positive" ${s.severity==='positive'?'selected':''}>Positive</option>
+          <option value="caution" ${s.severity==='caution'?'selected':''}>Caution</option>
+          <option value="warning" ${s.severity==='warning'?'selected':''}>Warning</option>
+        </select>
+        <select data-field="source_type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="official" ${s.source_type==='official'?'selected':''}>Official</option>
+          <option value="roznamaads_internal" ${s.source_type==='roznamaads_internal'?'selected':''}>RoznamaAds Internal</option>
+          <option value="user_report" ${s.source_type==='user_report'?'selected':''}>User Report</option>
+          <option value="ai_suggested" ${s.source_type==='ai_suggested'?'selected':''}>AI Suggested</option>
+        </select>
+      </div>
+      <input type="text" value="${escapeHtml(s.reason||'')}" placeholder="Reason / detail" data-field="reason" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <input type="text" value="${escapeHtml(s.source_url||'')}" placeholder="Source URL (agar ho)" data-field="source_url" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div class="field-row" style="margin-top:6px;align-items:center">
+        <select data-field="status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="pending" ${s.status==='pending'?'selected':''}>Pending</option>
+          <option value="active" ${s.status==='active'?'selected':''}>Active (public par dikhega)</option>
+          <option value="dismissed" ${s.status==='dismissed'?'selected':''}>Dismissed</option>
+        </select>
+        <span style="font-size:.75rem;color:var(--muted)">${s.created_at ? new Date(s.created_at).toLocaleString() : ''}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="mini-btn" onclick="saveRiskSignal(${i})">💾 Save</button>
+        <button class="mini-btn" style="color:#c0392b" onclick="deleteRiskSignal(${i})">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      const handler = () => { riskSignalsData[idx][inp.dataset.field] = inp.value; };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+  });
+}
+
+document.getElementById('loadRiskSignals').addEventListener('click', async () => {
+  const box = document.getElementById('riskSignalsList');
+  box.innerHTML = 'Loading...';
+  try{
+    const status = document.getElementById('riskSigStatusFilter').value;
+    const data = await callAdminApi('risk-signals-list' + (status ? `?status=${encodeURIComponent(status)}` : ''));
+    riskSignalsData = Array.isArray(data) ? data : [];
+    renderRiskSignals();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('addRiskSignalBtn').addEventListener('click', () => {
+  riskSignalsData.unshift({ target_type:'society', target_reference:'', signal_type:'', severity:'caution', reason:'', source_type:'roznamaads_internal', source_url:'', status:'pending' });
+  renderRiskSignals();
+});
+
+async function saveRiskSignal(i){
+  const s = riskSignalsData[i];
+  if(!s.target_type || !s.target_reference || !s.signal_type || !s.source_type){ alert('Target type, reference, signal type aur source type zaroori hain.'); return; }
+  try{
+    const saved = await callAdminApi('risk-signal-save', { method:'POST', body: JSON.stringify(s) });
+    if(Array.isArray(saved) && saved[0]) riskSignalsData[i] = saved[0];
+    log('✅ Risk signal saved: ' + s.target_reference);
+    renderRiskSignals();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function deleteRiskSignal(i){
+  const s = riskSignalsData[i];
+  if(!confirm('Ye signal delete karna hai?')) return;
+  try{
+    if(s.id) await callAdminApi('risk-signal-delete', { method:'POST', body: JSON.stringify({id:s.id}) });
+    riskSignalsData.splice(i,1);
+    renderRiskSignals();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* ---------- Risk Reports Queue (Part B) ---------- */
+let riskReportsData = [];
+
+function renderRiskReports(){
+  const box = document.getElementById('riskReportsList');
+  if(!riskReportsData.length){ box.innerHTML = '<div class="stub">Koi report nahi hai is filter mein.</div>'; return; }
+  box.innerHTML = riskReportsData.map((r, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <b>${escapeHtml(r.target_type)} — ${escapeHtml(r.target_reference)}</b>
+      <span style="font-size:.85rem">Reason: ${escapeHtml(r.reason||'—')}</span>
+      ${r.description ? `<span style="font-size:.82rem;color:var(--muted)">${escapeHtml(r.description)}</span>` : ''}
+      ${r.evidence_reference ? `<span style="font-size:.8rem">Evidence: ${escapeHtml(r.evidence_reference)}</span>` : ''}
+      ${r.reporter_info ? `<span style="font-size:.8rem">Reporter: ${escapeHtml(r.reporter_info)}</span>` : ''}
+      <span style="font-size:.75rem;color:var(--muted)">${r.created_at ? new Date(r.created_at).toLocaleString() : ''} · Status: ${escapeHtml(r.status)}</span>
+      <div class="field-row" style="margin-top:8px">
+        <select data-field="status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="new" ${r.status==='new'?'selected':''}>New</option>
+          <option value="under_review" ${r.status==='under_review'?'selected':''}>Under Review</option>
+          <option value="verified_concern" ${r.status==='verified_concern'?'selected':''}>Verified Concern</option>
+          <option value="dismissed" ${r.status==='dismissed'?'selected':''}>Dismissed</option>
+          <option value="resolved" ${r.status==='resolved'?'selected':''}>Resolved</option>
+        </select>
+      </div>
+      <input type="text" value="${escapeHtml(r.admin_action||'')}" placeholder="Admin action/notes" data-field="admin_action" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div style="margin-top:8px"><button class="mini-btn" onclick="updateRiskReport(${i})">💾 Save Status</button></div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      const handler = () => { riskReportsData[idx][inp.dataset.field] = inp.value; };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+  });
+}
+
+document.getElementById('loadRiskReports').addEventListener('click', async () => {
+  const box = document.getElementById('riskReportsList');
+  box.innerHTML = 'Loading...';
+  try{
+    const status = document.getElementById('riskRepStatusFilter').value;
+    const data = await callAdminApi('reports-risk-list' + (status ? `?status=${encodeURIComponent(status)}` : ''));
+    riskReportsData = Array.isArray(data) ? data : [];
+    renderRiskReports();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+async function updateRiskReport(i){
+  const r = riskReportsData[i];
+  try{
+    await callAdminApi('reports-risk-update', { method:'POST', body: JSON.stringify({id:r.id, status:r.status, admin_action:r.admin_action}) });
+    log('✅ Report status updated: ' + r.status);
+    renderRiskReports();
+  }catch(e){ alert('Error: ' + e.message); }
+}
 
 /* Expiry Management */
 document.getElementById('loadExpiry').addEventListener('click', async () => {
