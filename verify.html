@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Society / Visa Agency Verification — RoznamaAds.pk</title>
+<meta name="description" content="Pakistani housing societies aur visa/overseas employment agencies ki official record ke sath verification — CDA, RDA, BEOE se.">
+<link rel="canonical" href="https://roznamaads.pk/verify.html">
+<meta property="og:title" content="Society / Visa Agency Verification — RoznamaAds.pk">
+<meta property="og:description" content="CDA, RDA, BEOE jaisi official authorities ke record se housing society ya visa agency ki status check karein.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://roznamaads.pk/verify.html">
+<meta property="og:image" content="https://roznamaads.pk/logo.svg">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="analytics-config.js"></script>
+<script src="badges.js"></script>
+<style>
+  .verify-tabs{display:flex;gap:8px;max-width:760px;margin:18px auto 0;padding:0 16px}
+  .verify-tab{flex:1;padding:11px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:.9rem;font-weight:700;cursor:pointer;color:var(--ink)}
+  .verify-tab.active{background:var(--green);color:#fff;border-color:var(--green)}
+  .verify-search-wrap{max-width:760px;margin:14px auto 0;padding:0 16px;display:flex;gap:8px}
+  .verify-search-wrap input{flex:1;padding:12px 14px;border-radius:8px;border:1px solid var(--line);font-size:1rem}
+  .verify-search-wrap button{padding:12px 18px;border-radius:8px;border:none;background:var(--green);color:#fff;font-weight:700;cursor:pointer}
+  .verify-results{max-width:760px;margin:20px auto 0;padding:0 16px 40px}
+  .vcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(31,138,76,.06)}
+  .vcard h3{color:var(--green-dark);margin:0 0 4px;font-size:1.05rem}
+  .vcard .vmeta{font-size:.82rem;color:var(--muted);margin-bottom:10px}
+  .vstatus{display:inline-block;padding:5px 14px;border-radius:999px;font-size:.8rem;font-weight:700;margin-bottom:10px}
+  .vstatus.ok{background:#eaf6ee;color:var(--green-dark)}
+  .vstatus.caution{background:#fff6e0;color:#8a6100}
+  .vstatus.risk{background:#fdeaea;color:#a12626}
+  .vstatus.warning{background:#fdeaea;color:#a12626}
+  .vstatus.unknown{background:#f2ede0;color:var(--muted)}
+  .vrow{font-size:.88rem;margin-bottom:5px}
+  .vrow b{color:var(--ink)}
+  .vsource-link{display:inline-block;margin-top:8px;font-size:.82rem;font-weight:700}
+  .vdisclaimer{background:#fff6e0;border:1px solid #f0d98a;border-radius:10px;padding:12px 14px;font-size:.78rem;color:#5c4a10;line-height:1.6;margin-top:16px}
+  .vempty{text-align:center;color:var(--muted);padding:30px 10px;font-size:.9rem}
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="hero" style="padding:20px 18px">
+  <div class="site-header-bar">
+    <a href="index.html" class="brand-row"><img src="logo.svg" alt="RoznamaAds.pk logo" class="logo-img">RoznamaAds<span style="opacity:.7">.pk</span></a>
+  </div>
+  <h1 style="font-size:1.5rem">🛡️ Society / Visa Agency Verification</h1>
+  <p style="max-width:620px;margin:0 auto;font-size:.9rem;color:#e5ecdf">Housing society ya visa/overseas employment agency ka naam search karein — official authority (CDA, RDA, BEOE) ke record se check hoga.</p>
+</header>
+
+<div class="verify-tabs">
+  <button class="verify-tab active" data-type="society">🏘️ Housing Society</button>
+  <button class="verify-tab" data-type="visa_agency">🛂 Visa Agency</button>
+</div>
+
+<div class="verify-search-wrap">
+  <input type="text" id="vSearchInput" placeholder="Society ya agency ka naam likhein...">
+  <button id="vSearchBtn">🔍 Search</button>
+</div>
+
+<main id="main-content" class="verify-results">
+  <div id="vResults" class="vempty">Search karne ke liye naam likhein aur "Search" dabayein.</div>
+  <div class="vdisclaimer">
+    ⚠️ Ye nateeja ek maloomati tasdeeq aur risk assessment hai — ye koi qanooni faisla, tauseeq ya guarantee nahi. Adaigi ya wabastagi se pehle hamesha mutalliqa official idaray se khud tasdeeq karein.
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-brand"><img src="logo.svg" alt="RoznamaAds.pk logo" class="foot-logo-img">RoznamaAds.pk</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="submit-ad.html">Submit Ad</a>
+      <a href="blog.html">Blog</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+    <p class="copy">© 2026 RoznamaAds.pk — Pakistani Newspaper Classifieds, Digital.<br><a href="mailto:roznamaads@gmail.com" class="foot-email">roznamaads@gmail.com</a></p>
+  </div>
+</footer>
+
+<script>
+let vType = 'society';
+
+document.querySelectorAll('.verify-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.verify-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    vType = btn.dataset.type;
+    document.getElementById('vResults').innerHTML = '<div class="vempty">Search karne ke liye naam likhein aur "Search" dabayein.</div>';
+    document.getElementById('vSearchInput').value = '';
+  });
+});
+
+// Maps internal `status` values (set by admin from official source) to one of
+// the 5 public risk-status labels defined in the RoznamaAds v2 master plan.
+function riskStatusLabel(status){
+  const s = (status || '').toLowerCase();
+  if(['approved','valid','issued','recognized'].includes(s)){
+    return { cls:'ok', label:'✅ Verified / Official Record Match' };
+  }
+  if(['unapproved','stale','pending'].includes(s)){
+    return { cls:'caution', label:'⚠️ Needs Caution' };
+  }
+  if(['illegal','cancelled','invalid','expired','surrendered','blacklisted'].includes(s)){
+    return { cls:'warning', label:'🚫 Official Warning / Contradiction Found' };
+  }
+  if(!s || s === 'unknown'){
+    return { cls:'unknown', label:'❔ Insufficient Information' };
+  }
+  return { cls:'caution', label:'⚠️ Needs Caution' };
+}
+
+function renderVerifyResults(rows){
+  const box = document.getElementById('vResults');
+  if(!rows.length){
+    box.className = 'vempty';
+    box.innerHTML = 'Koi record nahi mila — iska matlab ye nahi ke ye fraud hai, sirf itna hai ke abhi hamare paas official record mojood nahi. Mutalliqa official idaray se khud tasdeeq karein.';
+    return;
+  }
+  box.className = '';
+  box.innerHTML = rows.map(v => {
+    const rs = riskStatusLabel(v.status);
+    return `
+      <div class="vcard">
+        <span class="vstatus ${rs.cls}">${rs.label}</span>
+        <h3>${escapeHtml(v.name)}</h3>
+        <div class="vmeta">${escapeHtml(v.authority)}${v.city ? ' · ' + escapeHtml(v.city) : ''}</div>
+        <div class="vrow"><b>Status (official):</b> ${escapeHtml(v.status || '—')}</div>
+        ${v.reference_no ? `<div class="vrow"><b>Reference/Licence No.:</b> ${escapeHtml(v.reference_no)}</div>` : ''}
+        ${v.blacklist_status ? `<div class="vrow"><b>Blacklist status:</b> ${escapeHtml(v.blacklist_status)}</div>` : ''}
+        ${(v.aliases && v.aliases.length) ? `<div class="vrow"><b>Aliases:</b> ${escapeHtml(v.aliases.join(', '))}</div>` : ''}
+        ${v.notes ? `<div class="vrow"><b>Notes:</b> ${escapeHtml(v.notes)}</div>` : ''}
+        <div class="vrow"><b>Last verified:</b> ${v.last_verified ? new Date(v.last_verified).toLocaleDateString() : '—'}</div>
+        ${v.official_source_url ? `<a class="vsource-link" href="${escapeHtml(v.official_source_url)}" target="_blank" rel="noopener noreferrer">🔗 Official source ka link</a>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function runVerifySearch(){
+  const q = document.getElementById('vSearchInput').value.trim();
+  const box = document.getElementById('vResults');
+  if(!q){ alert('Pehle naam likhein.'); return; }
+  box.className = 'vempty';
+  box.innerHTML = 'Search ho raha hai...';
+  try{
+    const { data, error } = await rzDb
+      .from('verifications')
+      .select('*')
+      .eq('type', vType)
+      .eq('published', true)
+      .or(`name.ilike.%${q}%,aliases.cs.{${q}}`)
+      .limit(20);
+    if(error) throw error;
+    renderVerifyResults(data || []);
+  }catch(e){
+    box.innerHTML = '❌ Search mein masla hua: ' + escapeHtml(e.message || String(e));
+  }
+}
+
+document.getElementById('vSearchBtn').addEventListener('click', runVerifySearch);
+document.getElementById('vSearchInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') runVerifySearch(); });
+</script>
+</body>
+</html>
