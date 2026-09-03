@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pakistan Scam & Risk Checker — RoznamaAds.pk</title>
+<meta name="description" content="Housing society, visa agency, job, institute, company, tender, auction, phone number ya website ka risk check karein — official records aur user reports ke saath.">
+<link rel="canonical" href="https://roznamaads.pk/scam-checker.html">
+<meta property="og:title" content="Pakistan Scam & Risk Checker — RoznamaAds.pk">
+<meta property="og:description" content="9 tarah ke targets ka risk check — official sources, RoznamaAds internal data aur moderated user reports se.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://roznamaads.pk/scam-checker.html">
+<meta property="og:image" content="https://roznamaads.pk/logo.svg">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="analytics-config.js"></script>
+<script src="badges.js"></script>
+<style>
+  .sc-select-wrap{max-width:760px;margin:18px auto 0;padding:0 16px}
+  .sc-select-wrap select{width:100%;padding:12px 14px;border-radius:8px;border:1px solid var(--line);font-size:1rem;background:var(--card)}
+  .sc-search-wrap{max-width:760px;margin:12px auto 0;padding:0 16px;display:flex;gap:8px}
+  .sc-search-wrap input{flex:1;padding:12px 14px;border-radius:8px;border:1px solid var(--line);font-size:1rem}
+  .sc-search-wrap button{padding:12px 18px;border-radius:8px;border:none;background:var(--green);color:#fff;font-weight:700;cursor:pointer}
+  .sc-results{max-width:760px;margin:20px auto 0;padding:0 16px 20px}
+  .vcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(31,138,76,.06)}
+  .vcard h3{color:var(--green-dark);margin:0 0 4px;font-size:1.05rem}
+  .vcard .vmeta{font-size:.82rem;color:var(--muted);margin-bottom:10px}
+  .vstatus{display:inline-block;padding:5px 14px;border-radius:999px;font-size:.8rem;font-weight:700;margin-bottom:10px}
+  .vstatus.ok{background:#eaf6ee;color:var(--green-dark)}
+  .vstatus.caution{background:#fff6e0;color:#8a6100}
+  .vstatus.multi{background:#fdeee0;color:#a15a26}
+  .vstatus.warning{background:#fdeaea;color:#a12626}
+  .vstatus.unknown{background:#f2ede0;color:var(--muted)}
+  .vrow{font-size:.88rem;margin-bottom:5px}
+  .vrow b{color:var(--ink)}
+  .signal-item{border-top:1px solid var(--line);padding-top:8px;margin-top:8px;font-size:.82rem}
+  .signal-item .stag{display:inline-block;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-right:6px}
+  .signal-item .stag.warning{background:#fdeaea;color:#a12626}
+  .signal-item .stag.caution{background:#fff6e0;color:#8a6100}
+  .signal-item .stag.positive{background:#eaf6ee;color:var(--green-dark)}
+  .signal-item .ssrc{color:var(--muted);font-size:.72rem}
+  .vsource-link{display:inline-block;margin-top:8px;font-size:.82rem;font-weight:700}
+  .vdisclaimer{background:#fff6e0;border:1px solid #f0d98a;border-radius:10px;padding:12px 14px;font-size:.78rem;color:#5c4a10;line-height:1.6;margin-top:16px}
+  .vempty{text-align:center;color:var(--muted);padding:30px 10px;font-size:.9rem}
+  .sc-report-link{max-width:760px;margin:0 auto;padding:0 16px;text-align:center;font-size:.82rem}
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="hero" style="padding:20px 18px">
+  <div class="site-header-bar">
+    <a href="index.html" class="brand-row"><img src="logo.svg" alt="RoznamaAds.pk logo" class="logo-img">RoznamaAds<span style="opacity:.7">.pk</span></a>
+  </div>
+  <h1 style="font-size:1.5rem">🔎 Pakistan Scam & Risk Checker</h1>
+  <p style="max-width:640px;margin:0 auto;font-size:.9rem;color:#e5ecdf">Housing society, visa agency, job, institute, company, tender, auction, phone number ya website — official records aur user reports ke saath risk signal check karein.</p>
+</header>
+
+<div class="sc-select-wrap">
+  <select id="scType">
+    <option value="society">🏘️ Property / Housing Society</option>
+    <option value="visa_agency">🛂 Visa / OEP Agency</option>
+    <option value="job">💼 Job / Recruiter</option>
+    <option value="institute">🎓 Institute / Admissions</option>
+    <option value="company">🏢 Company / Business</option>
+    <option value="tender">📄 Tender / Supplier</option>
+    <option value="auction">🔨 Auction</option>
+    <option value="phone">📞 Phone Number</option>
+    <option value="url">🌐 Website / URL</option>
+  </select>
+</div>
+
+<div class="sc-search-wrap">
+  <input type="text" id="scSearchInput" placeholder="Naam, phone number ya website likhein...">
+  <button id="scSearchBtn">🔍 Check</button>
+</div>
+
+<main id="main-content" class="sc-results">
+  <div id="scResults" class="vempty">Target type chunein, naam/number/URL likhein aur "Check" dabayein.</div>
+  <div class="vdisclaimer">
+    ⚠️ Ye nateeja ek maloomati tasdeeq aur risk assessment hai — ye koi qanooni faisla, tauseeq ya guarantee nahi. Ye AI chatbot nahi hai aur na hi verification ka mukammal badal. Adaigi ya wabastagi se pehle hamesha mutalliqa official idaray se khud tasdeeq karein.
+  </div>
+  <p class="sc-report-link">Koi fraud/scam suspect hua? <a href="contact.html">Hamein report karein</a> — har report admin review ke baad hi consider hota hai.</p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-brand"><img src="logo.svg" alt="RoznamaAds.pk logo" class="foot-logo-img">RoznamaAds.pk</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="submit-ad.html">Submit Ad</a>
+      <a href="verify.html">Society/Visa Verify</a>
+      <a href="scam-checker.html">Scam Checker</a>
+      <a href="blog.html">Blog</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+    <p class="copy">© 2026 RoznamaAds.pk — Pakistani Newspaper Classifieds, Digital.<br><a href="mailto:roznamaads@gmail.com" class="foot-email">roznamaads@gmail.com</a></p>
+  </div>
+</footer>
+
+<script>
+const TARGET_LABELS = {
+  society: 'Property / Housing Society', visa_agency: 'Visa / OEP Agency', job: 'Job / Recruiter',
+  institute: 'Institute / Admissions', company: 'Company / Business', tender: 'Tender / Supplier',
+  auction: 'Auction', phone: 'Phone Number', url: 'Website / URL'
+};
+
+document.getElementById('scType').addEventListener('change', () => {
+  document.getElementById('scResults').className = 'vempty';
+  document.getElementById('scResults').innerHTML = 'Target type chunein, naam/number/URL likhein aur "Check" dabayein.';
+  document.getElementById('scSearchInput').value = '';
+});
+
+// Base label from a `verifications.status` value (only applies to society/visa_agency)
+function baseStatusFromVerification(status){
+  const s = (status || '').toLowerCase();
+  if(['approved','valid','issued','recognized'].includes(s)) return 'ok';
+  if(['unapproved','stale','pending'].includes(s)) return 'caution';
+  if(['illegal','cancelled','invalid','expired','surrendered','blacklisted'].includes(s)) return 'warning';
+  return null;
+}
+
+// Shared Risk Engine: combines a base status (from an official verification record, if any)
+// with active risk_signals to produce one of the 5 public risk statuses. Rule-based only — no AI verdicts.
+function computeFinalStatus(baseCls, signals){
+  const warnings = signals.filter(s => s.severity === 'warning');
+  const cautions = signals.filter(s => s.severity === 'caution');
+  const officialWarning = warnings.some(s => s.source_type === 'official');
+  if(officialWarning) return { cls:'warning', label:'🚫 Official Warning / Contradiction Found' };
+  if((warnings.length + cautions.length) >= 2) return { cls:'multi', label:'⚠️ Multiple Risk Signals' };
+  if((warnings.length + cautions.length) === 1) return { cls:'caution', label:'⚠️ Needs Caution' };
+  if(baseCls === 'warning') return { cls:'warning', label:'🚫 Official Warning / Contradiction Found' };
+  if(baseCls === 'caution') return { cls:'caution', label:'⚠️ Needs Caution' };
+  if(baseCls === 'ok' || signals.some(s => s.severity === 'positive')) return { cls:'ok', label:'✅ Verified / Official Record Match' };
+  return { cls:'unknown', label:'❔ Insufficient Information' };
+}
+
+function renderSignalsList(signals){
+  if(!signals.length) return '';
+  return signals.map(sig => `
+    <div class="signal-item">
+      <span class="stag ${sig.severity}">${escapeHtml(sig.severity)}</span>
+      <span>${escapeHtml(sig.reason || sig.signal_type)}</span><br>
+      <span class="ssrc">Source: ${escapeHtml(sig.source_type)}${sig.source_url ? ' · <a href="' + escapeHtml(sig.source_url) + '" target="_blank" rel="noopener noreferrer">link</a>' : ''}</span>
+    </div>
+  `).join('');
+}
+
+async function runScamCheck(){
+  const type = document.getElementById('scType').value;
+  const q = document.getElementById('scSearchInput').value.trim();
+  const box = document.getElementById('scResults');
+  if(!q){ alert('Pehle naam/number/URL likhein.'); return; }
+  box.className = 'vempty';
+  box.innerHTML = 'Check ho raha hai...';
+
+  try{
+    let verificationRows = [];
+    if(type === 'society' || type === 'visa_agency'){
+      const { data, error } = await rzDb
+        .from('verifications')
+        .select('*')
+        .eq('type', type)
+        .eq('published', true)
+        .or(`name.ilike.%${q}%,aliases.cs.{${q}},reference_no.ilike.%${q}%`)
+        .limit(10);
+      if(error) throw error;
+      verificationRows = data || [];
+    }
+
+    const { data: signalRows, error: sigError } = await rzDb
+      .from('risk_signals')
+      .select('*')
+      .eq('target_type', type)
+      .eq('status', 'active')
+      .ilike('target_reference', `%${q}%`)
+      .limit(30);
+    if(sigError) throw sigError;
+
+    const cards = [];
+
+    // Cards backed by an official verification record (society/visa_agency)
+    verificationRows.forEach(v => {
+      const linkedSignals = (signalRows || []).filter(s => s.verification_id === v.id || s.target_reference.toLowerCase() === v.name.toLowerCase());
+      const baseCls = baseStatusFromVerification(v.status);
+      const final = computeFinalStatus(baseCls, linkedSignals);
+      cards.push(`
+        <div class="vcard">
+          <span class="vstatus ${final.cls}">${final.label}</span>
+          <h3>${escapeHtml(v.name)}</h3>
+          <div class="vmeta">${TARGET_LABELS[type]} · ${escapeHtml(v.authority)}${v.city ? ' · ' + escapeHtml(v.city) : ''}</div>
+          <div class="vrow"><b>Official status:</b> ${escapeHtml(v.status || '—')}</div>
+          ${v.reference_no ? `<div class="vrow"><b>Reference/Licence No.:</b> ${escapeHtml(v.reference_no)}</div>` : ''}
+          <div class="vrow"><b>Last verified:</b> ${v.last_verified ? new Date(v.last_verified).toLocaleDateString() : '—'}</div>
+          ${v.official_source_url ? `<a class="vsource-link" href="${escapeHtml(v.official_source_url)}" target="_blank" rel="noopener noreferrer">🔗 Official source ka link</a>` : ''}
+          ${renderSignalsList(linkedSignals)}
+        </div>
+      `);
+    });
+
+    // Signal-only cards (no verification record backing — covers all 9 types, incl. society/visa signals
+    // not linked to a specific published verification row)
+    const usedRefs = new Set(verificationRows.map(v => v.name.toLowerCase()));
+    const grouped = {};
+    (signalRows || []).forEach(s => {
+      if(usedRefs.has(s.target_reference.toLowerCase())) return;
+      const key = s.target_reference.toLowerCase();
+      if(!grouped[key]) grouped[key] = [];
+      grouped[key].push(s);
+    });
+    Object.keys(grouped).forEach(key => {
+      const sigs = grouped[key];
+      const final = computeFinalStatus(null, sigs);
+      cards.push(`
+        <div class="vcard">
+          <span class="vstatus ${final.cls}">${final.label}</span>
+          <h3>${escapeHtml(sigs[0].target_reference)}</h3>
+          <div class="vmeta">${TARGET_LABELS[type]}</div>
+          ${renderSignalsList(sigs)}
+        </div>
+      `);
+    });
+
+    if(!cards.length){
+      box.className = 'vempty';
+      box.innerHTML = 'Koi record ya signal nahi mila — iska matlab ye nahi ke ye fraud hai, sirf itna hai ke abhi hamare paas iske baray mein maloomat mojood nahi. Mutalliqa official idaray se khud tasdeeq karein.';
+      return;
+    }
+    box.className = '';
+    box.innerHTML = cards.join('');
+  }catch(e){
+    box.innerHTML = '❌ Check mein masla hua: ' + escapeHtml(e.message || String(e));
+  }
+}
+
+document.getElementById('scSearchBtn').addEventListener('click', runScamCheck);
+document.getElementById('scSearchInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') runScamCheck(); });
+</script>
+</body>
+</html>
