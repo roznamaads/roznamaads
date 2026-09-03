@@ -219,6 +219,125 @@ export default async function handler(req, res) {
         return res.status(r.status).json(data);
       }
 
+      /* ---------- Part A: Society/Visa Verification (verification_sources) ---------- */
+
+      case 'verif-sources-list': {
+        const r = await fetch(
+          `${SB()}/rest/v1/verification_sources?order=created_at.desc&select=*`,
+          { headers: sbHeaders() }
+        );
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'verif-source-save': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id, name, authority, target_type, official_url, import_method, active, last_checked, next_check, notes } = req.body || {};
+        if (!name || !authority || !target_type || !official_url) {
+          return res.status(400).json({ error: 'name, authority, target_type, official_url zaroori hain' });
+        }
+        const row = {
+          name, authority, target_type, official_url,
+          import_method: import_method || 'manual',
+          active: active !== false,
+          last_checked: last_checked || null,
+          next_check: next_check || null,
+          notes: notes || null
+        };
+        let r;
+        if (id) {
+          r = await fetch(`${SB()}/rest/v1/verification_sources?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify(row)
+          });
+        } else {
+          r = await fetch(`${SB()}/rest/v1/verification_sources`, {
+            method: 'POST',
+            headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify(row)
+          });
+        }
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'verif-source-delete': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id } = req.body || {};
+        if (!id) return res.status(400).json({ error: 'id required' });
+        const r = await fetch(`${SB()}/rest/v1/verification_sources?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+        return res.status(r.status).json({ ok: r.ok });
+      }
+
+      /* ---------- Part A: verifications records (Import/Review) ---------- */
+
+      case 'verif-list': {
+        const type = req.query.type;
+        let url = `${SB()}/rest/v1/verifications?order=updated_at.desc&select=*`;
+        if (type) url += `&type=eq.${encodeURIComponent(type)}`;
+        const r = await fetch(url, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'verif-save': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id, type, name, aliases, city, authority, reference_no, status, blacklist_status, last_verified, official_source_url, notes, published } = req.body || {};
+        if (!type || !name || !authority || !status) {
+          return res.status(400).json({ error: 'type, name, authority, status zaroori hain' });
+        }
+        const row = {
+          type, name,
+          aliases: Array.isArray(aliases) ? aliases : [],
+          city: city || null,
+          authority, reference_no: reference_no || null, status,
+          blacklist_status: blacklist_status || null,
+          last_verified: last_verified || null,
+          official_source_url: official_source_url || null,
+          notes: notes || null,
+          published: published === true,
+          updated_at: new Date().toISOString()
+        };
+        let r;
+        if (id) {
+          r = await fetch(`${SB()}/rest/v1/verifications?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify(row)
+          });
+        } else {
+          r = await fetch(`${SB()}/rest/v1/verifications`, {
+            method: 'POST',
+            headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify(row)
+          });
+        }
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'verif-publish': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id, published } = req.body || {};
+        if (!id) return res.status(400).json({ error: 'id required' });
+        const r = await fetch(`${SB()}/rest/v1/verifications?id=eq.${id}`, {
+          method: 'PATCH',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify({ published: published === true, updated_at: new Date().toISOString() })
+        });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'verif-delete': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id } = req.body || {};
+        if (!id) return res.status(400).json({ error: 'id required' });
+        const r = await fetch(`${SB()}/rest/v1/verifications?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+        return res.status(r.status).json({ ok: r.ok });
+      }
+
       default:
         return res.status(404).json({ error: 'Unknown admin action: ' + action });
     }

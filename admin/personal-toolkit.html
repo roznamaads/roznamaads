@@ -203,6 +203,33 @@
     <div id="reportsList" style="margin-top:14px"></div>
   </section>
 
+  <section class="panel" data-panel="verif-sources">
+    <h2>Verification Sources</h2>
+    <p class="desc">Society/Visa ke official source records (CDA/RDA/BEOE waghera) — Part A ka source governance.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="verifSrcSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn" id="loadVerifSources">📥 Load Sources</button>
+    <button class="btn alt" id="addVerifSourceBtn">+ Add Source</button>
+    <div id="verifSourcesList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="verif-records">
+    <h2>Verification Records</h2>
+    <p class="desc">Society/Visa records — admin review/edit karein, tab "Publish" se public verify.html par dikhega.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="verifRecSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field-row">
+      <div class="field"><label>Type Filter</label>
+        <select id="verifRecTypeFilter">
+          <option value="">All</option>
+          <option value="society">Society</option>
+          <option value="visa_agency">Visa Agency</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" id="loadVerifRecords">📥 Load Records</button>
+    <button class="btn alt" id="addVerifRecordBtn">+ Add Record</button>
+    <div id="verifRecordsList" style="margin-top:14px"></div>
+  </section>
+
   <section class="panel" data-panel="category-manager">
     <h2>Category Manager</h2>
     <p class="desc">Categories add/edit/reorder karein — Save karne ke baad Deployer se site par push karein.</p>
@@ -492,6 +519,8 @@ const TOOLS = [
   {id:'dup-check', label:'Duplicate Check'},
   {id:'expiry', label:'Expiry Mgmt'},
   {id:'reported', label:'Reported Ads'},
+  {id:'verif-sources', label:'Verification Sources'},
+  {id:'verif-records', label:'Verification Records'},
   {id:'category-manager', label:'Category Mgr'},
   {id:'user-ads', label:'User Ads'},
   {id:'social', label:'Social Posting'},
@@ -1673,6 +1702,179 @@ async function dismissReport(id){
   try{
     await callAdminApi('dismiss-report', {method:'POST', body: JSON.stringify({id})});
     document.getElementById('loadReports').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* ---------- Verification Sources (Part A) ---------- */
+let verifSourcesData = [];
+
+function renderVerifSources(){
+  const box = document.getElementById('verifSourcesList');
+  if(!verifSourcesData.length){ box.innerHTML = '<div class="stub">Koi source nahi hai — "+ Add Source" se banayein.</div>'; return; }
+  box.innerHTML = verifSourcesData.map((s, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <div class="field-row">
+        <input type="text" value="${escapeHtml(s.name||'')}" placeholder="Source name (e.g. CDA official scheme list)" data-field="name" style="flex:2;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <input type="text" value="${escapeHtml(s.authority||'')}" placeholder="Authority (CDA/RDA/BEOE)" data-field="authority" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <select data-field="target_type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="society" ${s.target_type==='society'?'selected':''}>Society</option>
+          <option value="visa_agency" ${s.target_type==='visa_agency'?'selected':''}>Visa Agency</option>
+        </select>
+      </div>
+      <input type="text" value="${escapeHtml(s.official_url||'')}" placeholder="Official URL" data-field="official_url" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div class="field-row" style="margin-top:6px">
+        <select data-field="import_method" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="manual" ${s.import_method==='manual'?'selected':''}>Manual</option>
+          <option value="api" ${s.import_method==='api'?'selected':''}>API</option>
+          <option value="html" ${s.import_method==='html'?'selected':''}>HTML</option>
+          <option value="pdf" ${s.import_method==='pdf'?'selected':''}>PDF</option>
+        </select>
+        <label><input type="checkbox" ${s.active!==false?'checked':''} data-field="active"> Active</label>
+      </div>
+      <input type="text" value="${escapeHtml(s.notes||'')}" placeholder="Notes" data-field="notes" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="mini-btn" onclick="saveVerifSource(${i})">💾 Save</button>
+        <button class="mini-btn" style="color:#c0392b" onclick="deleteVerifSource(${i})">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const field = inp.dataset.field;
+        verifSourcesData[idx][field] = field === 'active' ? inp.checked : inp.value;
+      });
+      inp.addEventListener('change', () => {
+        const field = inp.dataset.field;
+        verifSourcesData[idx][field] = field === 'active' ? inp.checked : inp.value;
+      });
+    });
+  });
+}
+
+document.getElementById('loadVerifSources').addEventListener('click', async () => {
+  const box = document.getElementById('verifSourcesList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('verif-sources-list');
+    verifSourcesData = Array.isArray(data) ? data : [];
+    renderVerifSources();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('addVerifSourceBtn').addEventListener('click', () => {
+  verifSourcesData.unshift({ name:'', authority:'', target_type:'society', official_url:'', import_method:'manual', active:true, notes:'' });
+  renderVerifSources();
+});
+
+async function saveVerifSource(i){
+  const s = verifSourcesData[i];
+  if(!s.name || !s.authority || !s.official_url){ alert('Name, authority aur official URL zaroori hain.'); return; }
+  try{
+    const saved = await callAdminApi('verif-source-save', { method:'POST', body: JSON.stringify(s) });
+    if(Array.isArray(saved) && saved[0]) verifSourcesData[i] = saved[0];
+    log('✅ Source saved: ' + s.name);
+    renderVerifSources();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function deleteVerifSource(i){
+  const s = verifSourcesData[i];
+  if(!confirm('Ye source delete karna hai?')) return;
+  try{
+    if(s.id) await callAdminApi('verif-source-delete', { method:'POST', body: JSON.stringify({id:s.id}) });
+    verifSourcesData.splice(i,1);
+    renderVerifSources();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* ---------- Verification Records (Part A) ---------- */
+let verifRecordsData = [];
+
+function renderVerifRecords(){
+  const box = document.getElementById('verifRecordsList');
+  if(!verifRecordsData.length){ box.innerHTML = '<div class="stub">Koi record nahi hai — "+ Add Record" se banayein.</div>'; return; }
+  box.innerHTML = verifRecordsData.map((v, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <div class="field-row">
+        <select data-field="type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="society" ${v.type==='society'?'selected':''}>Society</option>
+          <option value="visa_agency" ${v.type==='visa_agency'?'selected':''}>Visa Agency</option>
+        </select>
+        <input type="text" value="${escapeHtml(v.name||'')}" placeholder="Name" data-field="name" style="flex:2;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <input type="text" value="${escapeHtml(v.city||'')}" placeholder="City" data-field="city" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      </div>
+      <input type="text" value="${escapeHtml((v.aliases||[]).join(', '))}" placeholder="Aliases (comma se separate)" data-field="aliases" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div class="field-row" style="margin-top:6px">
+        <input type="text" value="${escapeHtml(v.authority||'')}" placeholder="Authority (CDA/RDA/BEOE)" data-field="authority" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <input type="text" value="${escapeHtml(v.reference_no||'')}" placeholder="Reference/Licence No." data-field="reference_no" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      </div>
+      <div class="field-row" style="margin-top:6px">
+        <input type="text" value="${escapeHtml(v.status||'')}" placeholder="Status (approved/illegal/valid/expired...)" data-field="status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <input type="text" value="${escapeHtml(v.blacklist_status||'')}" placeholder="Blacklist status (agar ho)" data-field="blacklist_status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      </div>
+      <input type="text" value="${escapeHtml(v.official_source_url||'')}" placeholder="Official source URL" data-field="official_source_url" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <textarea placeholder="Notes" data-field="notes" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;min-height:50px">${escapeHtml(v.notes||'')}</textarea>
+      <div class="field-row" style="margin-top:6px;align-items:center">
+        <label><input type="checkbox" ${v.published?'checked':''} data-field="published"> Published (public par visible)</label>
+        <span style="font-size:.75rem;color:var(--muted)">${v.updated_at ? 'Last updated: ' + new Date(v.updated_at).toLocaleString() : ''}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="mini-btn" onclick="saveVerifRecord(${i})">💾 Save</button>
+        <button class="mini-btn" style="color:#c0392b" onclick="deleteVerifRecord(${i})">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select,textarea').forEach(inp => {
+      const handler = () => {
+        const field = inp.dataset.field;
+        if(field === 'published') verifRecordsData[idx][field] = inp.checked;
+        else if(field === 'aliases') verifRecordsData[idx][field] = inp.value.split(',').map(a=>a.trim()).filter(Boolean);
+        else verifRecordsData[idx][field] = inp.value;
+      };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+  });
+}
+
+document.getElementById('loadVerifRecords').addEventListener('click', async () => {
+  const box = document.getElementById('verifRecordsList');
+  box.innerHTML = 'Loading...';
+  try{
+    const type = document.getElementById('verifRecTypeFilter').value;
+    const data = await callAdminApi('verif-list' + (type ? `?type=${encodeURIComponent(type)}` : ''));
+    verifRecordsData = Array.isArray(data) ? data : [];
+    renderVerifRecords();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('addVerifRecordBtn').addEventListener('click', () => {
+  verifRecordsData.unshift({ type:'society', name:'', aliases:[], city:'', authority:'', reference_no:'', status:'', blacklist_status:'', official_source_url:'', notes:'', published:false });
+  renderVerifRecords();
+});
+
+async function saveVerifRecord(i){
+  const v = verifRecordsData[i];
+  if(!v.type || !v.name || !v.authority || !v.status){ alert('Type, name, authority aur status zaroori hain.'); return; }
+  try{
+    const saved = await callAdminApi('verif-save', { method:'POST', body: JSON.stringify(v) });
+    if(Array.isArray(saved) && saved[0]) verifRecordsData[i] = saved[0];
+    log('✅ Verification record saved: ' + v.name);
+    renderVerifRecords();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function deleteVerifRecord(i){
+  const v = verifRecordsData[i];
+  if(!confirm('Ye verification record delete karna hai?')) return;
+  try{
+    if(v.id) await callAdminApi('verif-delete', { method:'POST', body: JSON.stringify({id:v.id}) });
+    verifRecordsData.splice(i,1);
+    renderVerifRecords();
   }catch(e){ alert('Error: ' + e.message); }
 }
 
