@@ -230,6 +230,38 @@
     <div id="verifRecordsList" style="margin-top:14px"></div>
   </section>
 
+  <section class="panel" data-panel="ai-extractor">
+    <h2>AI Data Extractor</h2>
+    <p class="desc">Official notice/PDF ka raw text paste karein — Gemini use karke structured verification draft banaye ga. Admin-only, sirf draft — kabhi khud publish nahi hota.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="extractorSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field"><label>Target Type</label>
+      <select id="extractorType">
+        <option value="society">Society</option>
+        <option value="visa_agency">Visa Agency</option>
+      </select>
+    </div>
+    <div class="field"><label>Raw text (official PDF/notice se copy karein)</label>
+      <textarea id="extractorRawText" style="min-height:130px" placeholder="Yahan official source ka text paste karein..."></textarea>
+    </div>
+    <button class="btn" id="extractBtn">🤖 Extract with Gemini</button>
+    <div id="extractorResult" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="diff-checker">
+    <h2>Diff Checker</h2>
+    <p class="desc">Existing record ko naye official text se compare karein — Gemini sirf farq highlight karta hai, khud kuch update nahi karta.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="diffSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn alt" id="diffLoadRecordsBtn">📥 Load Records (dropdown ke liye)</button>
+    <div class="field" style="margin-top:10px"><label>Existing Record</label>
+      <select id="diffRecordSelect"><option value="">— pehle records load karein —</option></select>
+    </div>
+    <div class="field"><label>Naya official text (jise compare karna hai)</label>
+      <textarea id="diffNewText" style="min-height:130px" placeholder="Yahan naya/updated official text paste karein..."></textarea>
+    </div>
+    <button class="btn" id="diffRunBtn">🔍 Compare with Gemini</button>
+    <div id="diffResult" style="margin-top:14px"></div>
+  </section>
+
   <section class="panel" data-panel="category-manager">
     <h2>Category Manager</h2>
     <p class="desc">Categories add/edit/reorder karein — Save karne ke baad Deployer se site par push karein.</p>
@@ -521,6 +553,8 @@ const TOOLS = [
   {id:'reported', label:'Reported Ads'},
   {id:'verif-sources', label:'Verification Sources'},
   {id:'verif-records', label:'Verification Records'},
+  {id:'ai-extractor', label:'AI Data Extractor'},
+  {id:'diff-checker', label:'Diff Checker'},
   {id:'category-manager', label:'Category Mgr'},
   {id:'user-ads', label:'User Ads'},
   {id:'social', label:'Social Posting'},
@@ -1877,6 +1911,108 @@ async function deleteVerifRecord(i){
     renderVerifRecords();
   }catch(e){ alert('Error: ' + e.message); }
 }
+
+/* ---------- AI Data Extractor (Part A — admin-only, draft only) ---------- */
+let extractedDraft = null;
+
+document.getElementById('extractBtn').addEventListener('click', async () => {
+  const box = document.getElementById('extractorResult');
+  const rawText = document.getElementById('extractorRawText').value.trim();
+  const type = document.getElementById('extractorType').value;
+  if(!rawText){ alert('Pehle official text paste karein.'); return; }
+  box.innerHTML = '⏳ Gemini se extract ho raha hai...';
+  const prompt = `Tum ek data-extraction assistant ho. Neeche diya gaya raw official text ek Pakistani ${type === 'society' ? 'housing society/property authority notice' : 'visa/overseas employment agency licence record'} se hai.
+Ismein se sirf ye JSON object return karo (kuch aur text/markdown nahi, sirf JSON):
+{
+  "name": "",
+  "aliases": [],
+  "city": "",
+  "authority": "",
+  "reference_no": "",
+  "status": "",
+  "blacklist_status": "",
+  "official_source_url": "",
+  "notes": ""
+}
+Agar koi field text mein nahi mile to usay khali string ya khali array rehne do — khud se mat banao. status field mein sirf wahi status likho jo text mein clearly likha ho (e.g. approved, unapproved, illegal, warning, valid, invalid, expired, cancelled, surrendered, unknown).
+
+Raw text:
+"""
+${rawText}
+"""`;
+  try{
+    const out = await rzCallGemini(prompt);
+    const cleaned = out.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    extractedDraft = {
+      type, name: parsed.name || '', aliases: Array.isArray(parsed.aliases) ? parsed.aliases : [],
+      city: parsed.city || '', authority: parsed.authority || '', reference_no: parsed.reference_no || '',
+      status: parsed.status || '', blacklist_status: parsed.blacklist_status || '',
+      official_source_url: parsed.official_source_url || '', notes: parsed.notes || '',
+      published: false
+    };
+    box.innerHTML = `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <p style="font-size:.78rem;color:var(--muted);margin:0 0 8px">⚠️ Ye AI draft hai — publish se pehle admin zaroor review/edit kare. Kabhi khud final source nahi.</p>
+        <b>${escapeHtml(extractedDraft.name || '(name nahi mila)')}</b>
+        <span style="font-size:.8rem">City: ${escapeHtml(extractedDraft.city||'—')} · Authority: ${escapeHtml(extractedDraft.authority||'—')}</span>
+        <span style="font-size:.8rem">Reference: ${escapeHtml(extractedDraft.reference_no||'—')} · Status: ${escapeHtml(extractedDraft.status||'—')}</span>
+        <span style="font-size:.8rem">Blacklist: ${escapeHtml(extractedDraft.blacklist_status||'—')}</span>
+        <span style="font-size:.8rem">Aliases: ${escapeHtml((extractedDraft.aliases||[]).join(', ')||'—')}</span>
+        <span style="font-size:.8rem">Notes: ${escapeHtml(extractedDraft.notes||'—')}</span>
+        <div style="margin-top:8px">
+          <button class="mini-btn" id="sendToRecordsBtn">📤 Send to Verification Records tab (draft, unpublished)</button>
+        </div>
+      </div>`;
+    document.getElementById('sendToRecordsBtn').addEventListener('click', () => {
+      verifRecordsData.unshift(extractedDraft);
+      document.querySelector('.tool-nav button[data-target="verif-records"]').click();
+      renderVerifRecords();
+      log('🤖 AI draft "Verification Records" tab mein bhej diya — review kar ke Save/Publish karein.');
+    });
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+/* ---------- Diff Checker (Part A — admin-only, informational) ---------- */
+let diffRecordsCache = [];
+
+document.getElementById('diffLoadRecordsBtn').addEventListener('click', async () => {
+  const sel = document.getElementById('diffRecordSelect');
+  sel.innerHTML = '<option value="">Loading...</option>';
+  try{
+    const data = await callAdminApi('verif-list');
+    diffRecordsCache = Array.isArray(data) ? data : [];
+    sel.innerHTML = '<option value="">— record chunein —</option>' +
+      diffRecordsCache.map((v,i) => `<option value="${i}">${escapeHtml(v.name)} (${escapeHtml(v.type)}, ${escapeHtml(v.status||'—')})</option>`).join('');
+  }catch(e){ sel.innerHTML = '<option value="">❌ ' + e.message + '</option>'; }
+});
+
+document.getElementById('diffRunBtn').addEventListener('click', async () => {
+  const box = document.getElementById('diffResult');
+  const sel = document.getElementById('diffRecordSelect');
+  const newText = document.getElementById('diffNewText').value.trim();
+  if(sel.value === ''){ alert('Pehle existing record chunein.'); return; }
+  if(!newText){ alert('Naya official text paste karein.'); return; }
+  const oldRecord = diffRecordsCache[parseInt(sel.value)];
+  box.innerHTML = '⏳ Compare ho raha hai...';
+  const prompt = `Tum ek diff-checking assistant ho. Neeche ek existing verification record (JSON) aur ek naya official text diya gaya hai. Sirf ye batao ke naye text ke mutabiq kya cheezein badal sakti hain (status, blacklist_status, reference_no, city, name/aliases mismatch waghera). Sirf ek chhota bullet-list summary do Roman Urdu mein, JSON nahi. Agar koi farq na ho to sirf likho "Koi farq nahi mila."
+
+Existing record:
+${JSON.stringify({ name: oldRecord.name, aliases: oldRecord.aliases, city: oldRecord.city, authority: oldRecord.authority, reference_no: oldRecord.reference_no, status: oldRecord.status, blacklist_status: oldRecord.blacklist_status }, null, 2)}
+
+Naya official text:
+"""
+${newText}
+"""`;
+  try{
+    const out = await rzCallGemini(prompt);
+    box.innerHTML = `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <p style="font-size:.78rem;color:var(--muted);margin:0 0 8px">⚠️ Ye sirf informational hai — koi field khud update nahi hoti. Agar farq sahi lage to "Verification Records" tab mein ja kar khud edit/publish karein.</p>
+        <div style="white-space:pre-wrap;font-size:.85rem">${escapeHtml(out.trim())}</div>
+      </div>`;
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
 
 /* Expiry Management */
 document.getElementById('loadExpiry').addEventListener('click', async () => {
