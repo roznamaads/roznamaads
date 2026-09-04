@@ -301,6 +301,19 @@ export default async function handler(req, res) {
         };
         let r;
         if (id) {
+          // Snapshot old row into verification_history before applying the update (audit trail)
+          try {
+            const oldR = await fetch(`${SB()}/rest/v1/verifications?id=eq.${id}&select=*`, { headers: sbHeaders() });
+            const oldRows = await oldR.json();
+            if (Array.isArray(oldRows) && oldRows[0]) {
+              await fetch(`${SB()}/rest/v1/verification_history`, {
+                method: 'POST',
+                headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ verification_id: id, old_data: oldRows[0], new_data: row })
+              });
+            }
+          } catch (e) { /* history logging is best-effort, never blocks the save */ }
+
           r = await fetch(`${SB()}/rest/v1/verifications?id=eq.${id}`, {
             method: 'PATCH',
             headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
@@ -313,6 +326,17 @@ export default async function handler(req, res) {
             body: JSON.stringify(row)
           });
         }
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'verif-history-list': {
+        const verification_id = req.query.verification_id;
+        if (!verification_id) return res.status(400).json({ error: 'verification_id required' });
+        const r = await fetch(
+          `${SB()}/rest/v1/verification_history?verification_id=eq.${verification_id}&order=changed_at.desc&select=*`,
+          { headers: sbHeaders() }
+        );
         const data = await r.json();
         return res.status(r.status).json(data);
       }
@@ -411,6 +435,75 @@ export default async function handler(req, res) {
           headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
           body: JSON.stringify({ status, admin_action: admin_action || null, reviewed_at: new Date().toISOString() })
         });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      /* ---------- Dashboard stats ---------- */
+      case 'dashboard-stats': {
+        const countHeaders = { ...sbHeaders(), Prefer: 'count=exact' };
+        const getCount = async (path) => {
+          const r = await fetch(`${SB()}/rest/v1/${path}`, { method: 'HEAD', headers: countHeaders });
+          const cr = r.headers.get('content-range'); // e.g. "*/42"
+          return cr ? parseInt(cr.split('/')[1] || '0', 10) : 0;
+        };
+        const [verifTotal, verifPublished, sigActive, sigPending, repNew, repUnderReview, urlChecksTotal, phoneFlagged] = await Promise.all([
+          getCount('verifications?select=id'),
+          getCount('verifications?select=id&published=eq.true'),
+          getCount('risk_signals?select=id&status=eq.active'),
+          getCount('risk_signals?select=id&status=eq.pending'),
+          getCount('reports_risk?select=id&status=eq.new'),
+          getCount('reports_risk?select=id&status=eq.under_review'),
+          getCount('url_checks?select=id'),
+          getCount('signals_phone?select=id&signal_status=neq.unflagged')
+        ]);
+        return res.status(200).json({
+          verifTotal, verifPublished, sigActive, sigPending,
+          repNew, repUnderReview, urlChecksTotal, phoneFlagged
+        });
+      }
+
+      /* ---------- Phone signals (admin flags — public phone checker reads via api/phone-check) ---------- */
+      case 'phone-signals-list': {
+        const r = await fetch(`${SB()}/rest/v1/signals_phone?order=updated_at.desc&select=*`, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'phone-signal-save': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id, normalized_phone, admin_flags, signal_status } = req.body || {};
+        if (!normalized_phone) return res.status(400).json({ error: 'normalized_phone required' });
+        const row = { normalized_phone, admin_flags: admin_flags || null, signal_status: signal_status || 'unflagged', updated_at: new Date().toISOString() };
+        let r;
+        if (id) {
+          r = await fetch(`${SB()}/rest/v1/signals_phone?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify(row)
+          });
+        } else {
+          r = await fetch(`${SB()}/rest/v1/signals_phone?on_conflict=normalized_phone`, {
+            method: 'POST',
+            headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' },
+            body: JSON.stringify(row)
+          });
+        }
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'phone-signal-delete': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id } = req.body || {};
+        if (!id) return res.status(400).json({ error: 'id required' });
+        const r = await fetch(`${SB()}/rest/v1/signals_phone?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+        return res.status(r.status).json({ ok: r.ok });
+      }
+
+      /* ---------- URL checks (read-only history — written by public api/url-check) ---------- */
+      case 'url-checks-list': {
+        const r = await fetch(`${SB()}/rest/v1/url_checks?order=last_checked.desc&select=*&limit=100`, { headers: sbHeaders() });
         const data = await r.json();
         return res.status(r.status).json(data);
       }

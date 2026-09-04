@@ -307,6 +307,31 @@
     <div id="riskReportsList" style="margin-top:14px"></div>
   </section>
 
+  <section class="panel" data-panel="dashboard-stats">
+    <h2>Risk/Verify Dashboard</h2>
+    <p class="desc">Society/Visa Verification + Scam Checker ka ek nazar mein overview.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="dashSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn" id="loadDashboard">📥 Load Stats</button>
+    <div id="dashboardStatsBox" style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+  </section>
+
+  <section class="panel" data-panel="phone-checks">
+    <h2>Phone Checks</h2>
+    <p class="desc">Numbers jo public phone checker se query hue (live ad-activity counters) — yahan aap manually flag/watch bhi kar sakte hain.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="phoneChkSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn" id="loadPhoneSignals">📥 Load Phone Records</button>
+    <button class="btn alt" id="addPhoneSignalBtn">+ Add/Flag Number</button>
+    <div id="phoneSignalsList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="url-checks">
+    <h2>URL Checks</h2>
+    <p class="desc">Websites jo public URL checker se query hui — read-only history (HTTPS/redirect/official-match results).</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="urlChkSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn" id="loadUrlChecks">📥 Load URL Checks</button>
+    <div id="urlChecksList" style="margin-top:14px"></div>
+  </section>
+
   <section class="panel" data-panel="category-manager">
     <h2>Category Manager</h2>
     <p class="desc">Categories add/edit/reorder karein — Save karne ke baad Deployer se site par push karein.</p>
@@ -602,6 +627,9 @@ const TOOLS = [
   {id:'diff-checker', label:'Diff Checker'},
   {id:'risk-signals', label:'Risk Signals'},
   {id:'risk-reports', label:'Risk Reports Queue'},
+  {id:'dashboard-stats', label:'Risk/Verify Dashboard'},
+  {id:'phone-checks', label:'Phone Checks'},
+  {id:'url-checks', label:'URL Checks'},
   {id:'category-manager', label:'Category Mgr'},
   {id:'user-ads', label:'User Ads'},
   {id:'social', label:'Social Posting'},
@@ -1816,6 +1844,11 @@ function renderVerifSources(){
         <label><input type="checkbox" ${s.active!==false?'checked':''} data-field="active"> Active</label>
       </div>
       <input type="text" value="${escapeHtml(s.notes||'')}" placeholder="Notes" data-field="notes" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div class="field-row" style="margin-top:6px;align-items:center">
+        <div style="flex:1"><label style="font-size:.72rem;color:var(--muted)">Last checked</label><input type="date" value="${s.last_checked ? s.last_checked.slice(0,10) : ''}" data-field="last_checked" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:5px"></div>
+        <div style="flex:1"><label style="font-size:.72rem;color:var(--muted)">Next check due</label><input type="date" value="${s.next_check ? s.next_check.slice(0,10) : ''}" data-field="next_check" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:5px"></div>
+        ${s.next_check && new Date(s.next_check) < new Date() ? '<span style="background:#fdeaea;color:#a12626;font-size:.72rem;font-weight:700;padding:4px 8px;border-radius:999px">⏰ Overdue</span>' : ''}
+      </div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="mini-btn" onclick="saveVerifSource(${i})">💾 Save</button>
         <button class="mini-btn" style="color:#c0392b" onclick="deleteVerifSource(${i})">🗑️ Delete</button>
@@ -1909,8 +1942,10 @@ function renderVerifRecords(){
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="mini-btn" onclick="saveVerifRecord(${i})">💾 Save</button>
+        <button class="mini-btn" onclick="showVerifHistory(${i})">🕘 History</button>
         <button class="mini-btn" style="color:#c0392b" onclick="deleteVerifRecord(${i})">🗑️ Delete</button>
       </div>
+      <div id="verifHistory-${i}" style="margin-top:8px"></div>
     </div>
   `).join('');
   box.querySelectorAll('.cat-row').forEach(row => {
@@ -1963,6 +1998,23 @@ async function deleteVerifRecord(i){
     verifRecordsData.splice(i,1);
     renderVerifRecords();
   }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function showVerifHistory(i){
+  const v = verifRecordsData[i];
+  const box = document.getElementById('verifHistory-' + i);
+  if(!v.id){ box.innerHTML = '<div class="stub">Pehle record save karein, phir history bane gi.</div>'; return; }
+  box.innerHTML = 'Loading history...';
+  try{
+    const rows = await callAdminApi('verif-history-list?verification_id=' + v.id);
+    if(!Array.isArray(rows) || !rows.length){ box.innerHTML = '<div class="stub">Koi purani change history nahi hai.</div>'; return; }
+    box.innerHTML = rows.map(h => `
+      <div style="border-top:1px solid var(--line);padding:6px 0;font-size:.78rem">
+        <b>${new Date(h.changed_at).toLocaleString()}</b><br>
+        Status: ${escapeHtml(h.old_data?.status || '—')} → ${escapeHtml(h.new_data?.status || '—')}
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
 }
 
 /* ---------- AI Data Extractor (Part A — admin-only, draft only) ---------- */
@@ -2222,6 +2274,116 @@ async function updateRiskReport(i){
     renderRiskReports();
   }catch(e){ alert('Error: ' + e.message); }
 }
+
+/* ---------- Risk/Verify Dashboard ---------- */
+document.getElementById('loadDashboard').addEventListener('click', async () => {
+  const box = document.getElementById('dashboardStatsBox');
+  box.innerHTML = 'Loading...';
+  try{
+    const s = await callAdminApi('dashboard-stats');
+    const cardsData = [
+      ['Verifications (total)', s.verifTotal], ['Verifications (published)', s.verifPublished],
+      ['Risk Signals (active)', s.sigActive], ['Risk Signals (pending review)', s.sigPending],
+      ['New Reports', s.repNew], ['Under Review Reports', s.repUnderReview],
+      ['URL Checks (total)', s.urlChecksTotal], ['Phone Numbers Flagged', s.phoneFlagged]
+    ];
+    box.innerHTML = cardsData.map(([label, val]) => `
+      <div class="cat-row" style="flex-direction:column;align-items:center;text-align:center;padding:16px">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--green-dark)">${val}</div>
+        <div style="font-size:.78rem;color:var(--muted)">${label}</div>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+/* ---------- Phone Checks (admin flag management) ---------- */
+let phoneSignalsData = [];
+
+function renderPhoneSignals(){
+  const box = document.getElementById('phoneSignalsList');
+  if(!phoneSignalsData.length){ box.innerHTML = '<div class="stub">Koi record nahi — public checker use hone par yahan khud aayenge, ya "+ Add/Flag" se manually banayein.</div>'; return; }
+  box.innerHTML = phoneSignalsData.map((p, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <div class="field-row">
+        <input type="text" value="${escapeHtml(p.normalized_phone||'')}" placeholder="03XXXXXXXXX" data-field="normalized_phone" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <select data-field="signal_status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="unflagged" ${p.signal_status==='unflagged'?'selected':''}>Unflagged</option>
+          <option value="watch" ${p.signal_status==='watch'?'selected':''}>Watch</option>
+          <option value="multiple_signals" ${p.signal_status==='multiple_signals'?'selected':''}>Multiple Signals (warning)</option>
+        </select>
+      </div>
+      <span style="font-size:.78rem;color:var(--muted);margin-top:4px">Ads: ${p.ads_count||0} · Distinct names: ${p.distinct_advertiser_names||0} · Categories: ${escapeHtml((p.categories||[]).join(', ')||'—')}</span>
+      <input type="text" value="${escapeHtml(p.admin_flags||'')}" placeholder="Admin note/reason" data-field="admin_flags" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="mini-btn" onclick="savePhoneSignal(${i})">💾 Save</button>
+        <button class="mini-btn" style="color:#c0392b" onclick="deletePhoneSignal(${i})">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      const handler = () => { phoneSignalsData[idx][inp.dataset.field] = inp.value; };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+  });
+}
+
+document.getElementById('loadPhoneSignals').addEventListener('click', async () => {
+  const box = document.getElementById('phoneSignalsList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('phone-signals-list');
+    phoneSignalsData = Array.isArray(data) ? data : [];
+    renderPhoneSignals();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('addPhoneSignalBtn').addEventListener('click', () => {
+  phoneSignalsData.unshift({ normalized_phone:'', signal_status:'watch', admin_flags:'', ads_count:0, distinct_advertiser_names:0, categories:[] });
+  renderPhoneSignals();
+});
+
+async function savePhoneSignal(i){
+  const p = phoneSignalsData[i];
+  if(!p.normalized_phone){ alert('Number likhna zaroori hai.'); return; }
+  try{
+    const saved = await callAdminApi('phone-signal-save', { method:'POST', body: JSON.stringify(p) });
+    if(Array.isArray(saved) && saved[0]) phoneSignalsData[i] = saved[0];
+    log('✅ Phone signal saved: ' + p.normalized_phone);
+    renderPhoneSignals();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function deletePhoneSignal(i){
+  const p = phoneSignalsData[i];
+  if(!confirm('Delete karna hai?')) return;
+  try{
+    if(p.id) await callAdminApi('phone-signal-delete', { method:'POST', body: JSON.stringify({id:p.id}) });
+    phoneSignalsData.splice(i,1);
+    renderPhoneSignals();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* ---------- URL Checks (read-only history) ---------- */
+document.getElementById('loadUrlChecks').addEventListener('click', async () => {
+  const box = document.getElementById('urlChecksList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('url-checks-list');
+    if(!Array.isArray(data) || !data.length){ box.innerHTML = '<div class="stub">Koi record nahi — public URL checker use hone par yahan aayenge.</div>'; return; }
+    box.innerHTML = data.map(u => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${escapeHtml(u.url_domain)}</b>
+        <span style="font-size:.82rem">HTTPS: ${escapeHtml(u.https_basic_result||'—')} · Redirect: ${escapeHtml(u.redirect_structure_result||'—')}</span>
+        <span style="font-size:.82rem">Official match: ${escapeHtml(u.official_match_signal||'—')} · Reports: ${u.roznamaads_reports||0}</span>
+        <span style="font-size:.82rem">Risk status: <b>${escapeHtml(u.risk_status||'—')}</b></span>
+        <span style="font-size:.75rem;color:var(--muted)">Last checked: ${u.last_checked ? new Date(u.last_checked).toLocaleString() : '—'}</span>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
 
 /* Expiry Management */
 document.getElementById('loadExpiry').addEventListener('click', async () => {

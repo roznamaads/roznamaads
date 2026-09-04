@@ -150,42 +150,18 @@ function renderSignalsList(signals){
   `).join('');
 }
 
-// Normalizes a Pakistani phone number to its local 10-digit form (03XXXXXXXXX),
-// stripping spaces/dashes/country code, so different formats of the same number match.
-function normalizePkPhone(raw){
-  let d = (raw || '').replace(/\D/g, '');
-  if(d.startsWith('0092')) d = d.slice(4);
-  else if(d.startsWith('92')) d = d.slice(2);
-  if(d.length === 10 && !d.startsWith('0')) d = '0' + d;
-  return d;
-}
-
-// Phone Intelligence (section 7): uses ONLY RoznamaAds' own public ad-posting data —
-// never telecom subscriber/CNIC/SIM-owner data. Purely a pattern signal, never a fraud verdict.
+// Phone Intelligence (section 7): calls the server-side /api/phone-check function, which
+// uses ONLY RoznamaAds' own public ad-posting data + admin flags — never telecom/SIM-owner data.
 async function fetchPhoneAdSignals(rawPhone){
-  const norm = normalizePkPhone(rawPhone);
-  if(norm.length < 10) return null;
-  const last10 = norm.slice(-10);
-  const { data, error } = await rzDb
-    .from('ads')
-    .select('category, submitted_name, title')
-    .eq('status', 'live')
-    .ilike('contact_phone', `%${last10}%`)
-    .limit(200);
-  if(error || !data) return null;
-
-  const names = new Set(data.map(a => (a.submitted_name || a.title || '').trim().toLowerCase()).filter(Boolean));
-  const categories = [...new Set(data.map(a => a.category).filter(Boolean))];
-
-  const syntheticSignals = [];
-  if(names.size >= 3){
-    syntheticSignals.push({ severity:'caution', reason:`Ye number ${names.size} mukhtalif naamon ke saath ads mein use hua hai`, source_type:'roznamaads_internal', source_url:null });
-  }
-  if(categories.length >= 3){
-    syntheticSignals.push({ severity:'caution', reason:`Ye number ${categories.length} mukhtalif/ghair-mutalliqa categories mein use hua hai (${categories.join(', ')})`, source_type:'roznamaads_internal', source_url:null });
-  }
-
-  return { adsCount: data.length, distinctNames: names.size, categories, syntheticSignals };
+  try{
+    const resp = await fetch('/api/phone-check?phone=' + encodeURIComponent(rawPhone));
+    const result = await resp.json();
+    if(result.error) return null;
+    return {
+      adsCount: result.adsCount, distinctNames: result.distinctNames, categories: result.categories,
+      syntheticSignals: result.signals || [], riskStatus: result.riskStatus
+    };
+  }catch(e){ return null; }
 }
 
 // URL/Website Risk Checker (section 8): calls the server-side /api/url-check function,
