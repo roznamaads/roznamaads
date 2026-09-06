@@ -2769,15 +2769,22 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       : (pagesFailed > 0 || stopReason === 'TOO_MANY_ERRORS' || (stopReason && stopReason.startsWith('BLOCKED'))) ? 'PARTIAL'
       : 'COMPLETED';
 
+    const dedupe = computeDedupe(tblJobState.rows, tblJobState.headers);
+    tblJobState.dedupedRows = dedupe.uniqueRows;
+    tblJobState.dupCount = dedupe.dupCount;
+    tblJobState.dedupeKeyUsed = dedupe.keyUsed;
+
     $('tblCompleteBlock').style.display = 'block';
     $('tblCompleteBody').innerHTML = `
       Status: <b>${finalStatus}</b> (${stopReason || 'DONE'})<br>
       Pages fetched: <b>${pagesFetched}</b><br>
       Pages failed: <b>${pagesFailed}</b><br>
-      Rows collected: <b>${tblJobState.rows.length}</b><br>
+      Rows fetched: <b>${tblJobState.rows.length}</b><br>
+      Duplicates removed: <b>${dedupe.dupCount}</b> <span style="color:var(--muted)">(key: ${dedupe.keyUsed})</span><br>
+      Final unique rows: <b>${dedupe.uniqueRows.length}</b><br>
       ${finalStatus === 'PARTIAL' ? '<span style="color:#c0392b">⚠️ Ye export incomplete hai.</span><br>' : ''}
     `;
-    log(`Job finished: ${finalStatus} (${stopReason || 'DONE'}) — ${tblJobState.rows.length} rows, ${pagesFetched} pages OK, ${pagesFailed} failed.`);
+    log(`Job finished: ${finalStatus} (${stopReason || 'DONE'}) — ${tblJobState.rows.length} rows fetched, ${dedupe.dupCount} duplicates removed (key: ${dedupe.keyUsed}), ${dedupe.uniqueRows.length} unique.`);
   });
 
   $('tblCancelBtn').addEventListener('click', () => {
@@ -2785,12 +2792,104 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     log('Cancel requested — ruk raha hai...');
   });
 
+  // ---- Dedupe (priority: explicit id > licence/license no > registration >
+  // reference > application no > URL > full-row hash — normalized comparison
+  // only, original cell values are never altered) ----
+  const DEDUPE_KEY_PATTERNS = [
+    { label: 'ID', re: /^\s*id\s*$|^\s*id\s*(no\.?|number|#)\s*$/i },
+    { label: 'Licence No', re: /licen[cs]e\s*(no\.?|number|#)?\s*$/i },
+    { label: 'Registration No', re: /registration\s*(no\.?|number|#)?\s*$/i },
+    { label: 'Reference No', re: /reference\s*(no\.?|number|#)?\s*$/i },
+    { label: 'Application No', re: /application\s*(no\.?|number|#)?\s*$/i },
+    { label: 'URL column', re: /url\s*$/i }
+  ];
+
+  function normalizeForCompare(v){
+    return String(v ?? '').replace(/\s+/g,' ').trim().toLowerCase();
+  }
+
+  function computeDedupe(rows, headers){
+    let keyIndex = -1, keyLabel = null;
+    for(const pat of DEDUPE_KEY_PATTERNS){
+      const idx = headers.findIndex(h => pat.re.test(h));
+      if(idx !== -1){ keyIndex = idx; keyLabel = pat.label + ` ("${headers[idx]}")`; break; }
+    }
+    const seen = new Set();
+    const uniqueRows = [];
+    let dupCount = 0;
+    for(const row of rows){
+      const key = keyIndex !== -1
+        ? normalizeForCompare(row.cells[keyIndex])
+        : normalizeForCompare(row.cells.join('|'));
+      if(key && seen.has(key)){ dupCount++; continue; }
+      if(key) seen.add(key);
+      uniqueRows.push(row);
+    }
+    return { uniqueRows, dupCount, keyUsed: keyIndex !== -1 ? keyLabel : 'full-row hash (no ID-like column found)' };
+  }
+
+  function csvEscape(v){
+    const s = String(v ?? '');
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function timestampForFilename(){
+    const d = new Date();
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}`;
+  }
+
+  function buildExportColumns(){
+    const cols = [...tblJobState.headers];
+    const sample = tblJobState.rows[0];
+    if(sample && 'sourceUrl' in sample) cols.push('_source_url');
+    if(sample && 'sourcePage' in sample) cols.push('_source_page');
+    if(sample && 'retrievedAt' in sample) cols.push('_retrieved_at');
+    return cols;
+  }
+
+  function rowToValues(row, cols){
+    const base = tblJobState.headers.map((_, i) => row.cells[i] ?? '');
+    if(cols.includes('_source_url')) base.push(row.sourceUrl ?? '');
+    if(cols.includes('_source_page')) base.push(row.sourcePage ?? '');
+    if(cols.includes('_retrieved_at')) base.push(row.retrievedAt ?? '');
+    return base;
+  }
+
+  function downloadBlob(content, filename, mime){
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
   $('tblDownloadCsvBtn').addEventListener('click', () => {
-    log('CSV export Batch 4 mein wire hoga.');
+    if(!tblJobState.dedupedRows || !tblJobState.dedupedRows.length){ alert('Pehle download mukammal karein ya kuch rows nahi milin.'); return; }
+    const cols = buildExportColumns();
+    const lines = [cols.map(csvEscape).join(',')];
+    tblJobState.dedupedRows.forEach(row => {
+      lines.push(rowToValues(row, cols).map(csvEscape).join(','));
+    });
+    const csv = '\uFEFF' + lines.join('\r\n'); // UTF-8 BOM for Excel
+    downloadBlob(csv, `Universal_Table_Export_${timestampForFilename()}.csv`, 'text/csv;charset=utf-8');
+    log(`CSV downloaded — ${tblJobState.dedupedRows.length} rows.`);
   });
 
   $('tblDownloadJsonBtn').addEventListener('click', () => {
-    log('JSON export Batch 4 mein wire hoga.');
+    if(!tblJobState.dedupedRows || !tblJobState.dedupedRows.length){ alert('Pehle download mukammal karein ya kuch rows nahi milin.'); return; }
+    const cols = buildExportColumns();
+    const objs = tblJobState.dedupedRows.map(row => {
+      const o = {};
+      tblJobState.headers.forEach((h, i) => { o[h] = row.cells[i] ?? ''; });
+      if(cols.includes('_source_url')) o._source_url = row.sourceUrl ?? '';
+      if(cols.includes('_source_page')) o._source_page = row.sourcePage ?? '';
+      if(cols.includes('_retrieved_at')) o._retrieved_at = row.retrievedAt ?? '';
+      return o;
+    });
+    downloadBlob(JSON.stringify(objs, null, 2), `Universal_Table_Export_${timestampForFilename()}.json`, 'application/json;charset=utf-8');
+    log(`JSON downloaded — ${objs.length} rows.`);
   });
 })();
 </script>
