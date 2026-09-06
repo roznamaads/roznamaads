@@ -3,7 +3,6 @@
 // Routes: /api/admin/<action> — vercel.json ke rewrite se yahan aata hai, e.g. /api/admin/list?status=pending
 
 import { beoeData } from './beoe-data.js';
-import { detectTableAndPagination } from './_lib/table-downloader.js';
 
 const VALID_CATEGORIES = [
   'property','jobs','vehicles','matrimonial','visa','auctions',
@@ -578,24 +577,18 @@ export default async function handler(req, res) {
         });
       }
 
-      /* ---------- Universal Table Downloader (Batch 2: detect only) ---------- */
-      case 'table-downloader': {
+      case 'beoe-publish-all': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-        const operationParam = req.query.operation;
-        const operation = Array.isArray(operationParam) ? operationParam[0] : operationParam;
-
-        if (operation === 'detect') {
-          const { url } = req.body || {};
-          if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url required' });
-          try {
-            const result = await detectTableAndPagination(url);
-            return res.status(result.ok ? 200 : 422).json(result);
-          } catch (execErr) {
-            return res.status(500).json({ error: 'table-downloader error: ' + execErr.message });
-          }
+        const r = await fetch(`${SB()}/rest/v1/verifications?authority=eq.BEOE`, {
+          method: 'PATCH',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ published: true, last_verified: new Date().toISOString() })
+        });
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
         }
-
-        return res.status(400).json({ error: 'Unknown or not-yet-implemented operation: ' + operation });
+        return res.status(200).json({ ok: true });
       }
 
       default:
