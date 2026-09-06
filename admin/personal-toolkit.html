@@ -2557,20 +2557,70 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     box.scrollTop = box.scrollHeight;
   };
 
+  let tblLastDetection = null;
+
+  function renderPagination(p){
+    if(!p) return '<span style="color:var(--muted)">Confidently detect nahi hui — manual config istemal karein.</span>';
+    if(p.type === 'query_parameter'){
+      return `Method: <b>query parameter (${p.parameter})</b><br>URL Template: <code>${p.urlTemplate}</code><br>` +
+             (p.estimatedPages ? `Estimated Pages: <b>${p.estimatedPages}</b><br>` : '') +
+             `Confidence: <b>${Math.round(p.confidence*100)}%</b>`;
+    }
+    if(p.type === 'path'){
+      return `Method: <b>path pattern</b><br>URL Template: <code>${p.template}</code><br>Confidence: <b>${Math.round(p.confidence*100)}%</b>`;
+    }
+    if(p.type === 'next_link'){
+      return `Method: <b>Next-link only</b> (single hop, jump-to-page nahi)<br>Next URL: <code>${p.nextUrl}</code><br>Confidence: <b>${Math.round(p.confidence*100)}%</b>`;
+    }
+    return 'Unknown pagination type.';
+  }
+
   $('tblDetectBtn').addEventListener('click', async () => {
     const url = $('tblUrl').value.trim();
     if(!url){ alert('Pehle website URL daalein.'); return; }
     if(!getAdminSecret()) return;
     log(`Detect requested for: ${url}`);
-    // NOTE: Backend action "table-downloader" (operation: detect) Batch 2 mein add hoga.
-    // Abhi ye shell sirf UI flow aur state confirm karne ke liye hai.
+    $('tblDetectBtn').disabled = true;
+    $('tblDetectBtn').textContent = 'Detecting…';
     try {
-      await callAdminApi(`table-downloader?operation=detect`, {
+      const result = await callAdminApi(`table-downloader?operation=detect`, {
         method: 'POST',
         body: JSON.stringify({ url })
       });
+      tblLastDetection = result;
+
+      if(!result.ok){
+        $('tblDetectResult').style.display = 'block';
+        $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${result.message || result.reason}</span>`;
+        $('tblTableChoices').innerHTML = '';
+        $('tblConfigBlock').style.display = 'none';
+        log(`Detect failed: ${result.reason}`);
+        return;
+      }
+
+      const rec = result.tables[result.recommendedIndex];
+      $('tblDetectResult').style.display = 'block';
+      $('tblDetectBody').innerHTML = `
+        Website: <b>${result.website}</b><br>
+        Source Type: <b>HTML Table</b><br>
+        Detected Tables: <b>${result.tables.length}</b> &nbsp;(recommended: Table ${result.recommendedIndex+1}, ${rec.rows} rows, score ${rec.score})<br>
+        Columns: ${rec.headers.join(' | ')}<br><br>
+        Pagination:<br>${renderPagination(result.pagination)}
+      `;
+      $('tblTableChoices').innerHTML = result.tables.map((t,i) =>
+        `<button class="btn ${i===result.recommendedIndex?'':'alt'}" data-tbl-idx="${i}" style="margin-bottom:6px">
+          Table ${i+1} — ${t.rows} rows${i===result.recommendedIndex?' (Recommended)':''}
+        </button>`
+      ).join(' ');
+      $('tblConfigBlock').style.display = 'block';
+      log(`Detect OK — ${result.tables.length} table(s) found, pagination: ${result.pagination ? result.pagination.type : 'none'}`);
     } catch(e) {
-      log(`⏳ Backend abhi wire nahi hua (Batch 2 mein aayega). Detail: ${e.message}`);
+      $('tblDetectResult').style.display = 'block';
+      $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${e.message}</span>`;
+      log(`Detect error: ${e.message}`);
+    } finally {
+      $('tblDetectBtn').disabled = false;
+      $('tblDetectBtn').textContent = 'Detect Table';
     }
   });
 
