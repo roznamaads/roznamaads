@@ -400,6 +400,26 @@
       <button class="btn alt" id="tblDownloadJsonBtn">Download JSON</button>
     </div>
 
+    <div id="tblVerifBlock" style="display:none;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📋 Send to Verification Queue (optional — sirf review ke liye jaata hai, public turant nahi hoti)</div>
+
+      <div class="field"><label>Type</label>
+        <select id="tblVerifType">
+          <option value="society">Society</option>
+          <option value="visa_agency">Visa Agency (OEP)</option>
+        </select>
+      </div>
+      <div class="field"><label>Authority (sab rows ke liye same)</label><input type="text" id="tblVerifAuthority" placeholder="jaise: BEOE, CDA, RDA"></div>
+      <div class="field"><label>Name Column *</label><select id="tblVerifNameCol"></select></div>
+      <div class="field"><label>Reference No / Licence No Column</label><select id="tblVerifRefCol"></select></div>
+      <div class="field"><label>City Column</label><select id="tblVerifCityCol"></select></div>
+      <div class="field"><label>Status Column</label><select id="tblVerifStatusCol"></select></div>
+
+      <button class="btn" id="tblVerifSendBtn">Send to Verification Queue</button>
+      <button class="btn alt" id="tblVerifCancelBtn" style="display:none">Cancel</button>
+      <div id="tblVerifProgress" style="margin-top:8px;font-size:.82rem;display:none"></div>
+    </div>
+
     <div class="toolkit-log" id="tblLog" style="display:none"></div>
 
     <div style="margin-top:18px">
@@ -2792,6 +2812,8 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     `;
     log(`Job finished: ${finalStatus} (${stopReason || 'DONE'}) — ${tblJobState.rows.length} rows fetched, ${dedupe.dupCount} duplicates removed (key: ${dedupe.keyUsed}), ${dedupe.uniqueRows.length} unique.`);
 
+    if(dedupe.uniqueRows.length > 0) populateVerifMapping();
+
     saveJobHistory({
       url: $('tblUrl').value.trim(),
       hostname: tblLastDetection.website,
@@ -2963,6 +2985,86 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     }
   }
   $('tblHistoryRefreshBtn').addEventListener('click', loadHistoryList);
+
+  // ---- Batch 6: Verification Queue integration ----
+  function populateVerifMapping(){
+    const headers = tblJobState.headers;
+    const optsWithNone = '<option value="">-- None / Fixed default --</option>' +
+      headers.map((h,i) => `<option value="${i}">${h}</option>`).join('');
+    const optsRequired = headers.map((h,i) => `<option value="${i}">${h}</option>`).join('');
+
+    $('tblVerifNameCol').innerHTML = optsRequired;
+    $('tblVerifRefCol').innerHTML = optsWithNone;
+    $('tblVerifCityCol').innerHTML = optsWithNone;
+    $('tblVerifStatusCol').innerHTML = optsWithNone;
+
+    // Sensible auto-guesses so Boss doesn't have to map manually every time
+    const guess = (patterns) => headers.findIndex(h => patterns.test(h));
+    const nameIdx = guess(/name|proprietor|title/i);
+    const refIdx = guess(/licen[cs]e|registration|reference|application/i);
+    const cityIdx = guess(/city|office|location/i);
+    const statusIdx = guess(/status/i);
+    if(nameIdx !== -1) $('tblVerifNameCol').value = nameIdx;
+    if(refIdx !== -1) $('tblVerifRefCol').value = refIdx;
+    if(cityIdx !== -1) $('tblVerifCityCol').value = cityIdx;
+    if(statusIdx !== -1) $('tblVerifStatusCol').value = statusIdx;
+
+    $('tblVerifBlock').style.display = 'block';
+  }
+
+  let tblVerifCancelled = false;
+
+  $('tblVerifSendBtn').addEventListener('click', async () => {
+    const authority = $('tblVerifAuthority').value.trim();
+    const nameColRaw = $('tblVerifNameCol').value;
+    if(!authority){ alert('Authority likhna zaroori hai (jaise BEOE, CDA).'); return; }
+    if(nameColRaw === ''){ alert('Name Column select karna zaroori hai.'); return; }
+    const nameCol = parseInt(nameColRaw, 10);
+    const refCol = $('tblVerifRefCol').value === '' ? null : parseInt($('tblVerifRefCol').value, 10);
+    const cityCol = $('tblVerifCityCol').value === '' ? null : parseInt($('tblVerifCityCol').value, 10);
+    const statusCol = $('tblVerifStatusCol').value === '' ? null : parseInt($('tblVerifStatusCol').value, 10);
+    const type = $('tblVerifType').value;
+    const baseUrl = $('tblUrl').value.trim();
+
+    const rows = tblJobState.dedupedRows.filter(r => (r.cells[nameCol] || '').trim());
+    if(!confirm(`${rows.length} records "verifications" queue mein bheje jayenge (published:false, admin review ke baad hi public honge). Aage badhein?`)) return;
+
+    tblVerifCancelled = false;
+    $('tblVerifSendBtn').style.display = 'none';
+    $('tblVerifCancelBtn').style.display = 'inline-block';
+    $('tblVerifProgress').style.display = 'block';
+
+    let sent = 0, failed = 0;
+    for(let i = 0; i < rows.length; i++){
+      if(tblVerifCancelled){ log('Verification queue send cancelled.'); break; }
+      const row = rows[i];
+      const payload = {
+        type,
+        name: row.cells[nameCol],
+        authority,
+        reference_no: refCol !== null ? (row.cells[refCol] || null) : null,
+        city: cityCol !== null ? (row.cells[cityCol] || null) : null,
+        status: statusCol !== null ? (row.cells[statusCol] || 'unknown') : 'unknown',
+        official_source_url: row.sourceUrl || baseUrl,
+        published: false
+      };
+      try {
+        await callAdminApi('verif-save', { method: 'POST', body: JSON.stringify(payload) });
+        sent++;
+      } catch(e) {
+        failed++;
+        log(`Verif send failed for "${payload.name}": ${e.message}`);
+      }
+      $('tblVerifProgress').textContent = `Sending ${i+1} / ${rows.length} — OK: ${sent}, Failed: ${failed}`;
+    }
+
+    $('tblVerifSendBtn').style.display = 'inline-block';
+    $('tblVerifCancelBtn').style.display = 'none';
+    $('tblVerifProgress').textContent = `Mukammal — ${sent} bheji gayi, ${failed} fail huin. Review "Risk/Verify Dashboard" tab mein karein (abhi published nahi hain).`;
+    log(`Verification queue: ${sent} sent, ${failed} failed.`);
+  });
+
+  $('tblVerifCancelBtn').addEventListener('click', () => { tblVerifCancelled = true; });
 })();
 </script>
 </body>
