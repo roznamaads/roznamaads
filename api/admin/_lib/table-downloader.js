@@ -4,12 +4,14 @@
 
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import crypto from 'node:crypto';
 import { extractTableGrids, extractLinks } from './html-lite-parser.js';
 
 const USER_AGENT = 'RoznamaAds-TableDownloader/1.0 (+https://roznamaads.com)';
-const FETCH_TIMEOUT_MS = 8000; // Vercel Hobby function hard limit ~10s
+const FETCH_TIMEOUT_MS = 6000; // kept low so a retry still fits inside Vercel's ~10s hard limit
 const MAX_REDIRECTS = 5;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024; // 8MB safety cap
+const PAGE_FETCH_MAX_ATTEMPTS = 2; // 1 retry for 429 / 5xx
 
 // ---------------------------------------------------------------------------
 // 1. SSRF PROTECTION
@@ -443,5 +445,106 @@ export async function detectTableAndPagination(inputUrl) {
     recommendedIndex: 0,
     pagination: pagination || null,
     paginationConfidenceNote: pagination ? null : 'Pagination confidently detect nahi ho saki — manual configuration istemal karein.'
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 8. MULTI-PAGE FETCH ENGINE (Batch 3): retry/backoff + per-page extraction
+// ---------------------------------------------------------------------------
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function safeFetchWithRetry(urlString) {
+  let lastErr;
+  for (let attempt = 1; attempt <= PAGE_FETCH_MAX_ATTEMPTS; attempt++) {
+    try {
+      const fetched = await safeFetch(urlString);
+      const retryableStatus = fetched.status === 429 || (fetched.status >= 500 && fetched.status <= 504);
+      if (retryableStatus && attempt < PAGE_FETCH_MAX_ATTEMPTS) {
+        await sleep(800 * attempt); // exponential-ish backoff
+        continue;
+      }
+      return fetched;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < PAGE_FETCH_MAX_ATTEMPTS) {
+        await sleep(500);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr || new Error('Fetch retry exhausted.');
+}
+
+function extractSpecificTableRows(html, tableIndex) {
+  const grids = extractTableGrids(html);
+  const grid = grids[tableIndex] || grids[0] || [];
+  const headerRowRaw = grid.length > 0 ? grid[0] : null;
+  const dataRows = grid.slice(1);
+  const headers = headerRowRaw ? headerRowRaw.map(c => (c ? c.text : '')) : [];
+  const rows = dataRows.map(r => headers.map((_, i) => (r[i] ? r[i].text : '')));
+  const linkCells = dataRows.map(r => headers.map((_, i) => (r[i] ? r[i].linkHref : null)));
+  return { headers, rows, linkCells, tableFound: grids.length > 0 };
+}
+
+// Fetches ONE page, extracts the chosen table's rows, and (for next_link-style
+// pagination only) reports the next URL found on that page — the frontend
+// drives the loop across many invocations to stay inside Vercel's timeout.
+export async function fetchSinglePage(inputUrl, tableIndex, paginationType) {
+  let targetUrl;
+  try {
+    targetUrl = await assertPublicUrl(inputUrl);
+  } catch (e) {
+    return { ok: false, reason: 'ssrf_blocked', message: e.message };
+  }
+
+  let fetched;
+  try {
+    fetched = await safeFetchWithRetry(targetUrl.toString());
+  } catch (e) {
+    return { ok: false, reason: 'fetch_error', message: e.message };
+  }
+
+  const challenge = detectBlockingChallenge(fetched.status, fetched.headers, fetched.html);
+  if (challenge.blocked) {
+    const messages = {
+      auth: 'Website ne 401/403 Forbidden return kiya — downloader access restrictions bypass nahi karega.',
+      cloudflare: 'Cloudflare challenge detect hua — automated bypass supported nahi hai.',
+      captcha: 'CAPTCHA detect hua — automated bypass supported nahi hai.'
+    };
+    return { ok: false, reason: `blocked_${challenge.reason}`, message: messages[challenge.reason], httpStatus: fetched.status };
+  }
+
+  if (fetched.status === 404) {
+    return { ok: true, httpStatus: 404, headers: [], rows: [], rowCount: 0, isEmpty: true, endOfPagination: true, nextUrl: null };
+  }
+  if (fetched.status >= 400) {
+    return { ok: false, reason: 'http_error', message: `Website returned HTTP ${fetched.status}.`, httpStatus: fetched.status };
+  }
+
+  const { headers, rows, linkCells, tableFound } = extractSpecificTableRows(fetched.html, tableIndex);
+  const contentHash = crypto.createHash('sha1').update(JSON.stringify(rows)).digest('hex').slice(0, 16);
+
+  let nextUrl = null;
+  if (paginationType === 'next_link') {
+    const p = detectPagination(fetched.html, fetched.finalUrl);
+    if (p && p.type === 'next_link') nextUrl = p.nextUrl;
+  }
+
+  return {
+    ok: true,
+    httpStatus: fetched.status,
+    headers,
+    rows,
+    linkCells,
+    rowCount: rows.length,
+    isEmpty: rows.length === 0,
+    tableFound,
+    contentHash,
+    nextUrl,
+    finalUrl: fetched.finalUrl
   };
 }

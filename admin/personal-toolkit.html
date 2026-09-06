@@ -239,8 +239,6 @@
     <p class="desc">BEOE ki poori OEP (visa agency) list ek click mein import/refresh karein. Records draft (unpublished) mein aate hain — verify karke publish karein.</p>
     <button class="btn alt" id="beoeImportBtn">📦 Import BEOE Data (5271 records)</button>
     <div id="beoeImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
-    <button class="btn alt" id="beoePublishAllBtn" style="margin-top:10px">✅ Publish ALL BEOE Records (official govt data, ek click)</button>
-    <div id="beoePublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
   </section>
 
   <section class="panel" data-panel="ai-extractor">
@@ -350,6 +348,59 @@
     <button class="btn alt" id="addCatBtn" style="margin-top:10px">+ Add Category</button>
     <button class="btn" id="saveCatsToDeployer" style="margin-top:10px">📤 Send to Deployer</button>
     <p class="desc" id="catSaveMsg" style="margin-top:8px"></p>
+  </section>
+
+  <!-- Universal Table Downloader -->
+  <section class="panel" data-panel="table-downloader">
+    <h2>🌐 Universal Table Downloader</h2>
+    <p class="desc">Kisi bhi public website ka paginated HTML table detect kar ke sab pages fetch, combine aur CSV/JSON mein export karein.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="tblSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+
+    <div class="field"><label>Website URL</label><input type="text" id="tblUrl" placeholder="https://example.gov.pk/list"></div>
+    <button class="btn" id="tblDetectBtn">Detect Table</button>
+
+    <div id="tblDetectResult" style="display:none;margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Detection Result</div>
+      <div id="tblDetectBody" style="font-size:.85rem;line-height:1.7"></div>
+      <div id="tblTableChoices" style="margin-top:8px"></div>
+    </div>
+
+    <div id="tblConfigBlock" style="display:none;margin-top:18px">
+      <div class="field-row">
+        <div class="field"><label>Start Page</label><input type="number" id="tblStartPage" value="1" min="1"></div>
+        <div class="field"><label>Maximum Pages</label><input type="number" id="tblMaxPages" value="1000" min="1"></div>
+        <div class="field"><label>Delay (ms)</label><input type="number" id="tblDelay" value="700" min="200"></div>
+      </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400">
+          <input type="checkbox" id="tblIncSrcUrl" checked style="width:auto"> Include Source URL
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin-top:6px">
+          <input type="checkbox" id="tblIncSrcPage" checked style="width:auto"> Include Source Page
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin-top:6px">
+          <input type="checkbox" id="tblIncRetrieved" checked style="width:auto"> Include Retrieval Time
+        </label>
+      </div>
+      <button class="btn" id="tblStartBtn">START DOWNLOAD</button>
+      <button class="btn alt" id="tblCancelBtn" style="display:none">Cancel</button>
+    </div>
+
+    <div id="tblProgressBlock" style="display:none;margin-top:18px">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:6px">
+        Page: <b id="tblProgPage">0 / 0</b> &nbsp;·&nbsp; Rows: <b id="tblProgRows">0</b> &nbsp;·&nbsp;
+        Duplicates: <b id="tblProgDup">0</b> &nbsp;·&nbsp; Errors: <b id="tblProgErr">0</b>
+      </div>
+      <div class="progWrap"><div class="progBar" id="tblProgBar"></div></div>
+    </div>
+
+    <div id="tblCompleteBlock" style="display:none;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px">
+      <div id="tblCompleteBody" style="font-size:.85rem;line-height:1.7"></div>
+      <button class="btn" id="tblDownloadCsvBtn">Download CSV</button>
+      <button class="btn alt" id="tblDownloadJsonBtn">Download JSON</button>
+    </div>
+
+    <div class="toolkit-log" id="tblLog" style="display:none"></div>
   </section>
 
   <section class="panel" data-panel="user-ads"><h2>User Submitted Ads</h2><p class="desc">Submit Ad page se aane wali ads ki moderation queue.</p><div class="stub"><div class="icon">👤</div>Backend connect hone ke baad submissions yahan aayengi.</div></section>
@@ -641,6 +692,7 @@ const TOOLS = [
   {id:'phone-checks', label:'Phone Checks'},
   {id:'url-checks', label:'URL Checks'},
   {id:'category-manager', label:'Category Mgr'},
+  {id:'table-downloader', label:'Table Downloader'},
   {id:'user-ads', label:'User Ads'},
   {id:'social', label:'Social Posting'},
   {id:'whatsapp', label:'WhatsApp'},
@@ -2030,18 +2082,6 @@ document.getElementById('beoeImportBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('beoePublishAllBtn').addEventListener('click', async () => {
-  const statusBox = document.getElementById('beoePublishStatus');
-  if(!confirm('Sab BEOE records (5271) ek sath PUBLISH karni hain? Ye official BEOE data hai, seedha unki site se — agar koi galti mile to baad mein individually unpublish/edit kar sakte hain.')) return;
-  statusBox.textContent = 'Publish ho raha hai...';
-  try{
-    await callAdminApi('beoe-publish-all', { method:'POST' });
-    statusBox.textContent = '✅ Sab BEOE records publish ho gayi — ab verify.html par public ko dikhengi.';
-  }catch(e){
-    statusBox.textContent = `❌ Error: ${e.message}`;
-  }
-});
-
 async function deleteVerifRecord(i){
   const v = verifRecordsData[i];
   if(!confirm('Ye verification record delete karna hai?')) return;
@@ -2506,6 +2546,253 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     `;
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
 });
+
+/* ---------- Universal Table Downloader (UI shell — Batch 1) ---------- */
+(function tableDownloaderShell(){
+  const $ = id => document.getElementById(id);
+  const log = msg => {
+    const box = $('tblLog');
+    box.style.display = 'block';
+    box.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+    box.scrollTop = box.scrollHeight;
+  };
+
+  let tblLastDetection = null;
+
+  function renderPagination(p){
+    if(!p) return '<span style="color:var(--muted)">Confidently detect nahi hui — manual config istemal karein.</span>';
+    if(p.type === 'query_parameter'){
+      return `Method: <b>query parameter (${p.parameter})</b><br>URL Template: <code>${p.urlTemplate}</code><br>` +
+             (p.estimatedPages ? `Estimated Pages: <b>${p.estimatedPages}</b><br>` : '') +
+             `Confidence: <b>${Math.round(p.confidence*100)}%</b>`;
+    }
+    if(p.type === 'path'){
+      return `Method: <b>path pattern</b><br>URL Template: <code>${p.template}</code><br>Confidence: <b>${Math.round(p.confidence*100)}%</b>`;
+    }
+    if(p.type === 'next_link'){
+      return `Method: <b>Next-link only</b> (single hop, jump-to-page nahi)<br>Next URL: <code>${p.nextUrl}</code><br>Confidence: <b>${Math.round(p.confidence*100)}%</b>`;
+    }
+    return 'Unknown pagination type.';
+  }
+
+  $('tblDetectBtn').addEventListener('click', async () => {
+    const url = $('tblUrl').value.trim();
+    if(!url){ alert('Pehle website URL daalein.'); return; }
+    if(!getAdminSecret()) return;
+    log(`Detect requested for: ${url}`);
+    $('tblDetectBtn').disabled = true;
+    $('tblDetectBtn').textContent = 'Detecting…';
+    try {
+      const result = await callAdminApi(`table-downloader?operation=detect`, {
+        method: 'POST',
+        body: JSON.stringify({ url })
+      });
+      tblLastDetection = result;
+
+      if(!result.ok){
+        $('tblDetectResult').style.display = 'block';
+        $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${result.message || result.reason}</span>`;
+        $('tblTableChoices').innerHTML = '';
+        $('tblConfigBlock').style.display = 'none';
+        log(`Detect failed: ${result.reason}`);
+        return;
+      }
+
+      const rec = result.tables[result.recommendedIndex];
+      $('tblDetectResult').style.display = 'block';
+      $('tblDetectBody').innerHTML = `
+        Website: <b>${result.website}</b><br>
+        Source Type: <b>HTML Table</b><br>
+        Detected Tables: <b>${result.tables.length}</b> &nbsp;(recommended: Table ${result.recommendedIndex+1}, ${rec.rows} rows, score ${rec.score})<br>
+        Columns: ${rec.headers.join(' | ')}<br><br>
+        Pagination:<br>${renderPagination(result.pagination)}
+      `;
+      $('tblTableChoices').innerHTML = result.tables.map((t,i) =>
+        `<button class="btn ${i===result.recommendedIndex?'':'alt'}" data-tbl-idx="${i}" style="margin-bottom:6px">
+          Table ${i+1} — ${t.rows} rows${i===result.recommendedIndex?' (Recommended)':''}
+        </button>`
+      ).join(' ');
+      $('tblConfigBlock').style.display = 'block';
+      log(`Detect OK — ${result.tables.length} table(s) found, pagination: ${result.pagination ? result.pagination.type : 'none'}`);
+    } catch(e) {
+      $('tblDetectResult').style.display = 'block';
+      $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${e.message}</span>`;
+      log(`Detect error: ${e.message}`);
+    } finally {
+      $('tblDetectBtn').disabled = false;
+      $('tblDetectBtn').textContent = 'Detect Table';
+    }
+  });
+
+  let tblSelectedTableIndex = 0;
+  $('tblTableChoices').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-tbl-idx]');
+    if(!btn || !tblLastDetection) return;
+    tblSelectedTableIndex = parseInt(btn.dataset.tblIdx, 10);
+    $('tblTableChoices').querySelectorAll('button').forEach(b => b.classList.toggle('alt', b !== btn));
+    log(`Table ${tblSelectedTableIndex+1} selected.`);
+  });
+
+  function buildPageUrl(pagination, pageNumber){
+    if(pagination.type === 'query_parameter'){
+      const value = pagination.start + (pageNumber - 1) * pagination.increment;
+      return pagination.urlTemplate.replace('{page}', value);
+    }
+    if(pagination.type === 'path'){
+      const value = pagination.start + (pageNumber - 1) * pagination.increment;
+      return pagination.template.replace('{page}', value);
+    }
+    return null; // next_link handled via cursor, see tblJobState.nextCursorUrl
+  }
+
+  const tblJobState = { running: false, cancelled: false, rows: [], headers: [] };
+  window.tblJobState = tblJobState; // exposed for Batch 4 (CSV/JSON export)
+
+  function updateProgressUI({ page, totalEstimate, rows, dup, errors }){
+    $('tblProgPage').textContent = totalEstimate ? `${page} / ${totalEstimate}` : `${page} / ?`;
+    $('tblProgRows').textContent = rows;
+    $('tblProgDup').textContent = dup;
+    $('tblProgErr').textContent = errors;
+    const pct = totalEstimate ? Math.min(100, Math.round((page/totalEstimate)*100)) : 0;
+    $('tblProgBar').style.width = pct + '%';
+  }
+
+  $('tblStartBtn').addEventListener('click', async () => {
+    if(!tblLastDetection || !tblLastDetection.ok){ alert('Pehle Detect Table chalayein.'); return; }
+    const pagination = tblLastDetection.pagination;
+    const startPage = parseInt($('tblStartPage').value, 10) || 1;
+    const maxPages = parseInt($('tblMaxPages').value, 10) || 1000;
+    const delayMs = parseInt($('tblDelay').value, 10) || 700;
+    const incSrcUrl = $('tblIncSrcUrl').checked;
+    const incSrcPage = $('tblIncSrcPage').checked;
+    const incRetrieved = $('tblIncRetrieved').checked;
+
+    tblJobState.running = true;
+    tblJobState.cancelled = false;
+    tblJobState.rows = [];
+    tblJobState.headers = tblLastDetection.tables[tblSelectedTableIndex].headers;
+
+    $('tblStartBtn').style.display = 'none';
+    $('tblCancelBtn').style.display = 'inline-block';
+    $('tblProgressBlock').style.display = 'block';
+    $('tblCompleteBlock').style.display = 'none';
+
+    let pagesFetched = 0, pagesFailed = 0, consecutiveEmpty = 0, lastHash = null;
+    let stopReason = null;
+    let cursorUrl = pagination && pagination.type === 'next_link' ? $('tblUrl').value.trim() : null;
+    const estimate = pagination && pagination.estimatedPages ? Math.min(pagination.estimatedPages, maxPages) : null;
+
+    for(let pageNum = startPage; pageNum <= (startPage + maxPages - 1); pageNum++){
+      if(tblJobState.cancelled){ stopReason = 'CANCELLED'; break; }
+      if(!pagination){ stopReason = 'NO_PAGINATION'; break; }
+
+      let targetUrl;
+      if(pagination.type === 'next_link'){
+        targetUrl = pageNum === startPage ? cursorUrl : cursorUrl;
+        if(!targetUrl){ stopReason = 'END_OF_PAGINATION'; break; }
+      } else {
+        targetUrl = buildPageUrl(pagination, pageNum);
+      }
+
+      let result;
+      try {
+        result = await callAdminApi(`table-downloader?operation=fetch-page`, {
+          method: 'POST',
+          body: JSON.stringify({ targetUrl, tableIndex: tblSelectedTableIndex, paginationType: pagination.type })
+        });
+      } catch(e) {
+        pagesFailed++;
+        log(`Page ${pageNum}: error — ${e.message}`);
+        updateProgressUI({ page: pageNum, totalEstimate: estimate, rows: tblJobState.rows.length, dup: 0, errors: pagesFailed });
+        if(pagesFailed >= 5){ stopReason = 'TOO_MANY_ERRORS'; break; }
+        await new Promise(r => setTimeout(r, delayMs));
+        continue;
+      }
+
+      if(!result.ok){
+        if(result.reason && result.reason.startsWith('blocked_')){
+          log(`Page ${pageNum}: STOPPED — ${result.message}`);
+          stopReason = result.reason.toUpperCase();
+          break;
+        }
+        pagesFailed++;
+        log(`Page ${pageNum}: failed — ${result.message || result.reason}`);
+        updateProgressUI({ page: pageNum, totalEstimate: estimate, rows: tblJobState.rows.length, dup: 0, errors: pagesFailed });
+        if(pagesFailed >= 5){ stopReason = 'TOO_MANY_ERRORS'; break; }
+        await new Promise(r => setTimeout(r, delayMs));
+        continue;
+      }
+
+      if(result.endOfPagination){ stopReason = 'END_OF_PAGINATION'; break; }
+
+      // End-of-pagination validation: two consecutive empty pages required before stopping
+      if(result.isEmpty){
+        consecutiveEmpty++;
+        if(consecutiveEmpty >= 2){ stopReason = 'END_OF_PAGINATION'; break; }
+      } else {
+        consecutiveEmpty = 0;
+      }
+
+      // Repeated-content detection
+      if(result.contentHash && result.contentHash === lastHash){
+        stopReason = 'REPEATED_CONTENT';
+        break;
+      }
+      lastHash = result.contentHash;
+
+      const retrievedAt = new Date().toISOString();
+      result.rows.forEach(r => {
+        const row = { cells: r };
+        if(incSrcUrl) row.sourceUrl = targetUrl;
+        if(incSrcPage) row.sourcePage = pageNum;
+        if(incRetrieved) row.retrievedAt = retrievedAt;
+        tblJobState.rows.push(row);
+      });
+
+      if(pagination.type === 'next_link') cursorUrl = result.nextUrl;
+
+      pagesFetched++;
+      updateProgressUI({ page: pageNum, totalEstimate: estimate, rows: tblJobState.rows.length, dup: 0, errors: pagesFailed });
+      log(`Page ${pageNum}: OK — ${result.rowCount} rows`);
+
+      if(pagination.type === 'next_link' && !cursorUrl){ stopReason = 'END_OF_PAGINATION'; break; }
+      if(pageNum >= (startPage + maxPages - 1)){ stopReason = 'MAX_PAGES_REACHED'; break; }
+
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+
+    tblJobState.running = false;
+    $('tblStartBtn').style.display = 'inline-block';
+    $('tblCancelBtn').style.display = 'none';
+
+    const finalStatus = stopReason === 'CANCELLED' ? 'CANCELLED'
+      : (pagesFailed > 0 || stopReason === 'TOO_MANY_ERRORS' || (stopReason && stopReason.startsWith('BLOCKED'))) ? 'PARTIAL'
+      : 'COMPLETED';
+
+    $('tblCompleteBlock').style.display = 'block';
+    $('tblCompleteBody').innerHTML = `
+      Status: <b>${finalStatus}</b> (${stopReason || 'DONE'})<br>
+      Pages fetched: <b>${pagesFetched}</b><br>
+      Pages failed: <b>${pagesFailed}</b><br>
+      Rows collected: <b>${tblJobState.rows.length}</b><br>
+      ${finalStatus === 'PARTIAL' ? '<span style="color:#c0392b">⚠️ Ye export incomplete hai.</span><br>' : ''}
+    `;
+    log(`Job finished: ${finalStatus} (${stopReason || 'DONE'}) — ${tblJobState.rows.length} rows, ${pagesFetched} pages OK, ${pagesFailed} failed.`);
+  });
+
+  $('tblCancelBtn').addEventListener('click', () => {
+    tblJobState.cancelled = true;
+    log('Cancel requested — ruk raha hai...');
+  });
+
+  $('tblDownloadCsvBtn').addEventListener('click', () => {
+    log('CSV export Batch 4 mein wire hoga.');
+  });
+
+  $('tblDownloadJsonBtn').addEventListener('click', () => {
+    log('JSON export Batch 4 mein wire hoga.');
+  });
+})();
 </script>
 </body>
 </html>
