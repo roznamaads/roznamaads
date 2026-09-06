@@ -18,5 +18,10 @@
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/admin/router.js": {
+      "includeFiles": "api/admin/beoe-data.json"
+    }
+  }
 }
