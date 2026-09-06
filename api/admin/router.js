@@ -607,6 +607,53 @@ export default async function handler(req, res) {
           }
         }
 
+        /* ---- Batch 5: light Job History / Source Registry (Supabase) ---- */
+        if (operation === 'history-save') {
+          if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+          const {
+            url, hostname, tableIndex, pagination, headers, status,
+            pagesFetched, pagesFailed, rowsFetched, duplicatesRemoved, rowsUnique
+          } = req.body || {};
+          if (!url || !hostname) return res.status(400).json({ error: 'url and hostname required' });
+          try {
+            const r = await fetch(`${SB()}/rest/v1/table_downloader_jobs`, {
+              method: 'POST',
+              headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+              body: JSON.stringify([{
+                url, hostname,
+                table_index: Number.isInteger(tableIndex) ? tableIndex : null,
+                pagination_strategy: pagination || null,
+                headers: headers || null,
+                status: status || 'UNKNOWN',
+                pages_fetched: pagesFetched || 0,
+                pages_failed: pagesFailed || 0,
+                rows_fetched: rowsFetched || 0,
+                duplicates_removed: duplicatesRemoved || 0,
+                rows_unique: rowsUnique || 0
+              }])
+            });
+            const data = await r.json();
+            return res.status(r.status).json(data);
+          } catch (execErr) {
+            return res.status(500).json({ error: 'history-save error: ' + execErr.message });
+          }
+        }
+
+        if (operation === 'history-list') {
+          const urlParam = req.query.url;
+          const urlFilter = urlParam ? (Array.isArray(urlParam) ? urlParam[0] : urlParam) : null;
+          try {
+            const endpoint = urlFilter
+              ? `${SB()}/rest/v1/table_downloader_jobs?url=eq.${encodeURIComponent(urlFilter)}&order=created_at.desc&limit=1&select=*`
+              : `${SB()}/rest/v1/table_downloader_jobs?order=created_at.desc&limit=20&select=*`;
+            const r = await fetch(endpoint, { headers: sbHeaders() });
+            const data = await r.json();
+            return res.status(r.status).json(data);
+          } catch (execErr) {
+            return res.status(500).json({ error: 'history-list error: ' + execErr.message });
+          }
+        }
+
         return res.status(400).json({ error: 'Unknown or not-yet-implemented operation: ' + operation });
       }
 

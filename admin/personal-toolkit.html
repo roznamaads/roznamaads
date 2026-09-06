@@ -401,6 +401,11 @@
     </div>
 
     <div class="toolkit-log" id="tblLog" style="display:none"></div>
+
+    <div style="margin-top:18px">
+      <button class="btn alt" id="tblHistoryRefreshBtn">Job History Refresh Karein</button>
+      <div id="tblHistoryList" style="margin-top:10px;font-size:.82rem;line-height:1.8"></div>
+    </div>
   </section>
 
   <section class="panel" data-panel="user-ads"><h2>User Submitted Ads</h2><p class="desc">Submit Ad page se aane wali ads ki moderation queue.</p><div class="stub"><div class="icon">👤</div>Backend connect hone ke baad submissions yahan aayengi.</div></section>
@@ -2614,6 +2619,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       ).join(' ');
       $('tblConfigBlock').style.display = 'block';
       log(`Detect OK — ${result.tables.length} table(s) found, pagination: ${result.pagination ? result.pagination.type : 'none'}`);
+      checkHistoryReuse(url);
     } catch(e) {
       $('tblDetectResult').style.display = 'block';
       $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${e.message}</span>`;
@@ -2785,6 +2791,19 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       ${finalStatus === 'PARTIAL' ? '<span style="color:#c0392b">⚠️ Ye export incomplete hai.</span><br>' : ''}
     `;
     log(`Job finished: ${finalStatus} (${stopReason || 'DONE'}) — ${tblJobState.rows.length} rows fetched, ${dedupe.dupCount} duplicates removed (key: ${dedupe.keyUsed}), ${dedupe.uniqueRows.length} unique.`);
+
+    saveJobHistory({
+      url: $('tblUrl').value.trim(),
+      hostname: tblLastDetection.website,
+      tableIndex: tblSelectedTableIndex,
+      pagination: tblLastDetection.pagination,
+      headers: tblJobState.headers,
+      status: finalStatus,
+      pagesFetched, pagesFailed,
+      rowsFetched: tblJobState.rows.length,
+      duplicatesRemoved: dedupe.dupCount,
+      rowsUnique: dedupe.uniqueRows.length
+    });
   });
 
   $('tblCancelBtn').addEventListener('click', () => {
@@ -2891,6 +2910,59 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     downloadBlob(JSON.stringify(objs, null, 2), `Universal_Table_Export_${timestampForFilename()}.json`, 'application/json;charset=utf-8');
     log(`JSON downloaded — ${objs.length} rows.`);
   });
+
+  // ---- Batch 5: light Job History / Source Registry ----
+  async function saveJobHistory(payload){
+    try {
+      await callAdminApi('table-downloader?operation=history-save', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      log('Job history mein save ho gaya.');
+    } catch(e) {
+      log(`History save nahi ho saka (job data phir bhi mojood hai): ${e.message}`);
+    }
+  }
+
+  async function checkHistoryReuse(url){
+    try {
+      const rows = await callAdminApi(`table-downloader?operation=history-list&url=${encodeURIComponent(url)}`, { method: 'GET' });
+      if(!Array.isArray(rows) || rows.length === 0) return;
+      const prev = rows[0];
+      const when = new Date(prev.created_at).toLocaleString();
+      const note = document.createElement('div');
+      note.style.cssText = 'margin-top:10px;background:#eef6ff;border:1px solid #bcd9f5;border-radius:8px;padding:10px;font-size:.82rem';
+      note.innerHTML = `📚 Ye URL pehle bhi try ho chuka hai — <b>${when}</b>: ${prev.status}, ${prev.pages_fetched} pages, ${prev.rows_unique ?? prev.rows_fetched} unique rows.
+        ${prev.pagination_strategy ? '<br><button class="btn alt" id="tblReusePagBtn" style="margin-top:6px">Purani Pagination Reuse Karein</button>' : ''}`;
+      $('tblDetectResult').appendChild(note);
+      if(prev.pagination_strategy){
+        document.getElementById('tblReusePagBtn').addEventListener('click', () => {
+          tblLastDetection.pagination = prev.pagination_strategy;
+          $('tblDetectBody').innerHTML += `<br><span style="color:#2a7a2a">✅ Purani pagination reuse ho gayi: ${renderPagination(prev.pagination_strategy)}</span>`;
+          log('Purani saved pagination strategy reuse ki gayi.');
+        });
+      }
+    } catch(e) {
+      log(`History lookup skip — ${e.message}`);
+    }
+  }
+
+  async function loadHistoryList(){
+    $('tblHistoryList').innerHTML = 'Loading...';
+    try {
+      const rows = await callAdminApi('table-downloader?operation=history-list', { method: 'GET' });
+      if(!Array.isArray(rows) || rows.length === 0){ $('tblHistoryList').innerHTML = '<span style="color:var(--muted)">Abhi koi job history nahi.</span>'; return; }
+      $('tblHistoryList').innerHTML = rows.map(j => `
+        <div style="border-bottom:1px solid var(--line);padding:6px 0">
+          <b>${j.hostname}</b> — ${j.status}<br>
+          <span style="color:var(--muted)">${new Date(j.created_at).toLocaleString()} · Pages: ${j.pages_fetched} · Rows: ${j.rows_unique ?? j.rows_fetched} · Dup: ${j.duplicates_removed}</span>
+        </div>
+      `).join('');
+    } catch(e) {
+      $('tblHistoryList').innerHTML = `<span style="color:#c0392b">❌ ${e.message}</span>`;
+    }
+  }
+  $('tblHistoryRefreshBtn').addEventListener('click', loadHistoryList);
 })();
 </script>
 </body>
