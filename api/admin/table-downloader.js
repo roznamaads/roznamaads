@@ -327,7 +327,7 @@ function extractTables(html) {
 // 6. PAGINATION DETECTION
 // ---------------------------------------------------------------------------
 
-const PAGE_PARAM_NAMES = ['page', 'p', 'pg', 'pagenumber', 'page_no', 'pageno'];
+const PAGE_PARAM_NAMES = ['page', 'p', 'pg', 'pagenumber', 'page_no', 'pageno', 'page_num', 'pagenum'];
 const OFFSET_PARAM_NAMES = ['offset', 'start'];
 
 function detectPagination(html, baseUrl) {
@@ -348,7 +348,7 @@ function detectPagination(html, baseUrl) {
   for (const { href } of links) {
     let u;
     try { u = new URL(href); } catch { continue; }
-    if (u.origin !== base.origin || u.pathname !== base.pathname) continue;
+    if (u.hostname !== base.hostname || u.pathname !== base.pathname) continue;
     for (const [key, val] of u.searchParams.entries()) {
       const lowerKey = key.toLowerCase();
       if (PAGE_PARAM_NAMES.includes(lowerKey) && /^\d+$/.test(val)) {
@@ -376,7 +376,7 @@ function detectPagination(html, baseUrl) {
   for (const { href } of links) {
     let u;
     try { u = new URL(href); } catch { continue; }
-    if (u.origin !== base.origin || u.pathname !== base.pathname) continue;
+    if (u.hostname !== base.hostname || u.pathname !== base.pathname) continue;
     for (const [key, val] of u.searchParams.entries()) {
       if (OFFSET_PARAM_NAMES.includes(key.toLowerCase()) && /^\d+$/.test(val)) {
         bestOffsetParam = key;
@@ -402,13 +402,13 @@ function detectPagination(html, baseUrl) {
   for (const { href } of links) {
     let u;
     try { u = new URL(href); } catch { continue; }
-    if (u.origin !== base.origin) continue;
+    if (u.hostname !== base.hostname) continue;
     const m = u.pathname.match(pathPatternRe);
     if (m) {
       const template = u.pathname.replace(pathPatternRe, `/${m[1]}/{page}$3`);
       return {
         type: 'path',
-        template: `${u.origin}${template}${u.search || ''}`,
+        template: `${base.origin}${template}${u.search || ''}`,
         start: 1,
         increment: 1,
         confidence: 0.9
