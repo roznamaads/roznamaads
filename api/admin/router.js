@@ -3,7 +3,6 @@
 // Routes: /api/admin/<action> — vercel.json ke rewrite se yahan aata hai, e.g. /api/admin/list?status=pending
 
 import { beoeData } from './beoe-data.js';
-import { detectTableAndPagination } from './table-downloader.js';
 
 const VALID_CATEGORIES = [
   'property','jobs','vehicles','matrimonial','visa','auctions',
@@ -587,8 +586,13 @@ export default async function handler(req, res) {
         if (operation === 'detect') {
           const { url } = req.body || {};
           if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url required' });
-          const result = await detectTableAndPagination(url);
-          return res.status(result.ok ? 200 : 422).json(result);
+          try {
+            const { detectTableAndPagination } = await import('./table-downloader.js');
+            const result = await detectTableAndPagination(url);
+            return res.status(result.ok ? 200 : 422).json(result);
+          } catch (modErr) {
+            return res.status(500).json({ error: 'table-downloader module error: ' + modErr.message });
+          }
         }
 
         return res.status(400).json({ error: 'Unknown or not-yet-implemented operation: ' + operation });

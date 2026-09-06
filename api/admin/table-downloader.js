@@ -2,9 +2,9 @@
 // Consolidated into api/admin/router.js as action=table-downloader.
 // Does NOT touch any existing feature/action.
 
-import * as cheerio from 'cheerio';
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import { extractTableGrids, extractLinks } from './html-lite-parser.js';
 
 const USER_AGENT = 'RoznamaAds-TableDownloader/1.0 (+https://roznamaads.com)';
 const FETCH_TIMEOUT_MS = 8000; // Vercel Hobby function hard limit ~10s
@@ -205,49 +205,8 @@ function detectBlockingChallenge(status, headers, html) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. TABLE EXTRACTION (rowspan/colspan aware) + SCORING
+// 5. TABLE EXTRACTION (rowspan/colspan aware, dependency-free) + SCORING
 // ---------------------------------------------------------------------------
-
-function tableToGrid($, tableEl) {
-  const $table = $(tableEl);
-  const rowsEls = $table.find('tr').toArray();
-  const grid = [];
-  const pending = []; // {col, remainingRows, value}
-
-  rowsEls.forEach((tr, rIdx) => {
-    grid[rIdx] = grid[rIdx] || [];
-    let col = 0;
-    const advancePastPending = () => {
-      while (pending[col] && pending[col].remainingRows > 0) {
-        grid[rIdx][col] = pending[col].value;
-        col++;
-      }
-    };
-    advancePastPending();
-    $(tr).find('> td, > th').each((_, cellEl) => {
-      advancePastPending();
-      const $cell = $(cellEl);
-      const colspan = parseInt($cell.attr('colspan') || '1', 10) || 1;
-      const rowspan = parseInt($cell.attr('rowspan') || '1', 10) || 1;
-      const text = $cell.text().replace(/\s+/g, ' ').trim();
-      const isHeader = cellEl.tagName === 'th';
-      for (let c = 0; c < colspan; c++) {
-        grid[rIdx][col] = { text, isHeader };
-        if (rowspan > 1) {
-          pending[col] = { remainingRows: rowspan - 1, value: { text, isHeader } };
-        }
-        col++;
-        advancePastPending();
-      }
-    });
-    // decrement pending rowspans for columns not touched this row
-    for (let c = 0; c < pending.length; c++) {
-      if (pending[c]) pending[c].remainingRows--;
-    }
-  });
-
-  return grid;
-}
 
 function scoreTable(grid) {
   const rows = grid.length;
@@ -286,10 +245,8 @@ function dedupeHeaderNames(names) {
 }
 
 function extractTables(html) {
-  const $ = cheerio.load(html);
-  const tableEls = $('table').toArray();
-  const results = tableEls.map((el, idx) => {
-    const grid = tableToGrid($, el);
+  const grids = extractTableGrids(html);
+  const results = grids.map((grid, idx) => {
     const { score, cols, nonEmptyPct, headerRow, consistency } = scoreTable(grid);
 
     let headers;
@@ -330,12 +287,8 @@ function extractTables(html) {
 const PAGE_PARAM_NAMES = ['page', 'p', 'pg', 'pagenumber', 'page_no', 'pageno', 'page_num', 'pagenum'];
 const OFFSET_PARAM_NAMES = ['offset', 'start'];
 
-function detectPagination(html, baseUrl) {
-  const $ = cheerio.load(html);
-  const links = $('a[href]').toArray().map(a => {
-    const href = $(a).attr('href');
-    const text = $(a).text().replace(/\s+/g, ' ').trim();
-    const rel = ($(a).attr('rel') || '').toLowerCase();
+export function detectPagination(html, baseUrl) {
+  const links = extractLinks(html).map(({ href, text, rel }) => {
     let abs;
     try { abs = new URL(href, baseUrl).toString(); } catch { return null; }
     return { href: abs, text, rel };
