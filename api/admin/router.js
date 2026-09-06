@@ -3,7 +3,7 @@
 // Routes: /api/admin/<action> — vercel.json ke rewrite se yahan aata hai, e.g. /api/admin/list?status=pending
 
 import { beoeData } from './beoe-data.js';
-import { detectTableAndPagination } from './table-downloader.js';
+import { detectTableAndPagination } from './_lib/table-downloader.js';
 
 const VALID_CATEGORIES = [
   'property','jobs','vehicles','matrimonial','visa','auctions',
