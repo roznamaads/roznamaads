@@ -580,9 +580,12 @@ export default async function handler(req, res) {
 
       /* ---------- Universal Table Downloader (Batch 2: detect only) ---------- */
       case 'table-downloader': {
-        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
         const operationParam = req.query.operation;
         const operation = Array.isArray(operationParam) ? operationParam[0] : operationParam;
+        const READ_ONLY_OPERATIONS = ['history-list'];
+        if (!READ_ONLY_OPERATIONS.includes(operation) && req.method !== 'POST') {
+          return res.status(405).json({ error: 'Method not allowed' });
+        }
 
         if (operation === 'detect') {
           const { url } = req.body || {};
