@@ -1,0 +1,2488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Personal Toolkit — RoznamaAds Admin</title>
+<link rel="stylesheet" href="../styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<style>
+  body{background:var(--bg)}
+  .gate{position:fixed;inset:0;background:var(--green-dark);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px}
+  .gate-box{background:var(--card);border-radius:14px;padding:28px;max-width:340px;width:100%;text-align:center}
+  .gate-box h2{color:var(--green-dark);margin:0 0 6px}
+  .gate-box p{font-size:.82rem;color:var(--muted);margin:0 0 16px}
+  .gate-box input{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:1rem;margin-bottom:10px;text-align:center}
+  .gate-box button{width:100%;background:var(--green);color:#fff;border:none;padding:11px;border-radius:8px;font-size:.95rem;font-weight:700;cursor:pointer}
+  .gate-err{color:#c0392b;font-size:.8rem;margin-top:8px;display:none}
+
+  .admin-wrap{display:none}
+  .admin-header{background:var(--green-dark);color:#fbf8ef;padding:16px 16px}
+  .admin-header .brand-row{display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.1rem;color:#fbf8ef;text-decoration:none}
+  .admin-header .sub{font-size:.78rem;opacity:.8;margin-top:2px}
+  .tool-nav{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;background:var(--bg-soft);border-bottom:1px solid var(--line)}
+  .tool-nav button{flex-shrink:0;padding:7px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:.78rem;cursor:pointer;color:var(--ink)}
+  .tool-nav button.active{background:var(--green);color:#fff;border-color:var(--green)}
+  .panel{display:none;max-width:720px;margin:0 auto;padding:18px 16px 60px}
+  .panel.active{display:block}
+  .panel h2{color:var(--green-dark);font-size:1.05rem;margin:0 0 4px}
+  .panel .desc{font-size:.82rem;color:var(--muted);margin:0 0 16px}
+  .stub{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:26px 18px;text-align:center;color:var(--muted)}
+  .stub .icon{font-size:1.8rem;margin-bottom:8px}
+  .stub b{color:var(--ink)}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.82rem;font-weight:600;margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:7px;font-size:.88rem;background:#fffdf9;font-family:inherit}
+  .btn{background:var(--green);color:#fff;border:none;padding:9px 16px;border-radius:7px;font-size:.85rem;cursor:pointer;margin-right:8px}
+  .btn:hover{background:var(--green-dark)}
+  .btn.alt{background:#fff;color:var(--green-dark);border:1px solid var(--green)}
+  .health-table,.audit-table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:12px}
+  .health-table th,.health-table td,.audit-table th,.audit-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .status-ok{color:var(--green-dark);font-weight:700}
+  .status-bad{color:#c0392b;font-weight:700}
+  .toolkit-log{background:#111611;color:#8be9a0;font-family:ui-monospace,Consolas,monospace;font-size:.76rem;padding:10px;border-radius:6px;height:120px;overflow-y:auto;white-space:pre-wrap;margin-top:10px}
+  .field-row{display:flex;gap:10px;flex-wrap:wrap}
+  .field-row .field{flex:1;min-width:110px}
+  .filebox{border:2px dashed var(--line);border-radius:8px;padding:16px;text-align:center;color:var(--muted);font-size:.82rem;cursor:pointer}
+  .filebox:hover{border-color:var(--green)}
+  .progWrap{background:var(--line);border-radius:6px;height:8px;overflow:hidden}
+  .progBar{background:var(--green);height:100%;width:0%;transition:width .2s}
+  #depFileList div{padding:3px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+  .cat-row{display:flex;gap:6px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px;flex-wrap:wrap}
+  .cat-row input[type=text]{flex:1;min-width:100px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;font-size:.82rem}
+  .cat-row label{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted);white-space:nowrap}
+  .cat-row .mini-btn{background:none;border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:.75rem;cursor:pointer}
+.draft-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.draft-card h4{margin:0 0 10px;color:var(--green-dark)}
+.lang-tab{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.8rem;cursor:pointer}
+.lang-tab.active{background:var(--green-dark);color:#fff;border-color:var(--green-dark)}
+.platform-block{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;background:var(--card)}
+.platform-block h4{margin:0 0 8px;font-size:.9rem;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.platform-block textarea{width:100%;min-height:90px;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:.85rem;font-family:inherit}
+.platform-actions{display:flex;gap:6px;margin-top:6px}
+  .stat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  .stat-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
+  .stat-card .num{font-size:1.5rem;font-weight:800;color:var(--green-dark)}
+  .stat-card .lbl{font-size:.75rem;color:var(--muted)}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:.8rem}
+  .bar-row .name{width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar-row .bar-track{flex:1;background:var(--line);border-radius:4px;height:14px;overflow:hidden}
+  .bar-row .bar-fill{background:var(--green);height:100%}
+  .bar-row .count{width:28px;text-align:right;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h2>🔒 Personal Toolkit</h2>
+    <p>Private admin access — RoznamaAds team only</p>
+    <input type="password" id="gatePass" placeholder="Password" autocomplete="off">
+    <button id="gateBtn">Unlock</button>
+    <p class="gate-err" id="gateErr">Ghalat password — dobara try karein.</p>
+  </div>
+</div>
+
+<div class="admin-wrap" id="adminWrap">
+  <div class="admin-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <a href="#" class="brand-row"><img src="../logo.svg" alt="" style="width:26px;height:26px;border-radius:6px">RoznamaAds — Personal Toolkit</a>
+      <div class="sub">Private admin panel · noindex · not linked from public site</div>
+    </div>
+    <button id="lockBtn" style="background:none;border:1px solid #fbf8ef;color:#fbf8ef;padding:6px 12px;border-radius:6px;font-size:.78rem;cursor:pointer;flex-shrink:0">🔒 Lock</button>
+  </div>
+
+  <nav class="tool-nav" id="toolNav"></nav>
+
+  <!-- AI Settings -->
+  <section class="panel" data-panel="ai-settings">
+    <h2>AI Settings</h2>
+    <p class="desc">Gemini Free API — Stage 0. Provider replaceable rakha gaya hai.</p>
+    <div class="field"><label>AI Provider</label>
+      <select id="aiProvider"><option>Gemini</option><option>OpenAI (future)</option><option>Local Model (future)</option></select>
+    </div>
+    <div class="field"><label>API Key</label><input type="password" id="aiKey" placeholder="Gemini API key"></div>
+    <div class="field"><label>Model</label><input type="text" id="aiModel" placeholder="e.g. gemini-2.0-flash" value="gemini-2.0-flash"></div>
+    <button class="btn" id="testConn">Test Connection</button>
+    <button class="btn alt" id="saveAiSettings">Save AI Settings</button>
+    <p class="desc" id="aiSaveMsg" style="margin-top:8px"></p>
+    <p class="desc" style="color:#a86b00">⚠️ Key is browser (device) ki localStorage mein save hoti hai — jaisa ToolNest mein hota hai. Kisi shared/public device par is panel ko na khulnay dein.</p>
+  </section>
+
+  <!-- AI Playground -->
+  <section class="panel" data-panel="ai-playground">
+    <h2>AI Playground</h2>
+    <p class="desc">Live ads par asar dale bina prompt/output test karein.</p>
+    <div class="field"><label>Provider / Model</label><input type="text" id="pgModel" readonly></div>
+    <div class="field"><label>Prompt / Input</label><textarea id="pgPrompt" rows="4" placeholder="e.g. Is OCR text ko clean karke Property ad banao..."></textarea></div>
+    <button class="btn" id="pgGenerate">Generate</button>
+    <div class="field" style="margin-top:14px"><label>Output</label><div class="stub" id="pgOutput" style="text-align:left">Output yahan dikhega.</div></div>
+  </section>
+
+  <section class="panel" data-panel="newspaper-manager">
+    <h2>Newspaper Manager</h2>
+    <p class="desc">Newspaper sources track karein — access method, ToS/permission status, test priority.</p>
+    <p class="desc" style="color:#a86b00">⚠️ Ye list sirf is browser mein (localStorage) save hoti hai — site par publish nahi hoti, sirf apna internal tracking hai.</p>
+    <div id="npManagerList" style="margin-top:14px"></div>
+    <button class="btn alt" id="addNpBtn" style="margin-top:10px">+ Add Newspaper</button>
+    <button class="btn" id="saveNpBtn" style="margin-top:10px">💾 Save</button>
+    <p class="desc" id="npSaveMsg" style="margin-top:8px"></p>
+  </section>
+
+  <!-- Ad Post Generator (Newspaper Manager + OCR/AI Processing) -->
+  <section class="panel" data-panel="ad-generator">
+    <h2>Ad Post Generator</h2>
+    <p class="desc">Newspaper page ki <b>photo upload</b> karein — Gemini khud padh kar sab ads/tenders nikal degi (OCR ki zaroorat nahi). Ya neeche text bhi paste kar sakte hain agar text mila ho.</p>
+    <div class="field"><label>Newspaper Page Image</label><input type="file" id="ocrImage" accept="image/*"></div>
+    <div class="field"><label>Ya Raw Text (optional, image na ho to)</label><textarea id="ocrText" rows="4" placeholder="Agar image nahi hai to text yahan paste karein..."></textarea></div>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="genSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
+    <button class="btn" id="genDraft">🧠 Generate Draft(s)</button>
+    <p class="desc" id="genMsg" style="margin-top:8px"></p>
+
+    <div id="draftCards" style="margin-top:16px"></div>
+  </section>
+
+  <!-- Ad Draft Queue -->
+  <section class="panel" data-panel="draft-queue">
+    <h2>Ad Draft Queue</h2>
+    <p class="desc">User-submitted aur AI-generated pending ads — approve ya reject karein.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="serviceKey" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <p class="desc" style="color:#a86b00">⚠️ Ye ek chhota secret hai jo aap khud Vercel Environment Variables mein set karte hain — asal Supabase key kabhi browser mein nahi aati, wo sirf server (Vercel Function) par hoti hai.</p>
+    <button class="btn" id="loadPending">📥 Load Pending Ads</button>
+    <div id="pendingList" style="margin-top:14px"></div>
+  </section>
+
+  <!-- Ad Manager -->
+  <section class="panel" data-panel="ad-manager">
+    <h2>Ad Manager</h2>
+    <p class="desc">Sab live ads — delete karein agar zaroorat ho.</p>
+    <button class="btn" id="loadLive">📥 Load Live Ads</button>
+    <div id="liveList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="dup-check">
+    <h2>Duplicate Check</h2>
+    <p class="desc">Multi-newspaper mein repeat hone wali ads detect karega — phone number match ya similar title se.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="dupSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field"><label>Category (optional, title match ke liye)</label>
+      <select id="dupCategory">
+        <option value="">— Sab categories —</option>
+        <option value="property">Property</option>
+        <option value="jobs">Jobs</option>
+        <option value="vehicles">Vehicles</option>
+        <option value="matrimonial">Matrimonial / Rishta</option>
+        <option value="visa">Visa & Immigration</option>
+        <option value="auctions">Auctions</option>
+        <option value="admissions">Admissions</option>
+        <option value="tenders">Tenders</option>
+        <option value="notices">Government / Public Notices</option>
+        <option value="services">Services</option>
+        <option value="electronics">Electronics</option>
+      </select>
+    </div>
+    <div class="field"><label>Title / Keywords</label><input type="text" id="dupTitle" placeholder="e.g. Hybrid Seed Tender"></div>
+    <div class="field"><label>Contact Phone</label><input type="text" id="dupPhone" placeholder="e.g. 042-99212563"></div>
+    <button class="btn" id="checkDupBtn">🔍 Check Duplicates</button>
+    <div id="dupResults" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="expiry">
+    <h2>Expiry Management</h2>
+    <p class="desc">Live ads apni expiry date ke hisaab se — jaldi expire hone wali upar.</p>
+    <button class="btn" id="loadExpiry">📥 Load Ads</button>
+    <div id="expiryList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="reported">
+    <h2>Reported Ads</h2>
+    <p class="desc">Users ke "Report this ad" submissions ki queue.</p>
+    <button class="btn" id="loadReports">📥 Load Reports</button>
+    <div id="reportsList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="verif-sources">
+    <h2>Verification Sources</h2>
+    <p class="desc">Society/Visa ke official source records (CDA/RDA/BEOE waghera) — Part A ka source governance.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="verifSrcSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn" id="loadVerifSources">📥 Load Sources</button>
+    <button class="btn alt" id="addVerifSourceBtn">+ Add Source</button>
+    <div id="verifSourcesList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="verif-records">
+    <h2>Verification Records</h2>
+    <p class="desc">Society/Visa records — admin review/edit karein, tab "Publish" se public verify.html par dikhega.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="verifRecSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field-row">
+      <div class="field"><label>Type Filter</label>
+        <select id="verifRecTypeFilter">
+          <option value="">All</option>
+          <option value="society">Society</option>
+          <option value="visa_agency">Visa Agency</option>
+          <option value="institute">Institute</option>
+          <option value="company">Company</option>
+          <option value="tender">Tender/Supplier</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" id="loadVerifRecords">📥 Load Records</button>
+    <button class="btn alt" id="addVerifRecordBtn">+ Add Record</button>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
+    <p class="desc">BEOE ki poori OEP (visa agency) list ek click mein import/refresh karein. Records draft (unpublished) mein aate hain — verify karke publish karein.</p>
+    <button class="btn alt" id="beoeImportBtn">📦 Import BEOE Data (5271 records)</button>
+    <div id="beoeImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+  </section>
+
+  <section class="panel" data-panel="ai-extractor">
+    <h2>AI Data Extractor</h2>
+    <p class="desc">Official notice/PDF ka raw text paste karein — Gemini use karke structured verification draft banaye ga. Admin-only, sirf draft — kabhi khud publish nahi hota.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="extractorSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field"><label>Target Type</label>
+      <select id="extractorType">
+        <option value="society">Society</option>
+        <option value="visa_agency">Visa Agency</option>
+        <option value="institute">Institute</option>
+        <option value="company">Company</option>
+        <option value="tender">Tender/Supplier</option>
+      </select>
+    </div>
+    <div class="field"><label>Raw text (official PDF/notice se copy karein)</label>
+      <textarea id="extractorRawText" style="min-height:130px" placeholder="Yahan official source ka text paste karein..."></textarea>
+    </div>
+    <button class="btn" id="extractBtn">🤖 Extract with Gemini</button>
+    <div id="extractorResult" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="diff-checker">
+    <h2>Diff Checker</h2>
+    <p class="desc">Existing record ko naye official text se compare karein — Gemini sirf farq highlight karta hai, khud kuch update nahi karta.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="diffSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn alt" id="diffLoadRecordsBtn">📥 Load Records (dropdown ke liye)</button>
+    <div class="field" style="margin-top:10px"><label>Existing Record</label>
+      <select id="diffRecordSelect"><option value="">— pehle records load karein —</option></select>
+    </div>
+    <div class="field"><label>Naya official text (jise compare karna hai)</label>
+      <textarea id="diffNewText" style="min-height:130px" placeholder="Yahan naya/updated official text paste karein..."></textarea>
+    </div>
+    <button class="btn" id="diffRunBtn">🔍 Compare with Gemini</button>
+    <div id="diffResult" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="risk-signals">
+    <h2>Risk Signals</h2>
+    <p class="desc">9 target types (society, visa, job, institute, company, tender, auction, phone, url) ke rule-based signals. "Active" hone par hi public scam-checker par dikhega.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="riskSigSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field-row">
+      <div class="field"><label>Status Filter</label>
+        <select id="riskSigStatusFilter">
+          <option value="">All</option>
+          <option value="pending" selected>Pending</option>
+          <option value="active">Active</option>
+          <option value="dismissed">Dismissed</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" id="loadRiskSignals">📥 Load Signals</button>
+    <button class="btn alt" id="addRiskSignalBtn">+ Add Signal</button>
+    <div id="riskSignalsList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="risk-reports">
+    <h2>Risk Reports Queue</h2>
+    <p class="desc">User reports (Fake Job/Visa/Property Fraud/Advance Payment waghera) — moderate karein. Reporter privacy protected hai, sirf jo unhon ne khud diya wo dikhega.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="riskRepSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <div class="field-row">
+      <div class="field"><label>Status Filter</label>
+        <select id="riskRepStatusFilter">
+          <option value="">All</option>
+          <option value="new" selected>New</option>
+          <option value="under_review">Under Review</option>
+          <option value="verified_concern">Verified Concern</option>
+          <option value="dismissed">Dismissed</option>
+          <option value="resolved">Resolved</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" id="loadRiskReports">📥 Load Reports</button>
+    <div id="riskReportsList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="dashboard-stats">
+    <h2>Risk/Verify Dashboard</h2>
+    <p class="desc">Society/Visa Verification + Scam Checker ka ek nazar mein overview.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="dashSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn" id="loadDashboard">📥 Load Stats</button>
+    <div id="dashboardStatsBox" style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+  </section>
+
+  <section class="panel" data-panel="phone-checks">
+    <h2>Phone Checks</h2>
+    <p class="desc">Numbers jo public phone checker se query hue (live ad-activity counters) — yahan aap manually flag/watch bhi kar sakte hain.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="phoneChkSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn" id="loadPhoneSignals">📥 Load Phone Records</button>
+    <button class="btn alt" id="addPhoneSignalBtn">+ Add/Flag Number</button>
+    <div id="phoneSignalsList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="url-checks">
+    <h2>URL Checks</h2>
+    <p class="desc">Websites jo public URL checker se query hui — read-only history (HTTPS/redirect/official-match results).</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="urlChkSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn" id="loadUrlChecks">📥 Load URL Checks</button>
+    <div id="urlChecksList" style="margin-top:14px"></div>
+  </section>
+
+  <section class="panel" data-panel="category-manager">
+    <h2>Category Manager</h2>
+    <p class="desc">Categories add/edit/reorder karein — Save karne ke baad Deployer se site par push karein.</p>
+    <button class="btn" id="loadCats">📥 Load categories.json</button>
+    <div id="catManagerList" style="margin-top:14px"></div>
+    <button class="btn alt" id="addCatBtn" style="margin-top:10px">+ Add Category</button>
+    <button class="btn" id="saveCatsToDeployer" style="margin-top:10px">📤 Send to Deployer</button>
+    <p class="desc" id="catSaveMsg" style="margin-top:8px"></p>
+  </section>
+
+  <section class="panel" data-panel="user-ads"><h2>User Submitted Ads</h2><p class="desc">Submit Ad page se aane wali ads ki moderation queue.</p><div class="stub"><div class="icon">👤</div>Backend connect hone ke baad submissions yahan aayengi.</div></section>
+
+  <section class="panel" data-panel="social">
+    <h2>Social Posting</h2>
+    <p class="desc">Live ad chunein → Gemini se har platform ke liye alag caption banega (editable, individually regenerate ho sakta hai). Copy karke manually post karein — Facebook/Instagram auto-post Meta App Review approval ke baad milega (neeche checklist hai).</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="socialSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+    <button class="btn" id="loadLiveForSocial">📥 Load Live Ads</button>
+    <div id="socialAdList" style="margin-top:12px"></div>
+
+    <div id="socialCaptionsSection" style="display:none;margin-top:18px">
+      <h3 style="margin:0 0 8px;color:var(--green-dark);font-size:1rem" id="socialAdTitleLabel"></h3>
+      <label style="font-size:.8rem;color:var(--muted)">Language</label>
+      <div class="lang-tabs" id="socialLangTabs" style="display:flex;gap:6px;margin:6px 0 14px">
+        <button type="button" class="lang-tab active" data-lang="en">English</button>
+        <button type="button" class="lang-tab" data-lang="ur">Roman Urdu</button>
+        <button type="button" class="lang-tab" data-lang="both">Both</button>
+      </div>
+      <button class="btn alt" id="copyAllCaptionsBtn" style="margin-bottom:12px">📋 Copy All</button>
+      <div id="captionBlocks"></div>
+    </div>
+
+    <div style="margin-top:22px">
+      <h3 style="margin:0 0 8px;color:var(--green-dark);font-size:1rem">🕒 Recent History <span style="font-weight:400;font-size:.72rem;color:var(--muted)">(is device par save)</span></h3>
+      <div id="socialHistoryList" class="desc">Koi history nahi hai.</div>
+      <button class="mini-btn" id="clearSocialHistoryBtn" style="margin-top:6px">Clear History</button>
+    </div>
+
+    <details style="margin-top:20px"><summary style="cursor:pointer;font-weight:600;color:var(--green-dark)">📋 Meta App Review Checklist (Facebook/Instagram auto-post ke liye)</summary>
+      <div class="desc" style="margin-top:10px">
+        <p><b>Zaroori cheezein (2026 ke hisab se, review ~20 din leta hai):</b></p>
+        <ul style="padding-left:18px;line-height:1.7">
+          <li>Facebook Developer account + Meta App banayein (developers.facebook.com)</li>
+          <li>App mein "Pages API" product add karein</li>
+          <li>Business Verification (utility bill/tax document se) — Meta Business Manager mein</li>
+          <li>Public Privacy Policy URL — ✅ already hai: privacy.html</li>
+          <li>Public Terms of Service URL — ✅ already hai: terms.html</li>
+          <li>Ek screencast video jisme <code>pages_manage_posts</code> permission ka real use dikhaya ho (RoznamaAds ka demo)</li>
+          <li>App Review submit karein — sirf wahi permissions maangein jo chahiye (zyada permissions maangna rejection ki wajah banta hai)</li>
+          <li>Approval milne ke baad Page Access Token generate karke yahan (future update mein) daal sakenge</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel" data-panel="whatsapp">
+    <h2>WhatsApp Distribution</h2>
+    <p class="desc">Opt-in WhatsApp Groups manage karein aur live ads ek-click mein share karein. Ye tareeqa koi Meta Business API approval nahi maangta (PECA-safe, plan ke mutabiq).</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="waSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+
+    <h3 style="margin:16px 0 6px;color:var(--green-dark);font-size:1rem">Groups</h3>
+    <div id="waGroupList"></div>
+    <button class="btn alt" id="addWaGroupBtn" style="margin-top:8px">+ Add Group</button>
+    <button class="btn" id="saveWaGroupsBtn" style="margin-top:8px">💾 Save Groups</button>
+    <p class="desc" id="waGroupSaveMsg" style="margin-top:6px"></p>
+
+    <h3 style="margin:20px 0 6px;color:var(--green-dark);font-size:1rem">Send an Ad</h3>
+    <button class="btn" id="loadLiveForWa">📥 Load Live Ads</button>
+    <div id="waAdList" style="margin-top:12px"></div>
+  </section>
+
+  <section class="panel" data-panel="seo-manager">
+    <h2>SEO Manager</h2>
+    <p class="desc">Meta titles/descriptions, sitemap regeneration.</p>
+    <div class="stub"><div class="icon">🔍</div>Static sitemap.xml/robots.txt abhi manual hain — ye tool unhe automate karega.</div>
+
+    <div style="margin-top:20px">
+      <h3 style="margin:0 0 10px;color:var(--green-dark);font-size:1rem">📋 Google AdSense Readiness Checklist</h3>
+      <p class="desc">AdSense apply karne se pehle kam se kam kuch hafte consistent traffic/content hona chahiye. Technical side ka status:</p>
+      <ul class="desc" style="padding-left:18px;line-height:1.9">
+        <li>✅ Privacy Policy, Terms, About, Contact pages — mojood hain</li>
+        <li>✅ Har page par unique Title Tag + Meta Description + Canonical URL</li>
+        <li>✅ robots.txt + sitemap.xml — live hain</li>
+        <li>✅ Security Headers (X-Content-Type-Options, HSTS, X-Frame-Options, Referrer-Policy) — vercel.json mein set hain</li>
+        <li>✅ HTTPS — Vercel se automatic</li>
+        <li>✅ Mobile-responsive/viewport — sab pages par hai</li>
+        <li>⏳ Google Analytics (GA4) — hook ready hai (analytics-config.js), sirf Measurement ID daalna baaki hai jab GA4 property banayein</li>
+        <li>⏳ Google Search Console — property verify karna baaki hai (site ownership verify)</li>
+        <li>⏳ Structured Data (JSON-LD) — abhi nahi hai, listings ke liye add kiya ja sakta hai</li>
+        <li>⏳ Genuine traffic/content history — AdSense apply karne se pehle kuch hafte organic use zaroori hai</li>
+        <li>❌ ads.txt — sirf AdSense approval milne ke baad, publisher ID ke sath add hoga</li>
+      </ul>
+      <p class="desc" style="margin-top:10px"><b>Apply kab karein:</b> jab site par kuch hafte se consistent real ads/traffic ho, tab <a href="https://www.google.com/adsense/start/" target="_blank" rel="noopener">google.com/adsense</a> se apply karein. Approval milne ke baad publisher ID yahan (future update) daal sakte hain.</p>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="analytics">
+    <h2>Analytics Dashboard</h2>
+    <p class="desc">Daily new ads, category/city breakdown.</p>
+    <button class="btn" id="loadStats">📥 Load Stats</button>
+    <div id="statsBox" style="margin-top:14px"></div>
+  </section>
+
+  <!-- Website Health Monitor (functional) -->
+  <section class="panel" data-panel="health">
+    <h2>Website Health Monitor</h2>
+    <p class="desc">Live pages ka HTTP status aur response time check karein.</p>
+    <button class="btn" id="checkHealth">🩺 Check All Pages</button>
+    <div class="table-scroll">
+    <table class="health-table" id="healthTbl">
+      <thead><tr><th>Page</th><th>Status</th><th>Time (ms)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </section>
+
+  <!-- Full Site Audit (functional, basic) -->
+  <section class="panel" data-panel="audit">
+    <h2>Full Site Audit</h2>
+    <p class="desc">Basic on-page SEO checks: title, meta description, H1, canonical.</p>
+    <button class="btn" id="runAudit">🔎 Run Audit</button>
+    <div class="table-scroll">
+    <table class="audit-table" id="auditTbl">
+      <thead><tr><th>Page</th><th>Title</th><th>Meta Desc</th><th>H1</th><th>Canonical</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </section>
+
+  <!-- Deployer (merged, password-protected, GitHub token never leaves this session) -->
+  <section class="panel" data-panel="deployer">
+    <h2>Deployer</h2>
+    <p class="desc">Local batch files → Scan &amp; Dry Run → Single Commit → GitHub → Vercel auto-deploy</p>
+
+    <div class="field-row">
+      <div class="field"><label>Owner</label><input type="text" id="depOwner" value="roznamaads"></div>
+      <div class="field"><label>Repo</label><input type="text" id="depRepo" value="roznamaads"></div>
+      <div class="field"><label>Branch</label><input type="text" id="depBranch" value="main"></div>
+    </div>
+    <div class="field"><label>GitHub Personal Access Token (repo / contents:write)</label><input type="password" id="depToken" placeholder="ghp_... ya github_pat_..."></div>
+    <div class="field"><label>Target folder in repo (optional)</label><input type="text" id="depPrefix" placeholder="blank = repo root"></div>
+    <div class="field"><label>Commit message</label><input type="text" id="depMsg" value="Batch update: RoznamaAds files"></div>
+
+    <div class="field">
+      <label>Batch Files</label>
+      <div class="filebox" id="depDropZone">📁 Click to choose files (or a folder)
+        <input type="file" id="depFileInput" multiple webkitdirectory style="display:none">
+      </div>
+      <div id="depFileList" style="font-size:.8rem;max-height:160px;overflow-y:auto;margin-top:8px"></div>
+    </div>
+
+    <div class="field"><label>Delete these paths (optional, comma-separated)</label><input type="text" id="depDeletePaths" placeholder="e.g. admin/deployer.html"></div>
+
+    <button class="btn" id="depScanBtn">🔍 Scan &amp; Dry Run</button>
+    <button class="btn alt" id="depClearBtn">Clear</button>
+
+    <div id="depDryRunSummary" class="desc" style="margin-top:12px">Not run yet.</div>
+    <div class="progWrap" style="margin-top:8px"><div class="progBar" id="depProgBar"></div></div>
+    <button class="btn" id="depCommitBtn" disabled style="width:100%">🚀 Push Single Commit</button>
+
+    <div class="toolkit-log" id="depLog">Ready.</div>
+    <p class="desc" style="margin-top:10px;color:#a86b00">⚠️ GitHub token kahin save nahi hota — sirf is browser tab ki memory mein rehta hai jab tak page khula hai.</p>
+  </section>
+
+  <section class="panel" data-panel="backup">
+    <h2>Backup / Restore</h2>
+    <p class="desc">Sab ads ka JSON backup download karein, ya kisi purani backup se restore karein.</p>
+    <div class="field"><label>Admin API Secret</label><input type="password" id="backupSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
+
+    <button class="btn" id="downloadBackupBtn">⬇️ Download Full Backup (JSON)</button>
+    <p class="desc" id="backupDownloadMsg" style="margin-top:8px"></p>
+
+    <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)">
+      <h3 style="margin:0 0 6px;color:#c0392b;font-size:1rem">⚠️ Restore (Danger Zone)</h3>
+      <p class="desc">Backup file upload karne se, us file ki har ad database mein <b>upsert</b> hoti hai (agar same ID pehle se exist karti hai to overwrite ho jayegi). Sirf apni khud ki li hui backup file use karein.</p>
+      <div class="field"><label>Backup File (.json)</label><input type="file" id="restoreFileInput" accept="application/json"></div>
+      <button class="btn alt" id="restoreBackupBtn">⬆️ Restore from Backup</button>
+      <p class="desc" id="restoreMsg" style="margin-top:8px"></p>
+    </div>
+
+    <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)">
+      <h3 style="margin:0 0 6px;color:var(--green-dark);font-size:1rem">💡 Backup Tips</h3>
+      <ul class="desc" style="padding-left:18px;line-height:1.7">
+        <li>Har hafte ek backup download kar ke apne Google Drive/phone mein save kar lein</li>
+        <li>Bade update (naya batch deploy) se pehle bhi ek backup zaroor lein</li>
+        <li>Supabase khud bhi apne data ka snapshot rakhta hai, lekin ye manual backup aapke apne control mein extra safety hai</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="system">
+    <h2>System Settings</h2>
+    <p class="desc">General site config, admin users, roles.</p>
+    <div class="stub" style="margin-bottom:16px"><div class="icon">⚙️</div>Multi-admin/role separation Phase 3 feature hai.</div>
+
+    <h2 style="font-size:.95rem">Change Admin Password</h2>
+    <div class="field"><label>Current Password</label><input type="password" id="curPass"></div>
+    <div class="field"><label>New Password</label><input type="password" id="newPass"></div>
+    <button class="btn" id="changePassBtn">Update Password</button>
+    <p class="desc" id="passMsg" style="margin-top:8px"></p>
+    <p class="desc" style="color:#a86b00">⚠️ Ye password sirf is browser mein (localStorage) save hota hai — doosre device/browser se access karne par wahan ka apna default password chalega jab tak wahan bhi change na kiya jaye.</p>
+  </section>
+
+  <div class="toolkit-log" id="toolkitLog">Ready.</div>
+</div>
+
+<script>
+/* ---------- XSS guard: escape any user/AI-submitted text before innerHTML ---------- */
+function escapeHtml(str){
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ---------- Password Gate ---------- */
+// Password is stored in localStorage (per-browser). Default on first use only.
+const DEFAULT_PASSWORD = "roznama2026";
+
+function getAdminPassword(){
+  return localStorage.getItem('rz_admin_password') || DEFAULT_PASSWORD;
+}
+
+function log(msg){
+  const el = document.getElementById('toolkitLog');
+  el.textContent += `\n[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.scrollTop = el.scrollHeight;
+}
+
+document.getElementById('gateBtn').addEventListener('click', unlock);
+document.getElementById('gatePass').addEventListener('keydown', e => { if(e.key === 'Enter') unlock(); });
+
+function unlock(){
+  const val = document.getElementById('gatePass').value;
+  if(val === getAdminPassword()){
+    sessionStorage.setItem('rz_admin_ok', '1');
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('adminWrap').style.display = 'block';
+  } else {
+    document.getElementById('gateErr').style.display = 'block';
+  }
+}
+
+if(sessionStorage.getItem('rz_admin_ok') === '1'){
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('adminWrap').style.display = 'block';
+}
+
+document.getElementById('lockBtn').addEventListener('click', () => {
+  sessionStorage.removeItem('rz_admin_ok');
+  document.getElementById('gate').style.display = 'flex';
+  document.getElementById('adminWrap').style.display = 'none';
+  document.getElementById('gatePass').value = '';
+});
+
+document.getElementById('changePassBtn').addEventListener('click', () => {
+  const cur = document.getElementById('curPass').value;
+  const next = document.getElementById('newPass').value;
+  const msg = document.getElementById('passMsg');
+  if(cur !== getAdminPassword()){
+    msg.style.color = '#c0392b';
+    msg.textContent = '❌ Current password ghalat hai.';
+    return;
+  }
+  if(!next || next.length < 4){
+    msg.style.color = '#c0392b';
+    msg.textContent = '❌ Naya password kam se kam 4 characters ka ho.';
+    return;
+  }
+  localStorage.setItem('rz_admin_password', next);
+  msg.style.color = '#166638';
+  msg.textContent = '✅ Password update ho gaya (is browser ke liye).';
+  document.getElementById('curPass').value = '';
+  document.getElementById('newPass').value = '';
+});
+
+/* ---------- Tab Navigation ---------- */
+const TOOLS = [
+  {id:'ai-settings', label:'AI Settings'},
+  {id:'ai-playground', label:'AI Playground'},
+  {id:'newspaper-manager', label:'Newspaper Mgr'},
+  {id:'ad-generator', label:'Ad Post Generator'},
+  {id:'draft-queue', label:'Draft Queue'},
+  {id:'ad-manager', label:'Ad Manager'},
+  {id:'dup-check', label:'Duplicate Check'},
+  {id:'expiry', label:'Expiry Mgmt'},
+  {id:'reported', label:'Reported Ads'},
+  {id:'verif-sources', label:'Verification Sources'},
+  {id:'verif-records', label:'Verification Records'},
+  {id:'ai-extractor', label:'AI Data Extractor'},
+  {id:'diff-checker', label:'Diff Checker'},
+  {id:'risk-signals', label:'Risk Signals'},
+  {id:'risk-reports', label:'Risk Reports Queue'},
+  {id:'dashboard-stats', label:'Risk/Verify Dashboard'},
+  {id:'phone-checks', label:'Phone Checks'},
+  {id:'url-checks', label:'URL Checks'},
+  {id:'category-manager', label:'Category Mgr'},
+  {id:'user-ads', label:'User Ads'},
+  {id:'social', label:'Social Posting'},
+  {id:'whatsapp', label:'WhatsApp'},
+  {id:'seo-manager', label:'SEO Manager'},
+  {id:'analytics', label:'Analytics'},
+  {id:'health', label:'Health Monitor'},
+  {id:'audit', label:'Full Audit'},
+  {id:'deployer', label:'Deployer'},
+  {id:'backup', label:'Backup/Restore'},
+  {id:'system', label:'System Settings'}
+];
+
+const nav = document.getElementById('toolNav');
+nav.innerHTML = TOOLS.map((t,i) => `<button data-target="${t.id}" class="${i===0?'active':''}">${t.label}</button>`).join('');
+
+nav.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    nav.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.panel[data-panel="${btn.dataset.target}"]`).classList.add('active');
+  });
+});
+document.querySelector('.panel[data-panel="ai-settings"]').classList.add('active');
+
+/* ---------- AI Settings (localStorage only — same pattern as ToolNest) ---------- */
+(function loadAiSettings(){
+  const saved = JSON.parse(localStorage.getItem('rz_ai_settings') || '{}');
+  if(saved.provider) document.getElementById('aiProvider').value = saved.provider;
+  if(saved.model) document.getElementById('aiModel').value = saved.model;
+  if(saved.key) document.getElementById('aiKey').value = saved.key;
+})();
+
+function rzGeminiKey(){ try{ return (JSON.parse(localStorage.getItem('rz_ai_settings')||'{}').key) || ''; }catch(e){ return ''; } }
+function rzGeminiModel(){ try{ return (JSON.parse(localStorage.getItem('rz_ai_settings')||'{}').model) || 'gemini-2.0-flash'; }catch(e){ return 'gemini-2.0-flash'; } }
+
+async function rzCallGemini(prompt, imagePart){
+  const key = rzGeminiKey();
+  if(!key) throw new Error('Gemini API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.');
+  const model = rzGeminiModel();
+  const parts = [];
+  if(imagePart) parts.push({ inlineData: { mimeType: imagePart.mimeType, data: imagePart.data } });
+  parts.push({ text: prompt });
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3 } })
+  });
+  if(!r.ok){
+    const errText = await r.text();
+    throw new Error(`Gemini error (${r.status}): ${errText.slice(0,200)}`);
+  }
+  const data = await r.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(!text) throw new Error('Gemini ne khali jawab diya — key/model check karein.');
+  return text;
+}
+
+document.getElementById('saveAiSettings').addEventListener('click', () => {
+  const settings = {
+    provider: document.getElementById('aiProvider').value,
+    model: document.getElementById('aiModel').value,
+    key: document.getElementById('aiKey').value.trim()
+  };
+  localStorage.setItem('rz_ai_settings', JSON.stringify(settings));
+  document.getElementById('aiSaveMsg').textContent = '✅ Saved (is browser mein).';
+  document.getElementById('pgModel').value = settings.provider + ' / ' + settings.model;
+});
+
+document.getElementById('testConn').addEventListener('click', async () => {
+  const msg = document.getElementById('aiSaveMsg');
+  msg.textContent = '⏳ Testing...';
+  try{
+    const out = await rzCallGemini('Reply with exactly one word: OK');
+    msg.textContent = '✅ Connection working. Gemini reply: ' + out.trim().slice(0,50);
+  }catch(e){
+    msg.textContent = '❌ ' + e.message;
+  }
+});
+
+document.getElementById('pgGenerate').addEventListener('click', async () => {
+  const prompt = document.getElementById('pgPrompt').value.trim();
+  const out = document.getElementById('pgOutput');
+  if(!prompt){ alert('Prompt likhein.'); return; }
+  out.textContent = '⏳ Generating...';
+  try{
+    const result = await rzCallGemini(prompt);
+    out.textContent = result;
+  }catch(e){
+    out.textContent = '❌ ' + e.message;
+  }
+});
+
+const VALID_CATEGORIES = ['property','jobs','vehicles','matrimonial','visa','auctions','admissions','tenders','notices','services','electronics'];
+const CAT_LABELS = {property:'Property',jobs:'Jobs',vehicles:'Vehicles',matrimonial:'Matrimonial / Rishta',visa:'Visa & Immigration',auctions:'Auctions',admissions:'Admissions',tenders:'Tenders',notices:'Government / Public Notices',services:'Services',electronics:'Electronics'};
+
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+const EXTRACT_INSTRUCTIONS = `Kaam:
+1. Har alag classified ad/tender/notice ko identify karo. Agar koi cheez sirf ek naam/vendor ki list ya directory hai (jaise ek hi notice ke andar ke multiple names), usay TOOD kar mat karo — usay ek single ad/notice ki tarah treat karo.
+2. Description SHORT aur PADHNE MEIN AASAN honi chahiye — sirf 2-4 sentences ka clean summary, koi lambi list/table description ke andar mat likho.
+3. Agar ad mein table/list ho (lots, quantities, prices, dates, cost, security amount, deadlines waghera), to wo data description mein MAT likho — us data ko ALAG se "table" field mein structured format mein do (neeche shape dekhein), taake website par ek asal table ki tarah dikhaya ja sake.
+4. Description format: pehle chota English paragraph (2-4 sentences), phir "---" separator, phir Roman Urdu mein sirf 1-2 line ka KHULASA (summary) — poori details Roman Urdu mein dobara mat likhna, sirf gist.
+5. Newspaper ka original text hu-ba-hu copy mat karo — apne alfaaz mein likho, sirf facts/numbers same rakho.
+6. Har ad ke liye category inhi values mein se choose karo: ${VALID_CATEGORIES.join(', ')}
+7. Agar visa/auction/tender/notice category ho to relevant extra_fields nikalo (jaise auctionDate, deadline, visaType, destination, refNo).
+
+Sirf valid JSON ARRAY return karo, koi aur text/markdown nahi, is exact shape mein:
+[{"category":"...","title":"short catchy title (max 80 chars)","city":"city name or empty string","price":"price/amount as plain text or empty string","description":"short English summary --- short Roman Urdu khulasa","contact_phone":"phone number if found, else empty string","extra_fields":{"table":{"headers":["col1","col2"],"rows":[["val1","val2"]]}}}]
+
+Agar koi structured table/list nahi mili to extra_fields.table field bilkul chhod do (mat likho). Agar sirf ek hi ad mile to bhi ek-item wala array return karo.`;
+
+document.getElementById('genDraft').addEventListener('click', async () => {
+  const file = document.getElementById('ocrImage').files[0];
+  const text = document.getElementById('ocrText').value.trim();
+  const msg = document.getElementById('genMsg');
+  const cardsBox = document.getElementById('draftCards');
+  if(!file && !text){ alert('Image upload karein ya text paste karein.'); return; }
+
+  window._rzSourceImageFile = file || null;
+  window._rzSourceImageUrl = null;
+
+  msg.textContent = '⏳ Gemini se draft(s) generate ho rahe hain... (image ho to thoda time lagega)';
+  cardsBox.innerHTML = '';
+
+  try{
+    let raw, imagePart = null;
+    if(file){
+      const base64 = await fileToBase64(file);
+      imagePart = { mimeType: file.type || 'image/jpeg', data: base64 };
+      raw = await rzCallGemini(`Ye ek Pakistani newspaper page ki photo hai jisme classified ads/tenders/notices hain.\n\n${EXTRACT_INSTRUCTIONS}`, imagePart);
+    } else {
+      raw = await rzCallGemini(`Tum ek Pakistani newspaper classified ad ko process kar rahe ho. Neeche raw OCR/text diya gaya hai (messy ho sakta hai).\n\n${EXTRACT_INSTRUCTIONS}\n\nRaw text:\n"""\n${text}\n"""`);
+    }
+
+    raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+    let arr;
+    try{ arr = JSON.parse(raw); }
+    catch(e){ msg.textContent = '❌ AI ne valid JSON nahi diya. Raw output console mein hai.'; console.log(raw); return; }
+    if(!Array.isArray(arr)) arr = [arr];
+    if(arr.length === 0){ msg.textContent = '⚠️ Koi ad detect nahi hui.'; return; }
+
+    arr.forEach((d, i) => {
+      if(!VALID_CATEGORIES.includes(d.category)) d.category = 'services';
+      const opts = VALID_CATEGORIES.map(c => `<option value="${c}" ${c===d.category?'selected':''}>${CAT_LABELS[c]}</option>`).join('');
+      const extraFields = d.extra_fields && typeof d.extra_fields === 'object' ? d.extra_fields : {};
+      const tbl = extraFields.table;
+      let tablePreview = '';
+      if(tbl && Array.isArray(tbl.headers) && Array.isArray(tbl.rows) && tbl.rows.length){
+        tablePreview = `<div class="field"><label>Table Preview (website par asal table ki tarah dikhegi)</label>
+          <div style="overflow-x:auto"><table class="ad-table" style="font-size:.75rem">
+            <thead><tr>${tbl.headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+            <tbody>${tbl.rows.map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table></div></div>`;
+      }
+      const card = document.createElement('div');
+      card.className = 'draft-card';
+      card.innerHTML = `
+        <h4>Draft ${i+1}</h4>
+        <div class="field"><label>Category</label><select class="d-category">${opts}</select></div>
+        <div class="field"><label>Title</label><input type="text" class="d-title" value="${escapeHtml(d.title||'')}"></div>
+        <div class="field"><label>City</label><input type="text" class="d-city" value="${escapeHtml(d.city||'')}"></div>
+        <div class="field"><label>Price</label><input type="text" class="d-price" value="${escapeHtml(d.price||'')}"></div>
+        <div class="field"><label>Description (chota English + chota Roman Urdu khulasa)</label><textarea class="d-description" rows="5">${escapeHtml(d.description||'')}</textarea></div>
+        <div class="field"><label>Contact Phone</label><input type="text" class="d-phone" value="${escapeHtml(d.contact_phone||'')}"></div>
+        ${tablePreview}
+        <details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:.8rem;color:var(--muted)">Advanced: Extra Fields (JSON) — table/deadline data yahan edit kar sakte hain</summary>
+          <textarea class="d-extra-fields" rows="5" style="font-family:monospace;font-size:.75rem;width:100%;margin-top:6px">${escapeHtml(JSON.stringify(extraFields, null, 2))}</textarea>
+        </details>
+        ${file ? `<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);margin-bottom:10px"><input type="checkbox" class="d-attach-img" checked> Newspaper page ki original photo is ad ke saath attach karein (accuracy ke liye)</label>` : ''}
+        <button class="btn alt checkDupCardBtn" style="margin-right:8px">🔍 Check Duplicate</button>
+        <button class="btn saveDraftBtn">📝 Save as Draft (Pending)</button>
+        <div class="dup-result" style="margin-top:8px"></div>
+        <p class="desc save-msg" style="margin-top:8px"></p>
+      `;
+      cardsBox.appendChild(card);
+    });
+
+    msg.textContent = `✅ ${arr.length} draft(s) ban gaye — neeche check/edit kar ke save karein. Publish se pehle "Draft Queue" tab se approve karna hoga.`;
+    log(`🧠 AI se ${arr.length} draft(s) generate hue.`);
+  }catch(e){
+    msg.textContent = '❌ ' + e.message;
+  }
+});
+
+document.getElementById('draftCards').addEventListener('click', async (e) => {
+  if(e.target.classList.contains('checkDupCardBtn')){
+    const card = e.target.closest('.draft-card');
+    const secret = document.getElementById('genSecret').value.trim();
+    const resultBox = card.querySelector('.dup-result');
+    if(!secret){ alert('Admin API Secret daalein.'); return; }
+    resultBox.innerHTML = 'Checking...';
+    try{
+      const r = await fetch('/api/admin/check-duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify({
+          title: card.querySelector('.d-title').value.trim(),
+          contact_phone: card.querySelector('.d-phone').value.trim(),
+          category: card.querySelector('.d-category').value
+        })
+      });
+      const data = await r.json();
+      if(!r.ok){ resultBox.innerHTML = `<p class="desc">❌ ${data.error||'Error'}</p>`; return; }
+      const matches = data.matches || [];
+      resultBox.innerHTML = matches.length
+        ? `<p class="desc" style="color:#a86b00">⚠️ ${matches.length} possible duplicate(s) mile:</p>` + matches.map(m => `<div class="cat-row" style="flex-direction:column;align-items:stretch"><b>${m.title}</b><span style="font-size:.75rem;color:var(--muted)">${m.city||''} · ${m.contact_phone||''} · status: ${m.status} · matched by: ${m.matchedBy}</span></div>`).join('')
+        : '<p class="desc">✅ Koi duplicate nahi mila.</p>';
+    }catch(err){ resultBox.innerHTML = `<p class="desc">❌ ${err.message}</p>`; }
+    return;
+  }
+  if(!e.target.classList.contains('saveDraftBtn')) return;
+  const card = e.target.closest('.draft-card');
+  const secret = document.getElementById('genSecret').value.trim();
+  const saveMsg = card.querySelector('.save-msg');
+  if(!secret){ alert('Admin API Secret daalein (database mein save karne ke liye).'); return; }
+
+  const attachImg = card.querySelector('.d-attach-img');
+  let images = [];
+  e.target.disabled = true;
+
+  if(attachImg && attachImg.checked && window._rzSourceImageFile){
+    try{
+      if(!window._rzSourceImageUrl){
+        saveMsg.textContent = '⏳ Image upload ho rahi hai...';
+        const file = window._rzSourceImageFile;
+        const ext = (file.name.split('.').pop() || 'jpg');
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await rzDb.storage.from('ad-images').upload(path, file);
+        if(upErr) throw new Error(upErr.message);
+        const { data: urlData } = rzDb.storage.from('ad-images').getPublicUrl(path);
+        window._rzSourceImageUrl = urlData.publicUrl;
+      }
+      images = [window._rzSourceImageUrl];
+    }catch(imgErr){
+      saveMsg.textContent = '⚠️ Image upload fail hui, ad text ke sath hi save ho rahi hai: ' + imgErr.message;
+    }
+  }
+
+  let extraFieldsParsed = {};
+  try{
+    extraFieldsParsed = JSON.parse(card.querySelector('.d-extra-fields').value || '{}');
+  }catch(jsonErr){
+    alert('Extra Fields JSON mein ghalti hai — check kar ke theek karein.');
+    e.target.disabled = false;
+    return;
+  }
+
+  const payload = {
+    category: card.querySelector('.d-category').value,
+    title: card.querySelector('.d-title').value.trim(),
+    city: card.querySelector('.d-city').value.trim(),
+    price: card.querySelector('.d-price').value.trim(),
+    description: card.querySelector('.d-description').value.trim(),
+    contact_phone: card.querySelector('.d-phone').value.trim(),
+    extra_fields: extraFieldsParsed,
+    images
+  };
+  if(!payload.title || !payload.description){ alert('Title aur Description zaroori hain.'); e.target.disabled = false; return; }
+
+  saveMsg.textContent = '⏳ Save ho raha hai...';
+  try{
+    const r = await fetch('/api/admin/create-draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if(!r.ok){ saveMsg.textContent = '❌ ' + (data.error || 'Save fail hua.'); e.target.disabled = false; return; }
+    saveMsg.textContent = '✅ Draft Queue mein save ho gaya.';
+    log('📝 Naya AI draft "Draft Queue" mein save hua.');
+  }catch(e2){
+    saveMsg.textContent = '❌ Network error: ' + e2.message;
+    e.target.disabled = false;
+  }
+});
+
+/* ---------- Website Health Monitor (functional) ---------- */
+const SITE_PAGES = [
+  '../index.html','../category.html','../ad.html','../search.html','../submit-ad.html',
+  '../privacy.html','../terms.html','../about.html','../contact.html'
+];
+
+document.getElementById('checkHealth').addEventListener('click', async () => {
+  const tbody = document.querySelector('#healthTbl tbody');
+  tbody.innerHTML = '';
+  log('Health check shuru...');
+  for(const pg of SITE_PAGES){
+    const start = performance.now();
+    let statusText = '—', cls = 'status-bad', ms = '—';
+    try{
+      const res = await fetch(pg, {cache:'no-store'});
+      ms = Math.round(performance.now() - start);
+      statusText = res.status;
+      cls = res.ok ? 'status-ok' : 'status-bad';
+    }catch(e){
+      statusText = 'Error';
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${pg.replace('../','')}</td><td class="${cls}">${statusText}</td><td>${ms}</td>`;
+    tbody.appendChild(tr);
+  }
+  log('✅ Health check complete.');
+});
+
+/* ---------- Full Site Audit (functional, basic) ---------- */
+document.getElementById('runAudit').addEventListener('click', async () => {
+  const tbody = document.querySelector('#auditTbl tbody');
+  tbody.innerHTML = '';
+  log('Audit shuru...');
+  for(const pg of SITE_PAGES){
+    let title='—', desc='—', h1='—', canon='—';
+    try{
+      const res = await fetch(pg, {cache:'no-store'});
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      title = doc.querySelector('title') ? '✅' : '❌';
+      desc = doc.querySelector('meta[name="description"]') ? '✅' : '❌';
+      const h1Count = doc.querySelectorAll('h1').length;
+      h1 = h1Count === 1 ? '✅ (1)' : `⚠️ (${h1Count})`;
+      canon = doc.querySelector('link[rel="canonical"]') ? '✅' : '❌';
+    }catch(e){
+      title = desc = h1 = canon = 'Error';
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${pg.replace('../','')}</td><td>${title}</td><td>${desc}</td><td>${h1}</td><td>${canon}</td>`;
+    tbody.appendChild(tr);
+  }
+  log('✅ Audit complete.');
+});
+/* ---------- Deployer (merged — GitHub token stays in-memory only) ---------- */
+let depSelectedFiles = [];
+let depDryRunOk = false;
+
+function depProg(p){ document.getElementById('depProgBar').style.width = Math.round(p*100) + '%'; }
+function depSleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+async function depGhFetch(url, opt, tries){
+  tries = (tries === undefined) ? 5 : tries;
+  let res;
+  try{ res = await fetch(url, opt); }
+  catch(networkErr){
+    if(tries <= 0) throw new Error('network: ' + networkErr.message);
+    const wait = Math.pow(2, 6 - tries) * 500;
+    log(`  ↻ network error, retry in ${wait}ms (${tries} left)...`);
+    await depSleep(wait);
+    return depGhFetch(url, opt, tries - 1);
+  }
+  if((res.status === 403 || res.status === 429 || res.status >= 500) && tries > 0){
+    const wait = Math.pow(2, 6 - tries) * 500;
+    log(`  ↻ ${res.status} response, retry in ${wait}ms (${tries} left)...`);
+    await depSleep(wait);
+    return depGhFetch(url, opt, tries - 1);
+  }
+  return res;
+}
+
+function depPool(items, limit, fn, onProgress){
+  return new Promise((resolve, reject) => {
+    let i = 0, active = 0, done = 0, failed = false;
+    const results = new Array(items.length);
+    if(items.length === 0) return resolve(results);
+    function next(){
+      if(failed) return;
+      if(done === items.length) return resolve(results);
+      while(active < limit && i < items.length){
+        const idx = i++;
+        active++;
+        fn(items[idx], idx).then(r => {
+          results[idx] = r; active--; done++;
+          if(onProgress) onProgress(done, items.length);
+          next();
+        }, err => { failed = true; reject(err); });
+      }
+    }
+    next();
+  });
+}
+
+function depGhHeaders(token){
+  return {'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'};
+}
+
+function depApi(){
+  return {
+    owner: document.getElementById('depOwner').value.trim(),
+    repo: document.getElementById('depRepo').value.trim(),
+    branch: document.getElementById('depBranch').value.trim() || 'main',
+    token: document.getElementById('depToken').value.trim(),
+    prefix: document.getElementById('depPrefix').value.trim().replace(/^\/+|\/+$/g,'')
+  };
+}
+
+function depRenderFileList(){
+  const el = document.getElementById('depFileList');
+  if(depSelectedFiles.length === 0){ el.innerHTML = '<div style="color:var(--muted)">No files selected yet.</div>'; return; }
+  el.innerHTML = depSelectedFiles.map((f,i) =>
+    `<div>${f.path} <span style="color:var(--muted)">(${(f.file.size/1024).toFixed(1)} KB)</span> <a href="#" onclick="depRemoveFile(${i});return false;" style="color:#c0392b">✕</a></div>`
+  ).join('');
+}
+function depRemoveFile(i){
+  depSelectedFiles.splice(i,1);
+  depRenderFileList();
+  depDryRunOk = false;
+  document.getElementById('depCommitBtn').disabled = true;
+}
+
+function depAddFiles(fileArr, useRelPath){
+  for(const f of fileArr){
+    let relPath = useRelPath ? (f.webkitRelativePath || f.name) : f.name;
+    if(useRelPath && relPath.includes('/')) relPath = relPath.split('/').slice(1).join('/') || f.name;
+    depSelectedFiles.push({path: relPath, file: f});
+  }
+  depRenderFileList();
+}
+
+document.getElementById('depDropZone').onclick = () => document.getElementById('depFileInput').click();
+document.getElementById('depFileInput').onchange = (e) => depAddFiles(Array.from(e.target.files), true);
+document.getElementById('depClearBtn').onclick = () => {
+  depSelectedFiles = [];
+  depRenderFileList();
+  depDryRunOk = false;
+  document.getElementById('depCommitBtn').disabled = true;
+  document.getElementById('depDryRunSummary').textContent = 'Not run yet.';
+  document.getElementById('depLog').textContent = 'Cleared.';
+};
+
+function depReadFileAsBase64(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+document.getElementById('depScanBtn').onclick = async () => {
+  const {owner, repo, branch, token, prefix} = depApi();
+  const deletePathsCheck = document.getElementById('depDeletePaths').value.split(',').map(s => s.trim()).filter(Boolean);
+  if(!token){ log('❌ GitHub token required.'); return; }
+  if(depSelectedFiles.length === 0 && deletePathsCheck.length === 0){ log('❌ No files selected aur koi delete path bhi nahi.'); return; }
+  log(`Scanning ${depSelectedFiles.length} file(s) against ${owner}/${repo}@${branch} ...`);
+  document.getElementById('depScanBtn').disabled = true;
+  depProg(0);
+
+  let newCount = 0, updateCount = 0, results = [];
+  try{
+    let existingPaths = new Set();
+    let refRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${branch}`, {headers: depGhHeaders(token)});
+    if(refRes.status === 404 || refRes.status === 409){
+      log('  · Repo/branch khali hai — sab files NEW mani jayengi.');
+    } else if(!refRes.ok){
+      throw new Error(`Ref fetch failed: ${refRes.status} ${await refRes.text()}`);
+    } else {
+      const refData = await refRes.json();
+      depProg(0.3);
+      const commitRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/commits/${refData.object.sha}`, {headers: depGhHeaders(token)});
+      if(!commitRes.ok) throw new Error(`Commit fetch failed: ${commitRes.status}`);
+      const commitData = await commitRes.json();
+      depProg(0.5);
+      const treeRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${commitData.tree.sha}?recursive=1`, {headers: depGhHeaders(token)});
+      if(!treeRes.ok) throw new Error(`Tree fetch failed: ${treeRes.status}`);
+      const treeData = await treeRes.json();
+      for(const node of treeData.tree) if(node.type === 'blob') existingPaths.add(node.path);
+      depProg(0.8);
+    }
+    for(const f of depSelectedFiles){
+      const repoPath = prefix ? `${prefix}/${f.path}` : f.path;
+      if(existingPaths.has(repoPath)){ updateCount++; results.push(`<div>UPDATE  ${repoPath}</div>`); }
+      else { newCount++; results.push(`<div style="color:var(--green-dark)">NEW     ${repoPath}</div>`); }
+    }
+    depProg(1);
+    const deletePaths = document.getElementById('depDeletePaths').value.split(',').map(s => s.trim()).filter(Boolean);
+    let deleteNote = deletePaths.length ? `<br>${deletePaths.length} file(s) marked for deletion: ${deletePaths.join(', ')}` : '';
+    document.getElementById('depDryRunSummary').innerHTML = `${newCount} new file(s), ${updateCount} updated file(s).${deleteNote}<br>` + results.join('');
+    depDryRunOk = true;
+    document.getElementById('depCommitBtn').disabled = false;
+    log(`✅ Dry run OK — ${newCount} new, ${updateCount} update. Ready to commit.`);
+  }catch(err){
+    log(`❌ Dry run failed: ${err.message}`);
+    depDryRunOk = false;
+    document.getElementById('depCommitBtn').disabled = true;
+  }
+  document.getElementById('depScanBtn').disabled = false;
+  depProg(0);
+};
+
+document.getElementById('depCommitBtn').onclick = async () => {
+  if(!depDryRunOk){ log('❌ Run Dry Run first.'); return; }
+  const {owner, repo, branch, token, prefix} = depApi();
+  const commitMsg = document.getElementById('depMsg').value.trim() || 'Batch update';
+  const btn = document.getElementById('depCommitBtn');
+  btn.disabled = true;
+  depProg(0);
+  try{
+    log('Step 1/5: Getting latest commit on branch...');
+    let latestCommitSha = null, baseTreeSha = null, isEmptyRepo = false;
+    let res = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${branch}`, {headers: depGhHeaders(token)});
+    if(res.status === 404 || res.status === 409){
+      isEmptyRepo = true;
+      log('  · Repo/branch khali hai — pehla commit banaya jayega.');
+    } else if(!res.ok){
+      throw new Error(`Failed to get ref: ${res.status} ${await res.text()}`);
+    } else {
+      const refData = await res.json();
+      latestCommitSha = refData.object.sha;
+      res = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`, {headers: depGhHeaders(token)});
+      if(!res.ok) throw new Error(`Failed to get base commit: ${res.status}`);
+      const baseCommit = await res.json();
+      baseTreeSha = baseCommit.tree.sha;
+    }
+    depProg(0.1);
+
+    log('Step 2/5: Uploading blobs (parallel)...');
+    const newBlobs = await depPool(depSelectedFiles, 4, async (f) => {
+      const repoPath = prefix ? `${prefix}/${f.path}` : f.path;
+      const base64Content = await depReadFileAsBase64(f.file);
+      const blobRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/blobs`, {
+        method: 'POST', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'},
+        body: JSON.stringify({content: base64Content, encoding: 'base64'})
+      });
+      if(!blobRes.ok) throw new Error(`Blob upload failed for ${repoPath}: ${blobRes.status}`);
+      const blobData = await blobRes.json();
+      log(`  ✓ ${repoPath}`);
+      return {path: repoPath, mode: '100644', type: 'blob', sha: blobData.sha};
+    }, (done, total) => depProg(0.1 + (done/total) * 0.5));
+
+    const deletePaths = document.getElementById('depDeletePaths').value.split(',').map(s => s.trim()).filter(Boolean);
+    if(deletePaths.length && isEmptyRepo){
+      throw new Error('Empty repo mein files delete nahi ho sakti (kuch bhi exist hi nahi karta).');
+    }
+
+    // Poori tree khud rebuild karte hain (existing + new - deleted) — GitHub ke base_tree+null-sha
+    // deletion tareeqe mein kabhi kabhi "BadObjectState" error aata hai, isliye ye zyada reliable hai.
+    log('Step 2.5/5: Fetching current tree state...');
+    const treeMap = new Map();
+    if(baseTreeSha){
+      const fullTreeRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${baseTreeSha}?recursive=1`, {headers: depGhHeaders(token)});
+      if(!fullTreeRes.ok) throw new Error(`Full tree fetch failed: ${fullTreeRes.status}`);
+      const fullTreeData = await fullTreeRes.json();
+      for(const node of fullTreeData.tree){
+        if(node.type === 'blob') treeMap.set(node.path, {path: node.path, mode: node.mode, type: 'blob', sha: node.sha});
+      }
+    }
+    for(const dp of deletePaths){
+      treeMap.delete(dp);
+      log(`  🗑️ removed from tree: ${dp}`);
+    }
+    for(const nb of newBlobs){
+      treeMap.set(nb.path, nb);
+    }
+    const treeItems = Array.from(treeMap.values());
+    depProg(0.7);
+
+    log('Step 3/5: Creating tree...');
+    const treeBody = {tree: treeItems};
+    const treeRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
+      method: 'POST', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'}, body: JSON.stringify(treeBody)
+    });
+    if(!treeRes.ok) throw new Error(`Tree creation failed: ${treeRes.status} ${await treeRes.text()}`);
+    const treeData = await treeRes.json();
+    depProg(0.8);
+
+    log('Step 4/5: Creating commit...');
+    const commitBody = isEmptyRepo ? {message: commitMsg, tree: treeData.sha} : {message: commitMsg, tree: treeData.sha, parents: [latestCommitSha]};
+    const commitRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, {
+      method: 'POST', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'}, body: JSON.stringify(commitBody)
+    });
+    if(!commitRes.ok) throw new Error(`Commit creation failed: ${commitRes.status} ${await commitRes.text()}`);
+    const newCommit = await commitRes.json();
+    depProg(0.9);
+
+    log('Step 5/5: Updating branch ref...');
+    let updateRefRes;
+    if(isEmptyRepo){
+      updateRefRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+        method: 'POST', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'},
+        body: JSON.stringify({ref: `refs/heads/${branch}`, sha: newCommit.sha})
+      });
+    } else {
+      updateRefRes = await depGhFetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
+        method: 'PATCH', headers: {...depGhHeaders(token), 'Content-Type': 'application/json'},
+        body: JSON.stringify({sha: newCommit.sha, force: false})
+      });
+    }
+    if(!updateRefRes.ok) throw new Error(`Ref update failed: ${updateRefRes.status} ${await updateRefRes.text()}`);
+    depProg(1);
+    log(`✅ Pushed! Commit: ${newCommit.sha.slice(0,7)} — Vercel auto-deploy shuru ho jayega.`);
+    depDryRunOk = false;
+  }catch(err){
+    log(`❌ Commit failed: ${err.message}`);
+  }
+  btn.disabled = false;
+};
+
+depRenderFileList();
+
+/* ---------- Newspaper Manager (localStorage only) ---------- */
+const NP_DEFAULTS = [
+  {name:'Express', access:'Website/e-paper', tos:'Reviewing', test:true, notes:'Test source FINALISED — Phase 1 prototype yahin se shuru.'},
+  {name:'Jang', access:'e-paper', tos:'Not Checked', test:false, notes:''},
+  {name:'Nawa-i-Waqt', access:'e-paper', tos:'Not Checked', test:false, notes:''},
+  {name:'Dawn', access:'Website', tos:'Not Checked', test:false, notes:''}
+];
+let npData = JSON.parse(localStorage.getItem('rz_newspapers') || 'null') || NP_DEFAULTS.map(n => ({...n}));
+
+function renderNpManager(){
+  const box = document.getElementById('npManagerList');
+  box.innerHTML = npData.map((n, i) => `
+    <div class="cat-row" data-idx="${i}">
+      <input type="text" value="${n.name}" placeholder="Newspaper name" data-field="name">
+      <input type="text" value="${n.access||''}" placeholder="Access method (Website/e-paper/Manual)" data-field="access">
+      <select data-field="tos">
+        <option ${n.tos==='Not Checked'?'selected':''}>Not Checked</option>
+        <option ${n.tos==='Reviewing'?'selected':''}>Reviewing</option>
+        <option ${n.tos==='Approved'?'selected':''}>Approved</option>
+        <option ${n.tos==='Blocked'?'selected':''}>Blocked</option>
+      </select>
+      <label><input type="checkbox" ${n.test ? 'checked' : ''} data-field="test"> Test Source</label>
+      <input type="text" value="${n.notes||''}" placeholder="Notes" data-field="notes" style="flex-basis:100%">
+      <button class="mini-btn" style="color:#c0392b" onclick="removeNp(${i})">✕</button>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const field = inp.dataset.field;
+        npData[idx][field] = field === 'test' ? inp.checked : inp.value;
+      });
+    });
+  });
+}
+function removeNp(i){
+  if(!confirm('Ye newspaper list se hatana hai?')) return;
+  npData.splice(i, 1);
+  renderNpManager();
+}
+document.getElementById('addNpBtn').addEventListener('click', () => {
+  npData.push({name:'', access:'', tos:'Not Checked', test:false, notes:''});
+  renderNpManager();
+});
+document.getElementById('saveNpBtn').addEventListener('click', () => {
+  localStorage.setItem('rz_newspapers', JSON.stringify(npData));
+  document.getElementById('npSaveMsg').textContent = '✅ Save ho gaya (is browser mein).';
+  log('📰 Newspaper Manager list save hui — ' + npData.length + ' sources.');
+});
+renderNpManager();
+
+/* ---------- WhatsApp Groups (localStorage) ---------- */
+const WA_DEFAULTS = [
+  {name:'Property Group', category:'property', link:'', notes:''},
+  {name:'Jobs Group', category:'jobs', link:'', notes:''}
+];
+let waGroupData = JSON.parse(localStorage.getItem('rz_wa_groups') || 'null') || WA_DEFAULTS.map(g => ({...g}));
+
+function renderWaGroups(){
+  const box = document.getElementById('waGroupList');
+  box.innerHTML = waGroupData.map((g, i) => `
+    <div class="cat-row" data-idx="${i}">
+      <input type="text" value="${g.name}" placeholder="Group name" data-field="name">
+      <input type="text" value="${g.category||''}" placeholder="Category (optional)" data-field="category">
+      <input type="text" value="${g.link||''}" placeholder="Group invite link (optional, join karne ke liye)" data-field="link" style="flex-basis:100%">
+      <button class="mini-btn" style="color:#c0392b" onclick="removeWaGroup(${i})">✕</button>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', () => { waGroupData[idx][inp.dataset.field] = inp.value; });
+    });
+  });
+}
+function removeWaGroup(i){
+  if(!confirm('Ye group hatana hai?')) return;
+  waGroupData.splice(i,1);
+  renderWaGroups();
+}
+document.getElementById('addWaGroupBtn').addEventListener('click', () => {
+  waGroupData.push({name:'', category:'', link:'', notes:''});
+  renderWaGroups();
+});
+document.getElementById('saveWaGroupsBtn').addEventListener('click', () => {
+  localStorage.setItem('rz_wa_groups', JSON.stringify(waGroupData));
+  document.getElementById('waGroupSaveMsg').textContent = '✅ Save ho gaya (is browser mein).';
+  log('💬 WhatsApp Groups list save hui — ' + waGroupData.length + ' groups.');
+});
+renderWaGroups();
+
+function siteBaseUrl(){ return location.origin; }
+
+document.getElementById('loadLiveForWa').addEventListener('click', async () => {
+  const box = document.getElementById('waAdList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('list?status=live');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
+    box.innerHTML = data.slice(0,30).map(ad => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${escapeHtml(ad.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)}</span>
+        <button class="btn alt shareWaBtn" style="margin-top:6px" data-id="${escapeHtml(ad.id)}" data-title="${escapeHtml(ad.title)}" data-city="${escapeHtml(ad.city||'')}">💬 Share via WhatsApp</button>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('waAdList').addEventListener('click', (e) => {
+  if(!e.target.classList.contains('shareWaBtn')) return;
+  const btn = e.target;
+  const url = `${siteBaseUrl()}/ad.html?id=${btn.dataset.id}`;
+  const text = `📢 ${btn.dataset.title}\n📍 ${btn.dataset.city}\n\nDetails/Contact: ${url}\n\nVia RoznamaAds.pk — Pakistani newspaper classifieds, ek jagah.`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  log('💬 WhatsApp share khola: ' + btn.dataset.title);
+});
+
+/* ---------- Social Posting (rich caption generator, ToolNest-style) ---------- */
+const SOCIAL_PLATFORMS = [
+  {key:'facebook', label:'📘 Facebook'},
+  {key:'instagram', label:'📷 Instagram'},
+  {key:'x', label:'✕ X (Twitter)'},
+  {key:'whatsapp_status', label:'💬 WhatsApp Status'}
+];
+let currentSocialAd = null;
+let currentSocialLang = 'en';
+let currentCaptions = {};
+
+document.getElementById('loadLiveForSocial').addEventListener('click', async () => {
+  const box = document.getElementById('socialAdList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('list?status=live');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
+    box.innerHTML = data.slice(0,30).map(ad => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${escapeHtml(ad.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)}</span>
+        <button class="btn genCaptionBtn" style="margin-top:6px" data-id="${escapeHtml(ad.id)}" data-title="${escapeHtml(ad.title)}" data-desc="${escapeHtml(ad.description||'')}">✍️ Generate Captions</button>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+function langInstruction(lang){
+  if(lang==='ur') return 'Sirf Roman Urdu mein likho.';
+  if(lang==='both') return 'Pehle chota English version likho, phir "\\n---\\n" ke baad Roman Urdu version likho.';
+  return 'Sirf English mein likho.';
+}
+
+async function generateCaption(platform, ad, lang){
+  const url = `${siteBaseUrl()}/ad.html?id=${ad.id}`;
+  const rules = {
+    facebook: '2-3 sentences, friendly tone, link included.',
+    instagram: 'Short caption + 3-5 relevant hashtags at the end.',
+    x: 'Under 280 characters total (including link), punchy.',
+    whatsapp_status: 'Bohot short, ek line, ek emoji ke sath.'
+  };
+  const prompt = `Classified ad (RoznamaAds.pk):\nTitle: ${ad.title}\nDescription: ${ad.description}\nLink: ${url}\n\n${platform} ke liye ek social media caption likho. ${rules[platform]} ${langInstruction(lang)}\nSirf caption text return karo, koi extra quotes/markdown/labels nahi.`;
+  const raw = await rzCallGemini(prompt);
+  return raw.trim().replace(/^["']|["']$/g, '');
+}
+
+function renderCaptionBlocks(){
+  document.getElementById('captionBlocks').innerHTML = SOCIAL_PLATFORMS.map(p => `
+    <div class="platform-block">
+      <h4>${p.label} <span><button type="button" class="mini-btn regenBtn" data-platform="${p.key}">🤖 Regenerate</button> <button type="button" class="mini-btn copyBtn" data-platform="${p.key}">📋 Copy</button></span></h4>
+      <textarea class="captionTextarea" data-platform="${p.key}">${escapeHtml(currentCaptions[p.key]||'')}</textarea>
+    </div>
+  `).join('');
+}
+
+document.getElementById('socialAdList').addEventListener('click', async (e) => {
+  if(!e.target.classList.contains('genCaptionBtn')) return;
+  const btn = e.target;
+  currentSocialAd = { id: btn.dataset.id, title: btn.dataset.title, description: btn.dataset.desc };
+  document.getElementById('socialAdTitleLabel').textContent = currentSocialAd.title;
+  document.getElementById('socialCaptionsSection').style.display = 'block';
+  document.getElementById('captionBlocks').innerHTML = '⏳ Generating...';
+
+  try{
+    const results = await Promise.all(SOCIAL_PLATFORMS.map(p => generateCaption(p.key, currentSocialAd, currentSocialLang)));
+    currentCaptions = {};
+    SOCIAL_PLATFORMS.forEach((p,i) => currentCaptions[p.key] = results[i]);
+    renderCaptionBlocks();
+    saveSocialHistory();
+    log('✍️ Captions generate hue: ' + currentSocialAd.title);
+  }catch(err){
+    document.getElementById('captionBlocks').innerHTML = `<div class="stub">❌ ${err.message}</div>`;
+  }
+});
+
+document.getElementById('socialLangTabs').addEventListener('click', async (e) => {
+  if(!e.target.classList.contains('lang-tab')) return;
+  document.querySelectorAll('#socialLangTabs .lang-tab').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  currentSocialLang = e.target.dataset.lang;
+  if(!currentSocialAd) return;
+  document.getElementById('captionBlocks').innerHTML = '⏳ Regenerating in new language...';
+  try{
+    const results = await Promise.all(SOCIAL_PLATFORMS.map(p => generateCaption(p.key, currentSocialAd, currentSocialLang)));
+    SOCIAL_PLATFORMS.forEach((p,i) => currentCaptions[p.key] = results[i]);
+    renderCaptionBlocks();
+    saveSocialHistory();
+  }catch(err){
+    document.getElementById('captionBlocks').innerHTML = `<div class="stub">❌ ${err.message}</div>`;
+  }
+});
+
+document.getElementById('captionBlocks').addEventListener('click', async (e) => {
+  if(e.target.classList.contains('regenBtn')){
+    const platform = e.target.dataset.platform;
+    const ta = document.querySelector(`.captionTextarea[data-platform="${platform}"]`);
+    e.target.disabled = true;
+    try{
+      const text = await generateCaption(platform, currentSocialAd, currentSocialLang);
+      currentCaptions[platform] = text;
+      ta.value = text;
+      saveSocialHistory();
+    }catch(err){ alert('Error: ' + err.message); }
+    e.target.disabled = false;
+  }
+  if(e.target.classList.contains('copyBtn')){
+    const platform = e.target.dataset.platform;
+    const ta = document.querySelector(`.captionTextarea[data-platform="${platform}"]`);
+    navigator.clipboard.writeText(ta.value);
+    e.target.textContent = '✅ Copied';
+    setTimeout(() => { e.target.textContent = '📋 Copy'; }, 1500);
+  }
+});
+
+document.getElementById('copyAllCaptionsBtn').addEventListener('click', () => {
+  const all = SOCIAL_PLATFORMS.map(p => `${p.label}:\n${document.querySelector(`.captionTextarea[data-platform="${p.key}"]`)?.value || ''}`).join('\n\n---\n\n');
+  navigator.clipboard.writeText(all);
+  const btn = document.getElementById('copyAllCaptionsBtn');
+  btn.textContent = '✅ Copied All';
+  setTimeout(() => { btn.textContent = '📋 Copy All'; }, 1500);
+});
+
+function saveSocialHistory(){
+  if(!currentSocialAd) return;
+  let hist = JSON.parse(localStorage.getItem('rz_social_history') || '[]');
+  hist = hist.filter(h => h.adId !== currentSocialAd.id);
+  hist.unshift({ adId: currentSocialAd.id, adTitle: currentSocialAd.title, lang: currentSocialLang, captions: {...currentCaptions}, when: new Date().toLocaleString() });
+  hist = hist.slice(0, 10);
+  localStorage.setItem('rz_social_history', JSON.stringify(hist));
+  renderSocialHistory();
+}
+
+function renderSocialHistory(){
+  const hist = JSON.parse(localStorage.getItem('rz_social_history') || '[]');
+  const box = document.getElementById('socialHistoryList');
+  if(!hist.length){ box.textContent = 'Koi history nahi hai.'; return; }
+  box.innerHTML = hist.map((h,i) => `
+    <div class="cat-row" style="justify-content:space-between">
+      <span>${h.adTitle} <span style="color:var(--muted);font-size:.75rem">· ${h.when}</span></span>
+      <button class="mini-btn viewHistBtn" data-idx="${i}">👁️ View</button>
+    </div>
+  `).join('');
+}
+document.getElementById('socialHistoryList').addEventListener('click', (e) => {
+  if(!e.target.classList.contains('viewHistBtn')) return;
+  const hist = JSON.parse(localStorage.getItem('rz_social_history') || '[]');
+  const h = hist[parseInt(e.target.dataset.idx)];
+  if(!h) return;
+  currentSocialAd = { id: h.adId, title: h.adTitle };
+  currentSocialLang = h.lang;
+  currentCaptions = h.captions;
+  document.getElementById('socialAdTitleLabel').textContent = h.adTitle;
+  document.getElementById('socialCaptionsSection').style.display = 'block';
+  document.querySelectorAll('#socialLangTabs .lang-tab').forEach(t => t.classList.toggle('active', t.dataset.lang === h.lang));
+  renderCaptionBlocks();
+});
+document.getElementById('clearSocialHistoryBtn').addEventListener('click', () => {
+  if(!confirm('Poori history clear karni hai?')) return;
+  localStorage.removeItem('rz_social_history');
+  renderSocialHistory();
+});
+renderSocialHistory();
+
+/* ---------- Backup / Restore ---------- */
+document.getElementById('downloadBackupBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('backupDownloadMsg');
+  msg.textContent = '⏳ Backup taiyar ho raha hai...';
+  try{
+    const data = await callAdminApi('export-all');
+    if(!data){ msg.textContent = ''; return; }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `roznamaads-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    msg.textContent = `✅ ${data.length} ads ki backup download ho gayi.`;
+    log(`💾 Backup downloaded — ${data.length} ads.`);
+  }catch(e){ msg.textContent = '❌ ' + e.message; }
+});
+
+document.getElementById('restoreBackupBtn').addEventListener('click', async () => {
+  const fileInput = document.getElementById('restoreFileInput');
+  const msg = document.getElementById('restoreMsg');
+  const file = fileInput.files[0];
+  if(!file){ alert('Pehle backup .json file chunein.'); return; }
+  if(!confirm('Ye backup file ki ads database mein upsert (add/overwrite) ho jayengi. Confirm karein?')) return;
+
+  msg.textContent = '⏳ Reading file...';
+  try{
+    const text = await file.text();
+    const rows = JSON.parse(text);
+    if(!Array.isArray(rows)) throw new Error('Ye file valid backup format mein nahi hai.');
+    msg.textContent = `⏳ ${rows.length} ads restore ho rahi hain...`;
+    const data = await callAdminApi('restore-import', { method:'POST', body: JSON.stringify({ rows }) });
+    if(!data) return;
+    msg.textContent = `✅ Restore mukammal — ${Array.isArray(data)?data.length:rows.length} ads process hui.`;
+    log(`⬆️ Restore hua — ${rows.length} ads.`);
+  }catch(e){ msg.textContent = '❌ ' + e.message; }
+});
+
+/* ---------- Category Manager ---------- */
+let catData = [];
+
+function renderCatManager(){
+  const box = document.getElementById('catManagerList');
+  box.innerHTML = catData.map((c, i) => `
+    <div class="cat-row" data-idx="${i}">
+      <button class="mini-btn" onclick="moveCat(${i},-1)">↑</button>
+      <button class="mini-btn" onclick="moveCat(${i},1)">↓</button>
+      <input type="text" value="${c.id}" placeholder="id" data-field="id">
+      <input type="text" value="${c.label}" placeholder="Label" data-field="label">
+      <input type="text" value="${c.subtitle||''}" placeholder="Subtitle" data-field="subtitle">
+      <input type="text" value="${c.tag||''}" placeholder="Tag (e.g. New)" data-field="tag">
+      <label><input type="checkbox" ${c.active ? 'checked' : ''} data-field="active"> Active</label>
+      <button class="mini-btn" style="color:#c0392b" onclick="removeCat(${i})">✕</button>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const field = inp.dataset.field;
+        catData[idx][field] = field === 'active' ? inp.checked : inp.value;
+      });
+    });
+  });
+}
+
+function moveCat(i, dir){
+  const j = i + dir;
+  if(j < 0 || j >= catData.length) return;
+  [catData[i], catData[j]] = [catData[j], catData[i]];
+  renderCatManager();
+}
+function removeCat(i){
+  if(!confirm('Ye category list se hatani hai?')) return;
+  catData.splice(i, 1);
+  renderCatManager();
+}
+
+document.getElementById('loadCats').addEventListener('click', async () => {
+  try{
+    const res = await fetch('../categories.json', {cache:'no-store'});
+    catData = await res.json();
+    renderCatManager();
+    log('✅ categories.json load ho gayi (' + catData.length + ' categories).');
+  }catch(e){
+    log('❌ categories.json load nahi ho saki: ' + e.message);
+  }
+});
+
+document.getElementById('addCatBtn').addEventListener('click', () => {
+  catData.push({id:'', label:'', subtitle:'', tag:'', active:true});
+  renderCatManager();
+});
+
+document.getElementById('saveCatsToDeployer').addEventListener('click', () => {
+  if(catData.length === 0){ document.getElementById('catSaveMsg').textContent = '❌ Pehle categories load/add karein.'; return; }
+  const jsonStr = JSON.stringify(catData, null, 2) + '\n';
+  const blob = new Blob([jsonStr], {type:'application/json'});
+  const file = new File([blob], 'categories.json');
+  // Remove any existing categories.json from deployer queue, then add updated one
+  depSelectedFiles = depSelectedFiles.filter(f => f.path !== 'categories.json');
+  depSelectedFiles.push({path: 'categories.json', file: file});
+  depRenderFileList();
+  document.getElementById('catSaveMsg').textContent = '✅ categories.json Deployer queue mein add ho gayi — Deployer tab mein ja kar Scan & Commit karein.';
+  log('📤 categories.json Deployer mein queue ho gayi.');
+});
+
+/* ---------- Admin DB access via Vercel serverless functions ---------- */
+// The Supabase service_role key now lives ONLY on the server (Vercel env vars).
+// This browser code only sends a small shared secret (ADMIN_API_SECRET) to
+// our own /api/admin/* endpoints, which then talk to Supabase server-side.
+function getAdminSecret(){
+  const key = sessionStorage.getItem('rz_admin_secret') || document.getElementById('serviceKey').value.trim();
+  if(!key){ alert('Pehle Admin API Secret daalein (kisi bhi tab mein, jahan ye field ho).'); return null; }
+  sessionStorage.setItem('rz_admin_secret', key);
+  return key;
+}
+async function callAdminApi(path, options){
+  const secret = getAdminSecret();
+  if(!secret) return null;
+  const res = await fetch(`../api/admin/${path}`, {
+    ...options,
+    headers: {'Content-Type':'application/json', 'x-admin-secret': secret, ...(options?.headers||{})}
+  });
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+(function restoreServiceKey(){
+  const saved = sessionStorage.getItem('rz_admin_secret');
+  if(saved){
+    document.querySelectorAll('.adminSecretField').forEach(el => el.value = saved);
+  }
+})();
+document.querySelectorAll('.adminSecretField').forEach(el => {
+  el.addEventListener('input', () => sessionStorage.setItem('rz_admin_secret', el.value.trim()));
+});
+
+let categoryLabelsAdmin = {};
+fetch('../categories.json').then(r => r.json()).then(cats => {
+  cats.forEach(c => categoryLabelsAdmin[c.id] = c.label);
+}).catch(() => {});
+
+/* Draft Queue */
+function renderDupMatches(matches){
+  if(!matches.length) return '<p class="desc">✅ Koi duplicate nahi mila.</p>';
+  return matches.map(m => `
+    <div class="cat-row" style="flex-direction:column;align-items:stretch">
+      <b>${escapeHtml(m.title)}</b>
+      <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[m.category]||m.category)} · ${escapeHtml(m.city||'')} · ${escapeHtml(m.contact_phone||'')} · status: ${escapeHtml(m.status)} · matched by: ${escapeHtml(m.matchedBy)}</span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('checkDupBtn').addEventListener('click', async () => {
+  const box = document.getElementById('dupResults');
+  const title = document.getElementById('dupTitle').value.trim();
+  const contact_phone = document.getElementById('dupPhone').value.trim();
+  const category = document.getElementById('dupCategory').value;
+  if(!title && !contact_phone){ alert('Title ya Phone daalein.'); return; }
+  box.innerHTML = 'Checking...';
+  try{
+    const data = await callAdminApi('check-duplicate', { method:'POST', body: JSON.stringify({ title, contact_phone, category }) });
+    box.innerHTML = renderDupMatches(data.matches || []);
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('loadPending').addEventListener('click', async () => {
+  const box = document.getElementById('pendingList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('list?status=pending');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi pending ad nahi hai.</div>'; return; }
+    box.innerHTML = data.map(ad => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${escapeHtml(ad.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)} · ${escapeHtml(ad.contact_phone)}${ad.price ? ' · '+escapeHtml(ad.price) : ''}</span>
+        <span style="font-size:.8rem">${escapeHtml(ad.description)}</span>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn" onclick="approveAd('${escapeHtml(ad.id)}')">✅ Approve</button>
+          <button class="mini-btn" style="color:#c0392b" onclick="rejectAd('${escapeHtml(ad.id)}')">❌ Reject</button>
+        </div>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+async function approveAd(id){
+  try{
+    await callAdminApi('update-status', {method:'POST', body: JSON.stringify({id, status:'live'})});
+    log('✅ Ad approved: ' + id);
+    document.getElementById('loadPending').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+async function rejectAd(id){
+  if(!confirm('Ye ad reject karni hai?')) return;
+  try{
+    await callAdminApi('update-status', {method:'POST', body: JSON.stringify({id, status:'rejected'})});
+    log('❌ Ad rejected: ' + id);
+    document.getElementById('loadPending').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* Ad Manager */
+let liveAdsCache = {};
+document.getElementById('loadLive').addEventListener('click', async () => {
+  const box = document.getElementById('liveList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('list?status=live');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
+    data.forEach(ad => liveAdsCache[ad.id] = ad);
+    box.innerHTML = data.map(ad => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch" id="adRow_${ad.id}">
+        <b>${escapeHtml(ad.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)}</span>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <a class="mini-btn" href="../ad.html?id=${ad.id}" target="_blank" style="text-decoration:none;display:inline-block">👁️ View</a>
+          <button class="mini-btn" onclick="startEditAd('${ad.id}')">✏️ Edit</button>
+          <button class="mini-btn" style="color:#c0392b" onclick="deleteAd('${ad.id}')">🗑️ Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+function startEditAd(id){
+  const ad = liveAdsCache[id];
+  const row = document.getElementById('adRow_' + id);
+  row.innerHTML = `
+    <div class="field"><label>Title</label><input type="text" id="edit_title_${id}" value="${escapeHtml(ad.title)}"></div>
+    <div class="field"><label>City</label><input type="text" id="edit_city_${id}" value="${escapeHtml(ad.city)}"></div>
+    <div class="field"><label>Price</label><input type="text" id="edit_price_${id}" value="${escapeHtml(ad.price||'')}"></div>
+    <div class="field"><label>Contact Phone</label><input type="text" id="edit_contact_phone_${id}" value="${escapeHtml(ad.contact_phone||'')}"></div>
+    <div class="field"><label>Description</label><textarea id="edit_description_${id}" rows="3">${escapeHtml(ad.description||'')}</textarea></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="saveEditAd('${id}')">💾 Save</button>
+      <button class="mini-btn" onclick="document.getElementById('loadLive').click()">Cancel</button>
+    </div>
+  `;
+}
+
+async function saveEditAd(id){
+  const fields = {
+    title: document.getElementById('edit_title_' + id).value.trim(),
+    city: document.getElementById('edit_city_' + id).value.trim(),
+    price: document.getElementById('edit_price_' + id).value.trim(),
+    contact_phone: document.getElementById('edit_contact_phone_' + id).value.trim(),
+    description: document.getElementById('edit_description_' + id).value.trim()
+  };
+  try{
+    await callAdminApi('update-ad', {method:'POST', body: JSON.stringify({id, fields})});
+    log('✏️ Ad updated: ' + id);
+    document.getElementById('loadLive').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function deleteAd(id){
+  if(!confirm('Ye ad permanently delete karni hai?')) return;
+  try{
+    await callAdminApi('delete-ad', {method:'POST', body: JSON.stringify({id})});
+    log('🗑️ Ad deleted: ' + id);
+    document.getElementById('loadLive').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* Reported Ads */
+document.getElementById('loadReports').addEventListener('click', async () => {
+  const box = document.getElementById('reportsList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('reports');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi report nahi hai.</div>'; return; }
+    box.innerHTML = data.map(r => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${escapeHtml(r.ads?.title || '(ad deleted)')}</b>
+        <span style="font-size:.78rem;color:var(--muted)">Reported: ${new Date(r.reported_at).toLocaleString()} · Status: ${r.ads?.status || '—'}</span>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          ${r.ad_id ? `<button class="mini-btn" style="color:#c0392b" onclick="deleteAd('${r.ad_id}')">🗑️ Remove Ad</button>` : ''}
+          <button class="mini-btn" onclick="dismissReport('${r.id}')">Dismiss</button>
+        </div>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+async function dismissReport(id){
+  try{
+    await callAdminApi('dismiss-report', {method:'POST', body: JSON.stringify({id})});
+    document.getElementById('loadReports').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* ---------- Verification Sources (Part A) ---------- */
+let verifSourcesData = [];
+
+function renderVerifSources(){
+  const box = document.getElementById('verifSourcesList');
+  if(!verifSourcesData.length){ box.innerHTML = '<div class="stub">Koi source nahi hai — "+ Add Source" se banayein.</div>'; return; }
+  box.innerHTML = verifSourcesData.map((s, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <div class="field-row">
+        <input type="text" value="${escapeHtml(s.name||'')}" placeholder="Source name (e.g. CDA official scheme list)" data-field="name" style="flex:2;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <input type="text" value="${escapeHtml(s.authority||'')}" placeholder="Authority (CDA/RDA/BEOE)" data-field="authority" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <select data-field="target_type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="society" ${s.target_type==='society'?'selected':''}>Society</option>
+          <option value="visa_agency" ${s.target_type==='visa_agency'?'selected':''}>Visa Agency</option>
+          <option value="institute" ${s.target_type==='institute'?'selected':''}>Institute</option>
+          <option value="company" ${s.target_type==='company'?'selected':''}>Company</option>
+          <option value="tender" ${s.target_type==='tender'?'selected':''}>Tender/Supplier</option>
+        </select>
+      </div>
+      <input type="text" value="${escapeHtml(s.official_url||'')}" placeholder="Official URL" data-field="official_url" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div class="field-row" style="margin-top:6px">
+        <select data-field="import_method" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="manual" ${s.import_method==='manual'?'selected':''}>Manual</option>
+          <option value="api" ${s.import_method==='api'?'selected':''}>API</option>
+          <option value="html" ${s.import_method==='html'?'selected':''}>HTML</option>
+          <option value="pdf" ${s.import_method==='pdf'?'selected':''}>PDF</option>
+        </select>
+        <label><input type="checkbox" ${s.active!==false?'checked':''} data-field="active"> Active</label>
+      </div>
+      <input type="text" value="${escapeHtml(s.notes||'')}" placeholder="Notes" data-field="notes" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div class="field-row" style="margin-top:6px;align-items:center">
+        <div style="flex:1"><label style="font-size:.72rem;color:var(--muted)">Last checked</label><input type="date" value="${s.last_checked ? s.last_checked.slice(0,10) : ''}" data-field="last_checked" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:5px"></div>
+        <div style="flex:1"><label style="font-size:.72rem;color:var(--muted)">Next check due</label><input type="date" value="${s.next_check ? s.next_check.slice(0,10) : ''}" data-field="next_check" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:5px"></div>
+        ${s.next_check && new Date(s.next_check) < new Date() ? '<span style="background:#fdeaea;color:#a12626;font-size:.72rem;font-weight:700;padding:4px 8px;border-radius:999px">⏰ Overdue</span>' : ''}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="mini-btn" onclick="saveVerifSource(${i})">💾 Save</button>
+        <button class="mini-btn" style="color:#c0392b" onclick="deleteVerifSource(${i})">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const field = inp.dataset.field;
+        verifSourcesData[idx][field] = field === 'active' ? inp.checked : inp.value;
+      });
+      inp.addEventListener('change', () => {
+        const field = inp.dataset.field;
+        verifSourcesData[idx][field] = field === 'active' ? inp.checked : inp.value;
+      });
+    });
+  });
+}
+
+document.getElementById('loadVerifSources').addEventListener('click', async () => {
+  const box = document.getElementById('verifSourcesList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('verif-sources-list');
+    verifSourcesData = Array.isArray(data) ? data : [];
+    renderVerifSources();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('addVerifSourceBtn').addEventListener('click', () => {
+  verifSourcesData.unshift({ name:'', authority:'', target_type:'society', official_url:'', import_method:'manual', active:true, notes:'' });
+  renderVerifSources();
+});
+
+async function saveVerifSource(i){
+  const s = verifSourcesData[i];
+  if(!s.name || !s.authority || !s.official_url){ alert('Name, authority aur official URL zaroori hain.'); return; }
+  try{
+    const saved = await callAdminApi('verif-source-save', { method:'POST', body: JSON.stringify(s) });
+    if(Array.isArray(saved) && saved[0]) verifSourcesData[i] = saved[0];
+    log('✅ Source saved: ' + s.name);
+    renderVerifSources();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function deleteVerifSource(i){
+  const s = verifSourcesData[i];
+  if(!confirm('Ye source delete karna hai?')) return;
+  try{
+    if(s.id) await callAdminApi('verif-source-delete', { method:'POST', body: JSON.stringify({id:s.id}) });
+    verifSourcesData.splice(i,1);
+    renderVerifSources();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* ---------- Verification Records (Part A) ---------- */
+let verifRecordsData = [];
+
+function renderVerifRecords(){
+  const box = document.getElementById('verifRecordsList');
+  if(!verifRecordsData.length){ box.innerHTML = '<div class="stub">Koi record nahi hai — "+ Add Record" se banayein.</div>'; return; }
+  box.innerHTML = verifRecordsData.map((v, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <div class="field-row">
+        <select data-field="type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="society" ${v.type==='society'?'selected':''}>Society</option>
+          <option value="visa_agency" ${v.type==='visa_agency'?'selected':''}>Visa Agency</option>
+          <option value="institute" ${v.type==='institute'?'selected':''}>Institute</option>
+          <option value="company" ${v.type==='company'?'selected':''}>Company</option>
+          <option value="tender" ${v.type==='tender'?'selected':''}>Tender/Supplier</option>
+        </select>
+        <input type="text" value="${escapeHtml(v.name||'')}" placeholder="Name" data-field="name" style="flex:2;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <input type="text" value="${escapeHtml(v.city||'')}" placeholder="City" data-field="city" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      </div>
+      <input type="text" value="${escapeHtml((v.aliases||[]).join(', '))}" placeholder="Aliases (comma se separate)" data-field="aliases" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div class="field-row" style="margin-top:6px">
+        <input type="text" value="${escapeHtml(v.authority||'')}" placeholder="Authority (CDA/RDA/BEOE)" data-field="authority" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <input type="text" value="${escapeHtml(v.reference_no||'')}" placeholder="Reference/Licence No." data-field="reference_no" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      </div>
+      <div class="field-row" style="margin-top:6px">
+        <input type="text" value="${escapeHtml(v.status||'')}" placeholder="Status (approved/illegal/valid/expired...)" data-field="status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <input type="text" value="${escapeHtml(v.blacklist_status||'')}" placeholder="Blacklist status (agar ho)" data-field="blacklist_status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      </div>
+      <input type="text" value="${escapeHtml(v.official_source_url||'')}" placeholder="Official source URL" data-field="official_source_url" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <textarea placeholder="Notes" data-field="notes" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px;min-height:50px">${escapeHtml(v.notes||'')}</textarea>
+      <div class="field-row" style="margin-top:6px;align-items:center">
+        <label><input type="checkbox" ${v.published?'checked':''} data-field="published"> Published (public par visible)</label>
+        <span style="font-size:.75rem;color:var(--muted)">${v.updated_at ? 'Last updated: ' + new Date(v.updated_at).toLocaleString() : ''}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="mini-btn" onclick="saveVerifRecord(${i})">💾 Save</button>
+        <button class="mini-btn" onclick="showVerifHistory(${i})">🕘 History</button>
+        <button class="mini-btn" style="color:#c0392b" onclick="deleteVerifRecord(${i})">🗑️ Delete</button>
+      </div>
+      <div id="verifHistory-${i}" style="margin-top:8px"></div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select,textarea').forEach(inp => {
+      const handler = () => {
+        const field = inp.dataset.field;
+        if(field === 'published') verifRecordsData[idx][field] = inp.checked;
+        else if(field === 'aliases') verifRecordsData[idx][field] = inp.value.split(',').map(a=>a.trim()).filter(Boolean);
+        else verifRecordsData[idx][field] = inp.value;
+      };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+  });
+}
+
+document.getElementById('loadVerifRecords').addEventListener('click', async () => {
+  const box = document.getElementById('verifRecordsList');
+  box.innerHTML = 'Loading...';
+  try{
+    const type = document.getElementById('verifRecTypeFilter').value;
+    const data = await callAdminApi('verif-list' + (type ? `?type=${encodeURIComponent(type)}` : ''));
+    verifRecordsData = Array.isArray(data) ? data : [];
+    renderVerifRecords();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('addVerifRecordBtn').addEventListener('click', () => {
+  verifRecordsData.unshift({ type:'society', name:'', aliases:[], city:'', authority:'', reference_no:'', status:'', blacklist_status:'', official_source_url:'', notes:'', published:false });
+  renderVerifRecords();
+});
+
+async function saveVerifRecord(i){
+  const v = verifRecordsData[i];
+  if(!v.type || !v.name || !v.authority || !v.status){ alert('Type, name, authority aur status zaroori hain.'); return; }
+  try{
+    const saved = await callAdminApi('verif-save', { method:'POST', body: JSON.stringify(v) });
+    if(Array.isArray(saved) && saved[0]) verifRecordsData[i] = saved[0];
+    log('✅ Verification record saved: ' + v.name);
+    renderVerifRecords();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+document.getElementById('beoeImportBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('beoeImportStatus');
+  const secret = getAdminSecret();
+  if(!secret){ statusBox.textContent = '❌ Pehle Admin API Secret bharein.'; return; }
+  if(!confirm('BEOE ki 5271 records import/refresh karni hain? Ye kuch minute le sakta hai.')) return;
+
+  let offset = 0;
+  let total = 0;
+  statusBox.textContent = 'Shuru ho raha hai...';
+  try{
+    while(true){
+      const data = await callAdminApi(`beoe-import?offset=${offset}&limit=500`, { method:'POST' });
+      if(data.done){
+        total = data.total || total;
+        statusBox.textContent = `✅ Mukammal! Total ${total} records import/refresh ho gayi.`;
+        break;
+      }
+      offset = data.offset;
+      total = data.total;
+      statusBox.textContent = `Ho raha hai... ${offset} / ${total} records`;
+    }
+  }catch(e){
+    statusBox.textContent = `❌ Error (offset ${offset} tak ho chuka tha): ${e.message}. Dobara button dabayein — yahin se continue nahi hota, isliye offset se dobara shuru hoga.`;
+  }
+});
+
+async function deleteVerifRecord(i){
+  const v = verifRecordsData[i];
+  if(!confirm('Ye verification record delete karna hai?')) return;
+  try{
+    if(v.id) await callAdminApi('verif-delete', { method:'POST', body: JSON.stringify({id:v.id}) });
+    verifRecordsData.splice(i,1);
+    renderVerifRecords();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function showVerifHistory(i){
+  const v = verifRecordsData[i];
+  const box = document.getElementById('verifHistory-' + i);
+  if(!v.id){ box.innerHTML = '<div class="stub">Pehle record save karein, phir history bane gi.</div>'; return; }
+  box.innerHTML = 'Loading history...';
+  try{
+    const rows = await callAdminApi('verif-history-list?verification_id=' + v.id);
+    if(!Array.isArray(rows) || !rows.length){ box.innerHTML = '<div class="stub">Koi purani change history nahi hai.</div>'; return; }
+    box.innerHTML = rows.map(h => `
+      <div style="border-top:1px solid var(--line);padding:6px 0;font-size:.78rem">
+        <b>${new Date(h.changed_at).toLocaleString()}</b><br>
+        Status: ${escapeHtml(h.old_data?.status || '—')} → ${escapeHtml(h.new_data?.status || '—')}
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+}
+
+/* ---------- AI Data Extractor (Part A — admin-only, draft only) ---------- */
+let extractedDraft = null;
+
+document.getElementById('extractBtn').addEventListener('click', async () => {
+  const box = document.getElementById('extractorResult');
+  const rawText = document.getElementById('extractorRawText').value.trim();
+  const type = document.getElementById('extractorType').value;
+  if(!rawText){ alert('Pehle official text paste karein.'); return; }
+  box.innerHTML = '⏳ Gemini se extract ho raha hai...';
+  const typeDescriptions = {
+    society: 'housing society/property authority notice',
+    visa_agency: 'visa/overseas employment agency licence record',
+    institute: 'educational institute recognition/accreditation notice (e.g. HEC)',
+    company: 'company registration/verification record (e.g. SECP)',
+    tender: 'tender/supplier blacklist or registration record (e.g. PPRA)'
+  };
+  const prompt = `Tum ek data-extraction assistant ho. Neeche diya gaya raw official text ek Pakistani ${typeDescriptions[type] || 'official verification record'} se hai.
+Ismein se sirf ye JSON object return karo (kuch aur text/markdown nahi, sirf JSON):
+{
+  "name": "",
+  "aliases": [],
+  "city": "",
+  "authority": "",
+  "reference_no": "",
+  "status": "",
+  "blacklist_status": "",
+  "official_source_url": "",
+  "notes": ""
+}
+Agar koi field text mein nahi mile to usay khali string ya khali array rehne do — khud se mat banao. status field mein sirf wahi status likho jo text mein clearly likha ho (e.g. approved, unapproved, illegal, warning, valid, invalid, expired, cancelled, surrendered, unknown).
+
+Raw text:
+"""
+${rawText}
+"""`;
+  try{
+    const out = await rzCallGemini(prompt);
+    const cleaned = out.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    extractedDraft = {
+      type, name: parsed.name || '', aliases: Array.isArray(parsed.aliases) ? parsed.aliases : [],
+      city: parsed.city || '', authority: parsed.authority || '', reference_no: parsed.reference_no || '',
+      status: parsed.status || '', blacklist_status: parsed.blacklist_status || '',
+      official_source_url: parsed.official_source_url || '', notes: parsed.notes || '',
+      published: false
+    };
+    box.innerHTML = `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <p style="font-size:.78rem;color:var(--muted);margin:0 0 8px">⚠️ Ye AI draft hai — publish se pehle admin zaroor review/edit kare. Kabhi khud final source nahi.</p>
+        <b>${escapeHtml(extractedDraft.name || '(name nahi mila)')}</b>
+        <span style="font-size:.8rem">City: ${escapeHtml(extractedDraft.city||'—')} · Authority: ${escapeHtml(extractedDraft.authority||'—')}</span>
+        <span style="font-size:.8rem">Reference: ${escapeHtml(extractedDraft.reference_no||'—')} · Status: ${escapeHtml(extractedDraft.status||'—')}</span>
+        <span style="font-size:.8rem">Blacklist: ${escapeHtml(extractedDraft.blacklist_status||'—')}</span>
+        <span style="font-size:.8rem">Aliases: ${escapeHtml((extractedDraft.aliases||[]).join(', ')||'—')}</span>
+        <span style="font-size:.8rem">Notes: ${escapeHtml(extractedDraft.notes||'—')}</span>
+        <div style="margin-top:8px">
+          <button class="mini-btn" id="sendToRecordsBtn">📤 Send to Verification Records tab (draft, unpublished)</button>
+        </div>
+      </div>`;
+    document.getElementById('sendToRecordsBtn').addEventListener('click', () => {
+      verifRecordsData.unshift(extractedDraft);
+      document.querySelector('.tool-nav button[data-target="verif-records"]').click();
+      renderVerifRecords();
+      log('🤖 AI draft "Verification Records" tab mein bhej diya — review kar ke Save/Publish karein.');
+    });
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+/* ---------- Diff Checker (Part A — admin-only, informational) ---------- */
+let diffRecordsCache = [];
+
+document.getElementById('diffLoadRecordsBtn').addEventListener('click', async () => {
+  const sel = document.getElementById('diffRecordSelect');
+  sel.innerHTML = '<option value="">Loading...</option>';
+  try{
+    const data = await callAdminApi('verif-list');
+    diffRecordsCache = Array.isArray(data) ? data : [];
+    sel.innerHTML = '<option value="">— record chunein —</option>' +
+      diffRecordsCache.map((v,i) => `<option value="${i}">${escapeHtml(v.name)} (${escapeHtml(v.type)}, ${escapeHtml(v.status||'—')})</option>`).join('');
+  }catch(e){ sel.innerHTML = '<option value="">❌ ' + e.message + '</option>'; }
+});
+
+document.getElementById('diffRunBtn').addEventListener('click', async () => {
+  const box = document.getElementById('diffResult');
+  const sel = document.getElementById('diffRecordSelect');
+  const newText = document.getElementById('diffNewText').value.trim();
+  if(sel.value === ''){ alert('Pehle existing record chunein.'); return; }
+  if(!newText){ alert('Naya official text paste karein.'); return; }
+  const oldRecord = diffRecordsCache[parseInt(sel.value)];
+  box.innerHTML = '⏳ Compare ho raha hai...';
+  const prompt = `Tum ek diff-checking assistant ho. Neeche ek existing verification record (JSON) aur ek naya official text diya gaya hai. Sirf ye batao ke naye text ke mutabiq kya cheezein badal sakti hain (status, blacklist_status, reference_no, city, name/aliases mismatch waghera). Sirf ek chhota bullet-list summary do Roman Urdu mein, JSON nahi. Agar koi farq na ho to sirf likho "Koi farq nahi mila."
+
+Existing record:
+${JSON.stringify({ name: oldRecord.name, aliases: oldRecord.aliases, city: oldRecord.city, authority: oldRecord.authority, reference_no: oldRecord.reference_no, status: oldRecord.status, blacklist_status: oldRecord.blacklist_status }, null, 2)}
+
+Naya official text:
+"""
+${newText}
+"""`;
+  try{
+    const out = await rzCallGemini(prompt);
+    box.innerHTML = `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <p style="font-size:.78rem;color:var(--muted);margin:0 0 8px">⚠️ Ye sirf informational hai — koi field khud update nahi hoti. Agar farq sahi lage to "Verification Records" tab mein ja kar khud edit/publish karein.</p>
+        <div style="white-space:pre-wrap;font-size:.85rem">${escapeHtml(out.trim())}</div>
+      </div>`;
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+/* ---------- Risk Signals (Part B) ---------- */
+let riskSignalsData = [];
+const RISK_TARGET_TYPES = ['society','visa_agency','job','institute','company','tender','auction','phone','url'];
+
+function renderRiskSignals(){
+  const box = document.getElementById('riskSignalsList');
+  if(!riskSignalsData.length){ box.innerHTML = '<div class="stub">Koi signal nahi hai — "+ Add Signal" se banayein.</div>'; return; }
+  box.innerHTML = riskSignalsData.map((s, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <div class="field-row">
+        <select data-field="target_type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          ${RISK_TARGET_TYPES.map(t => `<option value="${t}" ${s.target_type===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+        <input type="text" value="${escapeHtml(s.target_reference||'')}" placeholder="Target name/reference" data-field="target_reference" style="flex:2;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      </div>
+      <div class="field-row" style="margin-top:6px">
+        <input type="text" value="${escapeHtml(s.signal_type||'')}" placeholder="Signal type (e.g. official_warning)" data-field="signal_type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <select data-field="severity" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="positive" ${s.severity==='positive'?'selected':''}>Positive</option>
+          <option value="caution" ${s.severity==='caution'?'selected':''}>Caution</option>
+          <option value="warning" ${s.severity==='warning'?'selected':''}>Warning</option>
+        </select>
+        <select data-field="source_type" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="official" ${s.source_type==='official'?'selected':''}>Official</option>
+          <option value="roznamaads_internal" ${s.source_type==='roznamaads_internal'?'selected':''}>RoznamaAds Internal</option>
+          <option value="user_report" ${s.source_type==='user_report'?'selected':''}>User Report</option>
+          <option value="ai_suggested" ${s.source_type==='ai_suggested'?'selected':''}>AI Suggested</option>
+        </select>
+      </div>
+      <input type="text" value="${escapeHtml(s.reason||'')}" placeholder="Reason / detail" data-field="reason" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <input type="text" value="${escapeHtml(s.source_url||'')}" placeholder="Source URL (agar ho)" data-field="source_url" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div class="field-row" style="margin-top:6px;align-items:center">
+        <select data-field="status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="pending" ${s.status==='pending'?'selected':''}>Pending</option>
+          <option value="active" ${s.status==='active'?'selected':''}>Active (public par dikhega)</option>
+          <option value="dismissed" ${s.status==='dismissed'?'selected':''}>Dismissed</option>
+        </select>
+        <span style="font-size:.75rem;color:var(--muted)">${s.created_at ? new Date(s.created_at).toLocaleString() : ''}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="mini-btn" onclick="saveRiskSignal(${i})">💾 Save</button>
+        <button class="mini-btn" style="color:#c0392b" onclick="deleteRiskSignal(${i})">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      const handler = () => { riskSignalsData[idx][inp.dataset.field] = inp.value; };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+  });
+}
+
+document.getElementById('loadRiskSignals').addEventListener('click', async () => {
+  const box = document.getElementById('riskSignalsList');
+  box.innerHTML = 'Loading...';
+  try{
+    const status = document.getElementById('riskSigStatusFilter').value;
+    const data = await callAdminApi('risk-signals-list' + (status ? `?status=${encodeURIComponent(status)}` : ''));
+    riskSignalsData = Array.isArray(data) ? data : [];
+    renderRiskSignals();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('addRiskSignalBtn').addEventListener('click', () => {
+  riskSignalsData.unshift({ target_type:'society', target_reference:'', signal_type:'', severity:'caution', reason:'', source_type:'roznamaads_internal', source_url:'', status:'pending' });
+  renderRiskSignals();
+});
+
+async function saveRiskSignal(i){
+  const s = riskSignalsData[i];
+  if(!s.target_type || !s.target_reference || !s.signal_type || !s.source_type){ alert('Target type, reference, signal type aur source type zaroori hain.'); return; }
+  try{
+    const saved = await callAdminApi('risk-signal-save', { method:'POST', body: JSON.stringify(s) });
+    if(Array.isArray(saved) && saved[0]) riskSignalsData[i] = saved[0];
+    log('✅ Risk signal saved: ' + s.target_reference);
+    renderRiskSignals();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function deleteRiskSignal(i){
+  const s = riskSignalsData[i];
+  if(!confirm('Ye signal delete karna hai?')) return;
+  try{
+    if(s.id) await callAdminApi('risk-signal-delete', { method:'POST', body: JSON.stringify({id:s.id}) });
+    riskSignalsData.splice(i,1);
+    renderRiskSignals();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* ---------- Risk Reports Queue (Part B) ---------- */
+let riskReportsData = [];
+
+function renderRiskReports(){
+  const box = document.getElementById('riskReportsList');
+  if(!riskReportsData.length){ box.innerHTML = '<div class="stub">Koi report nahi hai is filter mein.</div>'; return; }
+  box.innerHTML = riskReportsData.map((r, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <b>${escapeHtml(r.target_type)} — ${escapeHtml(r.target_reference)}</b>
+      <span style="font-size:.85rem">Reason: ${escapeHtml(r.reason||'—')}</span>
+      ${r.description ? `<span style="font-size:.82rem;color:var(--muted)">${escapeHtml(r.description)}</span>` : ''}
+      ${r.evidence_reference ? `<span style="font-size:.8rem">Evidence: ${escapeHtml(r.evidence_reference)}</span>` : ''}
+      ${r.reporter_info ? `<span style="font-size:.8rem">Reporter: ${escapeHtml(r.reporter_info)}</span>` : ''}
+      <span style="font-size:.75rem;color:var(--muted)">${r.created_at ? new Date(r.created_at).toLocaleString() : ''} · Status: ${escapeHtml(r.status)}</span>
+      <div class="field-row" style="margin-top:8px">
+        <select data-field="status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="new" ${r.status==='new'?'selected':''}>New</option>
+          <option value="under_review" ${r.status==='under_review'?'selected':''}>Under Review</option>
+          <option value="verified_concern" ${r.status==='verified_concern'?'selected':''}>Verified Concern</option>
+          <option value="dismissed" ${r.status==='dismissed'?'selected':''}>Dismissed</option>
+          <option value="resolved" ${r.status==='resolved'?'selected':''}>Resolved</option>
+        </select>
+      </div>
+      <input type="text" value="${escapeHtml(r.admin_action||'')}" placeholder="Admin action/notes" data-field="admin_action" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div style="margin-top:8px"><button class="mini-btn" onclick="updateRiskReport(${i})">💾 Save Status</button></div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      const handler = () => { riskReportsData[idx][inp.dataset.field] = inp.value; };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+  });
+}
+
+document.getElementById('loadRiskReports').addEventListener('click', async () => {
+  const box = document.getElementById('riskReportsList');
+  box.innerHTML = 'Loading...';
+  try{
+    const status = document.getElementById('riskRepStatusFilter').value;
+    const data = await callAdminApi('reports-risk-list' + (status ? `?status=${encodeURIComponent(status)}` : ''));
+    riskReportsData = Array.isArray(data) ? data : [];
+    renderRiskReports();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+async function updateRiskReport(i){
+  const r = riskReportsData[i];
+  try{
+    await callAdminApi('reports-risk-update', { method:'POST', body: JSON.stringify({id:r.id, status:r.status, admin_action:r.admin_action}) });
+    log('✅ Report status updated: ' + r.status);
+    renderRiskReports();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* ---------- Risk/Verify Dashboard ---------- */
+document.getElementById('loadDashboard').addEventListener('click', async () => {
+  const box = document.getElementById('dashboardStatsBox');
+  box.innerHTML = 'Loading...';
+  try{
+    const s = await callAdminApi('dashboard-stats');
+    const cardsData = [
+      ['Verifications (total)', s.verifTotal], ['Verifications (published)', s.verifPublished],
+      ['Risk Signals (active)', s.sigActive], ['Risk Signals (pending review)', s.sigPending],
+      ['New Reports', s.repNew], ['Under Review Reports', s.repUnderReview],
+      ['URL Checks (total)', s.urlChecksTotal], ['Phone Numbers Flagged', s.phoneFlagged]
+    ];
+    box.innerHTML = cardsData.map(([label, val]) => `
+      <div class="cat-row" style="flex-direction:column;align-items:center;text-align:center;padding:16px">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--green-dark)">${val}</div>
+        <div style="font-size:.78rem;color:var(--muted)">${label}</div>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+/* ---------- Phone Checks (admin flag management) ---------- */
+let phoneSignalsData = [];
+
+function renderPhoneSignals(){
+  const box = document.getElementById('phoneSignalsList');
+  if(!phoneSignalsData.length){ box.innerHTML = '<div class="stub">Koi record nahi — public checker use hone par yahan khud aayenge, ya "+ Add/Flag" se manually banayein.</div>'; return; }
+  box.innerHTML = phoneSignalsData.map((p, i) => `
+    <div class="cat-row" data-idx="${i}" style="flex-direction:column;align-items:stretch">
+      <div class="field-row">
+        <input type="text" value="${escapeHtml(p.normalized_phone||'')}" placeholder="03XXXXXXXXX" data-field="normalized_phone" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+        <select data-field="signal_status" style="padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+          <option value="unflagged" ${p.signal_status==='unflagged'?'selected':''}>Unflagged</option>
+          <option value="watch" ${p.signal_status==='watch'?'selected':''}>Watch</option>
+          <option value="multiple_signals" ${p.signal_status==='multiple_signals'?'selected':''}>Multiple Signals (warning)</option>
+        </select>
+      </div>
+      <span style="font-size:.78rem;color:var(--muted);margin-top:4px">Ads: ${p.ads_count||0} · Distinct names: ${p.distinct_advertiser_names||0} · Categories: ${escapeHtml((p.categories||[]).join(', ')||'—')}</span>
+      <input type="text" value="${escapeHtml(p.admin_flags||'')}" placeholder="Admin note/reason" data-field="admin_flags" style="margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:5px">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="mini-btn" onclick="savePhoneSignal(${i})">💾 Save</button>
+        <button class="mini-btn" style="color:#c0392b" onclick="deletePhoneSignal(${i})">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('');
+  box.querySelectorAll('.cat-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelectorAll('input,select').forEach(inp => {
+      const handler = () => { phoneSignalsData[idx][inp.dataset.field] = inp.value; };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+  });
+}
+
+document.getElementById('loadPhoneSignals').addEventListener('click', async () => {
+  const box = document.getElementById('phoneSignalsList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('phone-signals-list');
+    phoneSignalsData = Array.isArray(data) ? data : [];
+    renderPhoneSignals();
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('addPhoneSignalBtn').addEventListener('click', () => {
+  phoneSignalsData.unshift({ normalized_phone:'', signal_status:'watch', admin_flags:'', ads_count:0, distinct_advertiser_names:0, categories:[] });
+  renderPhoneSignals();
+});
+
+async function savePhoneSignal(i){
+  const p = phoneSignalsData[i];
+  if(!p.normalized_phone){ alert('Number likhna zaroori hai.'); return; }
+  try{
+    const saved = await callAdminApi('phone-signal-save', { method:'POST', body: JSON.stringify(p) });
+    if(Array.isArray(saved) && saved[0]) phoneSignalsData[i] = saved[0];
+    log('✅ Phone signal saved: ' + p.normalized_phone);
+    renderPhoneSignals();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+async function deletePhoneSignal(i){
+  const p = phoneSignalsData[i];
+  if(!confirm('Delete karna hai?')) return;
+  try{
+    if(p.id) await callAdminApi('phone-signal-delete', { method:'POST', body: JSON.stringify({id:p.id}) });
+    phoneSignalsData.splice(i,1);
+    renderPhoneSignals();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* ---------- URL Checks (read-only history) ---------- */
+document.getElementById('loadUrlChecks').addEventListener('click', async () => {
+  const box = document.getElementById('urlChecksList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('url-checks-list');
+    if(!Array.isArray(data) || !data.length){ box.innerHTML = '<div class="stub">Koi record nahi — public URL checker use hone par yahan aayenge.</div>'; return; }
+    box.innerHTML = data.map(u => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${escapeHtml(u.url_domain)}</b>
+        <span style="font-size:.82rem">HTTPS: ${escapeHtml(u.https_basic_result||'—')} · Redirect: ${escapeHtml(u.redirect_structure_result||'—')}</span>
+        <span style="font-size:.82rem">Official match: ${escapeHtml(u.official_match_signal||'—')} · Reports: ${u.roznamaads_reports||0}</span>
+        <span style="font-size:.82rem">Risk status: <b>${escapeHtml(u.risk_status||'—')}</b></span>
+        <span style="font-size:.75rem;color:var(--muted)">Last checked: ${u.last_checked ? new Date(u.last_checked).toLocaleString() : '—'}</span>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+/* Expiry Management */
+document.getElementById('loadExpiry').addEventListener('click', async () => {
+  const box = document.getElementById('expiryList');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('expiry-list');
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi live/expired ad nahi hai.</div>'; return; }
+    const now = new Date();
+    box.innerHTML = data.map(ad => {
+      const exp = new Date(ad.expires_at);
+      const daysLeft = Math.ceil((exp - now) / (1000*60*60*24));
+      const statusTxt = ad.status === 'expired' ? '❌ Expired' : (daysLeft <= 5 ? `⚠️ ${daysLeft} din baaki` : `${daysLeft} din baaki`);
+      return `
+        <div class="cat-row" style="flex-direction:column;align-items:stretch">
+          <b>${escapeHtml(ad.title)}</b>
+          <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(ad.city)} · ${statusTxt} · ${exp.toLocaleDateString('en-GB')}</span>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button class="btn" onclick="extendExpiry('${ad.id}')">+30 din Extend</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+async function extendExpiry(id){
+  try{
+    await callAdminApi('extend-expiry', {method:'POST', body: JSON.stringify({id, days:30})});
+    log('⏳ Expiry extended: ' + id);
+    document.getElementById('loadExpiry').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
+/* Analytics Dashboard */
+document.getElementById('loadStats').addEventListener('click', async () => {
+  const box = document.getElementById('statsBox');
+  box.innerHTML = 'Loading...';
+  try{
+    const s = await callAdminApi('stats');
+    const maxCat = Math.max(1, ...s.byCategory.map(c => c[1]));
+    const maxCity = Math.max(1, ...s.byCity.map(c => c[1]));
+
+    box.innerHTML = `
+      <div class="stat-cards">
+        <div class="stat-card"><div class="num">${s.byStatus.live || 0}</div><div class="lbl">Live Ads</div></div>
+        <div class="stat-card"><div class="num">${s.byStatus.pending || 0}</div><div class="lbl">Pending Review</div></div>
+        <div class="stat-card"><div class="num">${s.last7}</div><div class="lbl">Last 7 Days</div></div>
+        <div class="stat-card"><div class="num">${s.last30}</div><div class="lbl">Last 30 Days</div></div>
+      </div>
+      <h2 style="font-size:.9rem">By Category</h2>
+      ${s.byCategory.map(([cat,count]) => `
+        <div class="bar-row">
+          <span class="name">${categoryLabelsAdmin[cat]||cat}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${(count/maxCat*100)}%"></div></div>
+          <span class="count">${count}</span>
+        </div>
+      `).join('') || '<div class="stub">Koi live ad nahi.</div>'}
+      <h2 style="font-size:.9rem;margin-top:16px">By City (Top 8)</h2>
+      ${s.byCity.map(([city,count]) => `
+        <div class="bar-row">
+          <span class="name">${city}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${(count/maxCity*100)}%"></div></div>
+          <span class="count">${count}</span>
+        </div>
+      `).join('') || '<div class="stub">Koi live ad nahi.</div>'}
+      <p class="desc" style="margin-top:12px">Total ads (sab status): ${s.total}</p>
+    `;
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+</script>
+</body>
+</html>
