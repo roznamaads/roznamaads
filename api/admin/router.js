@@ -2,12 +2,7 @@
 // (Vercel Hobby plan sirf 12 functions allow karta hai, isliye sab merge kiya gaya hai)
 // Routes: /api/admin/<action> — vercel.json ke rewrite se yahan aata hai, e.g. /api/admin/list?status=pending
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const beoeData = JSON.parse(fs.readFileSync(path.join(__dirname, 'beoe-data.json'), 'utf-8'));
+import { beoeData } from './beoe-data.js';
 
 const VALID_CATEGORIES = [
   'property','jobs','vehicles','matrimonial','visa','auctions',
