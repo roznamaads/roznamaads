@@ -230,7 +230,10 @@
     </div>
     <button class="btn" id="loadVerifRecords">📥 Load Records</button>
     <button class="btn alt" id="addVerifRecordBtn">+ Add Record</button>
-    <div id="verifRecordsList" style="margin-top:14px"></div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
+    <p class="desc">BEOE ki poori OEP (visa agency) list ek click mein import/refresh karein. Records draft (unpublished) mein aate hain — verify karke publish karein.</p>
+    <button class="btn alt" id="beoeImportBtn">📦 Import BEOE Data (5271 records)</button>
+    <div id="beoeImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
   </section>
 
   <section class="panel" data-panel="ai-extractor">
@@ -1989,6 +1992,32 @@ async function saveVerifRecord(i){
     renderVerifRecords();
   }catch(e){ alert('Error: ' + e.message); }
 }
+
+document.getElementById('beoeImportBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('beoeImportStatus');
+  const secret = getAdminSecret();
+  if(!secret){ statusBox.textContent = '❌ Pehle Admin API Secret bharein.'; return; }
+  if(!confirm('BEOE ki 5271 records import/refresh karni hain? Ye kuch minute le sakta hai.')) return;
+
+  let offset = 0;
+  let total = 0;
+  statusBox.textContent = 'Shuru ho raha hai...';
+  try{
+    while(true){
+      const data = await callAdminApi(`beoe-import?offset=${offset}&limit=500`, { method:'POST' });
+      if(data.done){
+        total = data.total || total;
+        statusBox.textContent = `✅ Mukammal! Total ${total} records import/refresh ho gayi.`;
+        break;
+      }
+      offset = data.offset;
+      total = data.total;
+      statusBox.textContent = `Ho raha hai... ${offset} / ${total} records`;
+    }
+  }catch(e){
+    statusBox.textContent = `❌ Error (offset ${offset} tak ho chuka tha): ${e.message}. Dobara button dabayein — yahin se continue nahi hota, isliye offset se dobara shuru hoga.`;
+  }
+});
 
 async function deleteVerifRecord(i){
   const v = verifRecordsData[i];

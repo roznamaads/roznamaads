@@ -2,6 +2,13 @@
 // (Vercel Hobby plan sirf 12 functions allow karta hai, isliye sab merge kiya gaya hai)
 // Routes: /api/admin/<action> — vercel.json ke rewrite se yahan aata hai, e.g. /api/admin/list?status=pending
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const beoeData = JSON.parse(fs.readFileSync(path.join(__dirname, 'beoe-data.json'), 'utf-8'));
+
 const VALID_CATEGORIES = [
   'property','jobs','vehicles','matrimonial','visa','auctions',
   'admissions','tenders','notices','services','electronics'
@@ -506,6 +513,70 @@ export default async function handler(req, res) {
         const r = await fetch(`${SB()}/rest/v1/url_checks?order=last_checked.desc&select=*&limit=100`, { headers: sbHeaders() });
         const data = await r.json();
         return res.status(r.status).json(data);
+      }
+
+      /* ---------- BEOE bulk import (one-time base load + periodic refresh) ---------- */
+      // Call repeatedly with increasing ?offset=0,500,1000... until done:true.
+      // Requires the unique index from sql/beoe-import-schema.sql to be run first.
+      case 'beoe-import': {
+        const offset = parseInt(req.query.offset || '0', 10);
+        const limit = parseInt(req.query.limit || '500', 10);
+        const batch = beoeData.slice(offset, offset + limit);
+
+        if (batch.length === 0) {
+          return res.status(200).json({ done: true, total: beoeData.length, offset });
+        }
+
+        const nowIso = new Date().toISOString();
+        const rows = batch.map(r => {
+          // best-effort city guess: second-to-last comma-separated token of the address
+          const parts = (r.head_office_raw || '').split(',').map(s => s.trim()).filter(Boolean);
+          const city = parts.length >= 2 ? parts[parts.length - 2] : null;
+
+          const noteBits = [];
+          if (r.proprietor) noteBits.push(`Proprietor: ${r.proprietor}`);
+          if (r.permissions) noteBits.push(`Permissions: ${r.permissions}`);
+          if (r.expiry_date) noteBits.push(`Expiry: ${r.expiry_date}`);
+          if (r.head_office_raw) noteBits.push(`Office: ${r.head_office_raw}`);
+          if (r.branch_office_raw) noteBits.push(`Branch: ${r.branch_office_raw}`);
+
+          return {
+            type: 'visa_agency',
+            name: r.agency_name || r.license_no,
+            city,
+            authority: 'BEOE',
+            reference_no: r.license_no,
+            status: (r.status || 'unknown').toLowerCase(),
+            blacklist_status: null,
+            last_verified: nowIso,
+            official_source_url: 'https://beoe.gov.pk/list-of-oeps',
+            notes: noteBits.join(' | '),
+            published: false
+          };
+        });
+
+        const r = await fetch(`${SB()}/rest/v1/verifications?on_conflict=authority,reference_no`, {
+          method: 'POST',
+          headers: {
+            ...sbHeaders(),
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates,return=minimal'
+          },
+          body: JSON.stringify(rows)
+        });
+
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText, offset });
+        }
+
+        const nextOffset = offset + batch.length;
+        return res.status(200).json({
+          done: nextOffset >= beoeData.length,
+          inserted: batch.length,
+          offset: nextOffset,
+          total: beoeData.length
+        });
       }
 
       default:
