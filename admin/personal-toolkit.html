@@ -227,7 +227,11 @@
           <option value="tender">Tender/Supplier</option>
         </select>
       </div>
+      <div class="field"><label>Search (name ya licence/reference no.)</label>
+        <input type="text" id="verifRecSearch" placeholder="e.g. 4507 ya Qaswa Manpower">
+      </div>
     </div>
+    <p class="desc" style="margin-top:-6px">⚠️ Ek baar mein max 50 records load hote hain (BEOE ki 5271 records ki wajah se) — specific record dhoondne ke liye search box use karein.</p>
     <button class="btn" id="loadVerifRecords">📥 Load Records</button>
     <button class="btn alt" id="addVerifRecordBtn">+ Add Record</button>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
@@ -1971,7 +1975,11 @@ document.getElementById('loadVerifRecords').addEventListener('click', async () =
   box.innerHTML = 'Loading...';
   try{
     const type = document.getElementById('verifRecTypeFilter').value;
-    const data = await callAdminApi('verif-list' + (type ? `?type=${encodeURIComponent(type)}` : ''));
+    const search = document.getElementById('verifRecSearch').value.trim();
+    let q = '';
+    if(type) q += `&type=${encodeURIComponent(type)}`;
+    if(search) q += `&search=${encodeURIComponent(search)}`;
+    const data = await callAdminApi('verif-list' + (q ? '?' + q.slice(1) : ''));
     verifRecordsData = Array.isArray(data) ? data : [];
     renderVerifRecords();
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }

@@ -276,8 +276,11 @@ export default async function handler(req, res) {
 
       case 'verif-list': {
         const type = req.query.type;
-        let url = `${SB()}/rest/v1/verifications?order=updated_at.desc&select=*`;
+        const search = req.query.search;
+        const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 200);
+        let url = `${SB()}/rest/v1/verifications?order=updated_at.desc&select=*&limit=${limit}`;
         if (type) url += `&type=eq.${encodeURIComponent(type)}`;
+        if (search) url += `&or=(name.ilike.*${encodeURIComponent(search)}*,reference_no.ilike.*${encodeURIComponent(search)}*)`;
         const r = await fetch(url, { headers: sbHeaders() });
         const data = await r.json();
         return res.status(r.status).json(data);
