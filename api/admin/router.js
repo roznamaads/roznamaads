@@ -657,6 +657,49 @@ export default async function handler(req, res) {
           }
         }
 
+        /* ---- Batch 7: bulk upsert into verifications (government-source fast path) ----
+           Mirrors the existing beoe-import upsert pattern (on_conflict authority,reference_no)
+           so re-running the same source later UPDATES existing records instead of duplicating
+           or 409-conflicting. Does NOT touch the existing single-record verif-save action. */
+        if (operation === 'verif-bulk-upsert') {
+          const { rows } = req.body || {};
+          if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: 'rows array required' });
+          const nowIso = new Date().toISOString();
+          const payload = rows.map(r => ({
+            type: r.type,
+            name: r.name,
+            aliases: [],
+            city: r.city || null,
+            authority: r.authority,
+            reference_no: r.reference_no || null,
+            status: r.status || 'unknown',
+            blacklist_status: null,
+            last_verified: nowIso,
+            official_source_url: r.official_source_url || null,
+            notes: r.notes || null,
+            published: r.published === true,
+            updated_at: nowIso
+          }));
+          try {
+            const upsertRes = await fetch(`${SB()}/rest/v1/verifications?on_conflict=authority,reference_no`, {
+              method: 'POST',
+              headers: {
+                ...sbHeaders(),
+                'Content-Type': 'application/json',
+                Prefer: 'resolution=merge-duplicates,return=minimal'
+              },
+              body: JSON.stringify(payload)
+            });
+            if (!upsertRes.ok) {
+              const errText = await upsertRes.text();
+              return res.status(upsertRes.status).json({ error: errText });
+            }
+            return res.status(200).json({ ok: true, count: payload.length });
+          } catch (execErr) {
+            return res.status(500).json({ error: 'verif-bulk-upsert error: ' + execErr.message });
+          }
+        }
+
         return res.status(400).json({ error: 'Unknown or not-yet-implemented operation: ' + operation });
       }
 

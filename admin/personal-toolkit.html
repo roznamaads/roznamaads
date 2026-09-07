@@ -415,6 +415,13 @@
       <div class="field"><label>City Column</label><select id="tblVerifCityCol" autocomplete="off"></select></div>
       <div class="field"><label>Status Column</label><select id="tblVerifStatusCol" autocomplete="off"></select></div>
 
+      <div class="field" style="margin-top:6px">
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400">
+          <input type="checkbox" id="tblVerifTrustedGov" style="width:auto"> Trusted Government Source — turant Publish karein (1-by-1 review ki zaroorat nahi)
+        </label>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:4px">Sirf official government sources (BEOE, CDA, RDA, wagera) ke liye check karein. Reference No column zaroor map karein — isi se agli baar wahi record UPDATE hoga, duplicate nahi banega.</div>
+      </div>
+
       <div id="tblVerifPreview" style="margin:10px 0;font-size:.78rem;background:#fffbea;border:1px solid #e8d98a;border-radius:6px;padding:8px"></div>
 
       <button class="btn" id="tblVerifSendBtn">Send to Verification Queue</button>
@@ -3035,6 +3042,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const statusColRaw = $('tblVerifStatusCol').value;
     const authority = $('tblVerifAuthority').value.trim() || '(khali)';
     const type = $('tblVerifType').value;
+    const trustedGov = $('tblVerifTrustedGov').checked;
     const box = $('tblVerifPreview');
     if(!tblJobState.dedupedRows || !tblJobState.dedupedRows.length){ box.innerHTML = ''; return; }
 
@@ -3046,10 +3054,16 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       const status = statusColRaw !== '' ? (r.cells[parseInt(statusColRaw,10)] || 'unknown') : 'unknown';
       return `<div style="padding:3px 0;border-top:1px solid #e8d98a">Name: <b>${name}</b> · Authority: <b>${authority}</b> · Type: <b>${type}</b> · Ref: ${ref} · City: ${city} · Status: ${status}</div>`;
     }).join('');
-    box.innerHTML = `⚠️ Bhejne se pehle check karein (pehli ${sample.length} rows ka preview):${rowsHtml}`;
+    const publishNote = trustedGov
+      ? '<div style="color:#2a7a2a;font-weight:bold;margin-top:4px">✅ Ye records TURANT PUBLISH ho jayenge (published: true)</div>'
+      : '<div style="color:var(--muted);margin-top:4px">🔒 Ye records unpublished jayenge — manual review chahiye hoga</div>';
+    const refWarning = (trustedGov && refColRaw === '')
+      ? '<div style="color:#c0392b;font-weight:bold;margin-top:4px">⚠️ Reference No column select nahi ki — bina isके agli baar dobara bhejne pe DUPLICATE records banenge (update nahi honge)!</div>'
+      : '';
+    box.innerHTML = `⚠️ Bhejne se pehle check karein (pehli ${sample.length} rows ka preview):${rowsHtml}${publishNote}${refWarning}`;
   }
 
-  ['tblVerifNameCol','tblVerifRefCol','tblVerifCityCol','tblVerifStatusCol','tblVerifAuthority','tblVerifType'].forEach(id => {
+  ['tblVerifNameCol','tblVerifRefCol','tblVerifCityCol','tblVerifStatusCol','tblVerifAuthority','tblVerifType','tblVerifTrustedGov'].forEach(id => {
     $(id).addEventListener('change', updateVerifPreview);
     $(id).addEventListener('input', updateVerifPreview);
   });
@@ -3067,57 +3081,58 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const statusCol = $('tblVerifStatusCol').value === '' ? null : parseInt($('tblVerifStatusCol').value, 10);
     const type = $('tblVerifType').value;
     const baseUrl = $('tblUrl').value.trim();
+    const trustedGov = $('tblVerifTrustedGov').checked;
+
+    if(trustedGov && refCol === null){
+      if(!confirm('⚠️ Reference No column select nahi ki. Bina isके "Trusted Government Source" upsert kaam nahi karega — agli baar dobara bhejne pe duplicate records ban jayenge. Phir bhi aage badhein?')) return;
+    }
 
     const rows = tblJobState.dedupedRows.filter(r => (r.cells[nameCol] || '').trim());
-    if(!confirm(`${rows.length} records "verifications" queue mein bheje jayenge (published:false, admin review ke baad hi public honge). Upar preview box mein Name/Authority zaroor check kar lein. Aage badhein?`)) return;
+    const publishMsg = trustedGov
+      ? `${rows.length} records TURANT PUBLISH ho jayenge (trusted government source — review ki zaroorat nahi).`
+      : `${rows.length} records "verifications" queue mein bheje jayenge (published:false, admin review ke baad hi public honge).`;
+    if(!confirm(`${publishMsg} Upar preview box zaroor check kar lein. Aage badhein?`)) return;
 
     tblVerifCancelled = false;
     $('tblVerifSendBtn').style.display = 'none';
     $('tblVerifCancelBtn').style.display = 'inline-block';
     $('tblVerifProgress').style.display = 'block';
 
-    async function sendVerifRow(payload){
-      const secret = getAdminSecret();
-      const res = await fetch(`../api/admin/verif-save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify(payload)
-      });
-      let data = {};
-      try { data = await res.json(); } catch {}
-      return { status: res.status, ok: res.ok, data };
-    }
+    const payloadRows = rows.map(row => ({
+      type,
+      name: row.cells[nameCol],
+      authority,
+      reference_no: refCol !== null ? (row.cells[refCol] || null) : null,
+      city: cityCol !== null ? (row.cells[cityCol] || null) : null,
+      status: statusCol !== null ? (row.cells[statusCol] || 'unknown') : 'unknown',
+      official_source_url: row.sourceUrl || baseUrl,
+      published: trustedGov
+    }));
 
-    let sent = 0, skipped = 0, failed = 0;
-    for(let i = 0; i < rows.length; i++){
+    const CHUNK_SIZE = 200;
+    let sent = 0, failed = 0;
+    for(let i = 0; i < payloadRows.length; i += CHUNK_SIZE){
       if(tblVerifCancelled){ log('Verification queue send cancelled.'); break; }
-      const row = rows[i];
-      const payload = {
-        type,
-        name: row.cells[nameCol],
-        authority,
-        reference_no: refCol !== null ? (row.cells[refCol] || null) : null,
-        city: cityCol !== null ? (row.cells[cityCol] || null) : null,
-        status: statusCol !== null ? (row.cells[statusCol] || 'unknown') : 'unknown',
-        official_source_url: row.sourceUrl || baseUrl,
-        published: false
-      };
+      const chunk = payloadRows.slice(i, i + CHUNK_SIZE);
       try {
-        const r = await sendVerifRow(payload);
-        if(r.ok) sent++;
-        else if(r.status === 409){ skipped++; }
-        else { failed++; log(`Verif send failed for "${payload.name}": HTTP ${r.status} — ${r.data.error || r.data.message || ''}`); }
+        const result = await callAdminApi('table-downloader?operation=verif-bulk-upsert', {
+          method: 'POST',
+          body: JSON.stringify({ rows: chunk })
+        });
+        sent += result.count || chunk.length;
       } catch(e) {
-        failed++;
-        log(`Verif send failed for "${payload.name}": ${e.message}`);
+        failed += chunk.length;
+        log(`Bulk upsert failed for rows ${i+1}-${i+chunk.length}: ${e.message}`);
       }
-      $('tblVerifProgress').textContent = `Sending ${i+1} / ${rows.length} — OK: ${sent}, Skipped (already exists): ${skipped}, Failed: ${failed}`;
+      $('tblVerifProgress').textContent = `Processing ${Math.min(i+CHUNK_SIZE, payloadRows.length)} / ${payloadRows.length} — OK: ${sent}, Failed: ${failed}`;
     }
 
     $('tblVerifSendBtn').style.display = 'inline-block';
     $('tblVerifCancelBtn').style.display = 'none';
-    $('tblVerifProgress').textContent = `Mukammal — ${sent} bheji gayi, ${skipped} pehle se maujood (skip), ${failed} fail huin. Review "Risk/Verify Dashboard" tab mein karein (abhi published nahi hain).`;
-    log(`Verification queue: ${sent} sent, ${skipped} skipped (already exists), ${failed} failed.`);
+    $('tblVerifProgress').textContent = trustedGov
+      ? `Mukammal — ${sent} records save/update ho gaye aur PUBLISH ho gaye, ${failed} fail huin.`
+      : `Mukammal — ${sent} records save/update ho gaye, ${failed} fail huin. Review "Verification Records" tab mein karein (abhi published nahi hain).`;
+    log(`Verification queue bulk upsert: ${sent} saved/updated${trustedGov ? ' + published' : ''}, ${failed} failed.`);
   });
 
   $('tblVerifCancelBtn').addEventListener('click', () => { tblVerifCancelled = true; });
