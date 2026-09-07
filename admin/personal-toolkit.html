@@ -1742,7 +1742,7 @@ async function callAdminApi(path, options){
     headers: {'Content-Type':'application/json', 'x-admin-secret': secret, ...(options?.headers||{})}
   });
   const data = await res.json();
-  if(!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if(!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
   return data;
 }
 (function restoreServiceKey(){
