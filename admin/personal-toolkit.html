@@ -3004,6 +3004,9 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const refIdx = guess(/licen[cs]e|registration|reference|application/i);
     const cityIdx = guess(/city|office|location/i);
     const statusIdx = guess(/status/i);
+    $('tblVerifRefCol').value = '';
+    $('tblVerifCityCol').value = '';
+    $('tblVerifStatusCol').value = '';
     if(nameIdx !== -1) $('tblVerifNameCol').value = nameIdx;
     if(refIdx !== -1) $('tblVerifRefCol').value = refIdx;
     if(cityIdx !== -1) $('tblVerifCityCol').value = cityIdx;
@@ -3034,7 +3037,19 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     $('tblVerifCancelBtn').style.display = 'inline-block';
     $('tblVerifProgress').style.display = 'block';
 
-    let sent = 0, failed = 0;
+    async function sendVerifRow(payload){
+      const secret = getAdminSecret();
+      const res = await fetch(`../api/admin/verif-save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify(payload)
+      });
+      let data = {};
+      try { data = await res.json(); } catch {}
+      return { status: res.status, ok: res.ok, data };
+    }
+
+    let sent = 0, skipped = 0, failed = 0;
     for(let i = 0; i < rows.length; i++){
       if(tblVerifCancelled){ log('Verification queue send cancelled.'); break; }
       const row = rows[i];
@@ -3049,19 +3064,21 @@ document.getElementById('loadStats').addEventListener('click', async () => {
         published: false
       };
       try {
-        await callAdminApi('verif-save', { method: 'POST', body: JSON.stringify(payload) });
-        sent++;
+        const r = await sendVerifRow(payload);
+        if(r.ok) sent++;
+        else if(r.status === 409){ skipped++; }
+        else { failed++; log(`Verif send failed for "${payload.name}": HTTP ${r.status} — ${r.data.error || r.data.message || ''}`); }
       } catch(e) {
         failed++;
         log(`Verif send failed for "${payload.name}": ${e.message}`);
       }
-      $('tblVerifProgress').textContent = `Sending ${i+1} / ${rows.length} — OK: ${sent}, Failed: ${failed}`;
+      $('tblVerifProgress').textContent = `Sending ${i+1} / ${rows.length} — OK: ${sent}, Skipped (already exists): ${skipped}, Failed: ${failed}`;
     }
 
     $('tblVerifSendBtn').style.display = 'inline-block';
     $('tblVerifCancelBtn').style.display = 'none';
-    $('tblVerifProgress').textContent = `Mukammal — ${sent} bheji gayi, ${failed} fail huin. Review "Risk/Verify Dashboard" tab mein karein (abhi published nahi hain).`;
-    log(`Verification queue: ${sent} sent, ${failed} failed.`);
+    $('tblVerifProgress').textContent = `Mukammal — ${sent} bheji gayi, ${skipped} pehle se maujood (skip), ${failed} fail huin. Review "Risk/Verify Dashboard" tab mein karein (abhi published nahi hain).`;
+    log(`Verification queue: ${sent} sent, ${skipped} skipped (already exists), ${failed} failed.`);
   });
 
   $('tblVerifCancelBtn').addEventListener('click', () => { tblVerifCancelled = true; });
