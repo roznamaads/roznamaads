@@ -437,7 +437,7 @@
     </div>
   </section>
 
-  <section class="panel" data-panel="user-ads"><h2>User Submitted Ads</h2><p class="desc">Submit Ad page se aane wali ads ki moderation queue.</p><div class="stub"><div class="icon">👤</div>Backend connect hone ke baad submissions yahan aayengi.</div></section>
+
 
   <section class="panel" data-panel="social">
     <h2>Social Posting</h2>
@@ -499,8 +499,13 @@
 
   <section class="panel" data-panel="seo-manager">
     <h2>SEO Manager</h2>
-    <p class="desc">Meta titles/descriptions, sitemap regeneration.</p>
-    <div class="stub"><div class="icon">🔍</div>Static sitemap.xml/robots.txt abhi manual hain — ye tool unhe automate karega.</div>
+    <p class="desc">Sitemap automatic hai (live). Meta titles/descriptions abhi per-page hardcoded hain.</p>
+    <div class="stub" style="background:#eafaf0;border-color:#b6e3c6"><div class="icon">✅</div>sitemap.xml aur robots.txt dono <b>automatic/live</b> hain — sitemap.xml Supabase se live ads + categories khud kheenchta hai (<code>api/sitemap.js</code>), koi manual regeneration nahi chahiye.</div>
+
+    <div style="margin-top:20px">
+      <h3 style="margin:0 0 10px;color:var(--green-dark);font-size:1rem">⏳ Future: Meta Title/Description Editor</h3>
+      <p class="desc">Abhi har page ka title/meta description HTML file mein hardcoded hai. Agar future mein per-page dynamic editing chahiye ho (jaise category pages ke liye), ye yahan add ho sakta hai — filhaal zaroorat nahi kyunke checklist mein sab pages ke unique tags already maujood hain.</p>
+    </div>
 
     <div style="margin-top:20px">
       <h3 style="margin:0 0 10px;color:var(--green-dark);font-size:1rem">📋 Google AdSense Readiness Checklist</h3>
@@ -727,7 +732,6 @@ const TOOLS = [
   {id:'url-checks', label:'URL Checks'},
   {id:'category-manager', label:'Category Mgr'},
   {id:'table-downloader', label:'Table Downloader'},
-  {id:'user-ads', label:'User Ads'},
   {id:'social', label:'Social Posting'},
   {id:'whatsapp', label:'WhatsApp'},
   {id:'seo-manager', label:'SEO Manager'},
