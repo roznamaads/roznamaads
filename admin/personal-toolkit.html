@@ -415,6 +415,8 @@
       <div class="field"><label>City Column</label><select id="tblVerifCityCol"></select></div>
       <div class="field"><label>Status Column</label><select id="tblVerifStatusCol"></select></div>
 
+      <div id="tblVerifPreview" style="margin:10px 0;font-size:.78rem;background:#fffbea;border:1px solid #e8d98a;border-radius:6px;padding:8px"></div>
+
       <button class="btn" id="tblVerifSendBtn">Send to Verification Queue</button>
       <button class="btn alt" id="tblVerifCancelBtn" style="display:none">Cancel</button>
       <div id="tblVerifProgress" style="margin-top:8px;font-size:.82rem;display:none"></div>
@@ -3013,7 +3015,34 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     if(statusIdx !== -1) $('tblVerifStatusCol').value = statusIdx;
 
     $('tblVerifBlock').style.display = 'block';
+    updateVerifPreview();
   }
+
+  function updateVerifPreview(){
+    const nameColRaw = $('tblVerifNameCol').value;
+    const refColRaw = $('tblVerifRefCol').value;
+    const cityColRaw = $('tblVerifCityCol').value;
+    const statusColRaw = $('tblVerifStatusCol').value;
+    const authority = $('tblVerifAuthority').value.trim() || '(khali)';
+    const type = $('tblVerifType').value;
+    const box = $('tblVerifPreview');
+    if(!tblJobState.dedupedRows || !tblJobState.dedupedRows.length){ box.innerHTML = ''; return; }
+
+    const sample = tblJobState.dedupedRows.slice(0, 3);
+    const rowsHtml = sample.map(r => {
+      const name = nameColRaw !== '' ? r.cells[parseInt(nameColRaw,10)] : '(select karein)';
+      const ref = refColRaw !== '' ? r.cells[parseInt(refColRaw,10)] : '—';
+      const city = cityColRaw !== '' ? r.cells[parseInt(cityColRaw,10)] : '—';
+      const status = statusColRaw !== '' ? (r.cells[parseInt(statusColRaw,10)] || 'unknown') : 'unknown';
+      return `<div style="padding:3px 0;border-top:1px solid #e8d98a">Name: <b>${name}</b> · Authority: <b>${authority}</b> · Type: <b>${type}</b> · Ref: ${ref} · City: ${city} · Status: ${status}</div>`;
+    }).join('');
+    box.innerHTML = `⚠️ Bhejne se pehle check karein (pehli ${sample.length} rows ka preview):${rowsHtml}`;
+  }
+
+  ['tblVerifNameCol','tblVerifRefCol','tblVerifCityCol','tblVerifStatusCol','tblVerifAuthority','tblVerifType'].forEach(id => {
+    $(id).addEventListener('change', updateVerifPreview);
+    $(id).addEventListener('input', updateVerifPreview);
+  });
 
   let tblVerifCancelled = false;
 
@@ -3030,7 +3059,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const baseUrl = $('tblUrl').value.trim();
 
     const rows = tblJobState.dedupedRows.filter(r => (r.cells[nameCol] || '').trim());
-    if(!confirm(`${rows.length} records "verifications" queue mein bheje jayenge (published:false, admin review ke baad hi public honge). Aage badhein?`)) return;
+    if(!confirm(`${rows.length} records "verifications" queue mein bheje jayenge (published:false, admin review ke baad hi public honge). Upar preview box mein Name/Authority zaroor check kar lein. Aage badhein?`)) return;
 
     tblVerifCancelled = false;
     $('tblVerifSendBtn').style.display = 'none';
