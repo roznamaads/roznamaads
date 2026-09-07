@@ -404,16 +404,16 @@
       <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📋 Send to Verification Queue (optional — sirf review ke liye jaata hai, public turant nahi hoti)</div>
 
       <div class="field"><label>Type</label>
-        <select id="tblVerifType">
+        <select id="tblVerifType" autocomplete="off">
           <option value="society">Society</option>
           <option value="visa_agency">Visa Agency (OEP)</option>
         </select>
       </div>
-      <div class="field"><label>Authority (sab rows ke liye same)</label><input type="text" id="tblVerifAuthority" placeholder="jaise: BEOE, CDA, RDA"></div>
-      <div class="field"><label>Name Column *</label><select id="tblVerifNameCol"></select></div>
-      <div class="field"><label>Reference No / Licence No Column</label><select id="tblVerifRefCol"></select></div>
-      <div class="field"><label>City Column</label><select id="tblVerifCityCol"></select></div>
-      <div class="field"><label>Status Column</label><select id="tblVerifStatusCol"></select></div>
+      <div class="field"><label>Authority (sab rows ke liye same)</label><input type="text" id="tblVerifAuthority" autocomplete="off" placeholder="jaise: BEOE, CDA, RDA"></div>
+      <div class="field"><label>Name Column *</label><select id="tblVerifNameCol" autocomplete="off"></select></div>
+      <div class="field"><label>Reference No / Licence No Column</label><select id="tblVerifRefCol" autocomplete="off"></select></div>
+      <div class="field"><label>City Column</label><select id="tblVerifCityCol" autocomplete="off"></select></div>
+      <div class="field"><label>Status Column</label><select id="tblVerifStatusCol" autocomplete="off"></select></div>
 
       <div id="tblVerifPreview" style="margin:10px 0;font-size:.78rem;background:#fffbea;border:1px solid #e8d98a;border-radius:6px;padding:8px"></div>
 
@@ -3016,6 +3016,16 @@ document.getElementById('loadStats').addEventListener('click', async () => {
 
     $('tblVerifBlock').style.display = 'block';
     updateVerifPreview();
+
+    // Defensive: some mobile Chrome versions re-apply autofill AFTER our script
+    // runs. Force our correct defaults again shortly after, just in case.
+    setTimeout(() => {
+      $('tblVerifRefCol').value = refIdx !== -1 ? refIdx : '';
+      $('tblVerifCityCol').value = cityIdx !== -1 ? cityIdx : '';
+      $('tblVerifStatusCol').value = statusIdx !== -1 ? statusIdx : '';
+      if(nameIdx !== -1) $('tblVerifNameCol').value = nameIdx;
+      updateVerifPreview();
+    }, 400);
   }
 
   function updateVerifPreview(){
