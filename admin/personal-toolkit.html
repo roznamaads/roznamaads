@@ -365,6 +365,12 @@
       <div id="tblTableChoices" style="margin-top:8px"></div>
     </div>
 
+    <div id="tblResumeBlock" style="display:none;margin-top:14px;background:#fffbea;border:1px solid #e8d98a;border-radius:10px;padding:12px">
+      <div id="tblResumeInfo" style="font-size:.85rem;margin-bottom:8px"></div>
+      <button class="btn" id="tblResumeBtn">▶️ Resume Previous Job</button>
+      <button class="btn alt" id="tblDiscardResumeBtn">🗑️ Discard, Start Fresh</button>
+    </div>
+
     <div id="tblConfigBlock" style="display:none;margin-top:18px">
       <div class="field-row">
         <div class="field"><label>Start Page</label><input type="number" id="tblStartPage" value="1" min="1"></div>
@@ -2653,6 +2659,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       $('tblConfigBlock').style.display = 'block';
       log(`Detect OK — ${result.tables.length} table(s) found, pagination: ${result.pagination ? result.pagination.type : 'none'}`);
       checkHistoryReuse(url);
+      showResumeIfAvailable();
     } catch(e) {
       $('tblDetectResult').style.display = 'block';
       $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${e.message}</span>`;
@@ -2670,6 +2677,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     tblSelectedTableIndex = parseInt(btn.dataset.tblIdx, 10);
     $('tblTableChoices').querySelectorAll('button').forEach(b => b.classList.toggle('alt', b !== btn));
     log(`Table ${tblSelectedTableIndex+1} selected.`);
+    showResumeIfAvailable();
   });
 
   function buildPageUrl(pagination, pageNumber){
@@ -2687,6 +2695,46 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   const tblJobState = { running: false, cancelled: false, rows: [], headers: [] };
   window.tblJobState = tblJobState; // exposed for Batch 4 (CSV/JSON export)
 
+  // ---- Resume/Checkpoint support (localStorage) ----
+  // Saves progress every few pages so a closed/crashed/backgrounded tab doesn't
+  // lose already-fetched rows — same problem we hit manually with BEOE.
+  function checkpointKey(url, tableIndex){
+    return `tbl_ckpt_${btoa(unescape(encodeURIComponent(url + '|' + tableIndex)))}`;
+  }
+  function saveCheckpoint(url, tableIndex, pagination, headers, lastCompletedPage, cursorUrl){
+    try{
+      const key = checkpointKey(url, tableIndex);
+      localStorage.setItem(key, JSON.stringify({
+        url, tableIndex, pagination, headers,
+        rows: tblJobState.rows,
+        lastCompletedPage, cursorUrl,
+        savedAt: new Date().toISOString()
+      }));
+    }catch(e){
+      log(`⚠️ Checkpoint save nahi ho saka (storage full ho sakta hai): ${e.message}`);
+    }
+  }
+  function loadCheckpoint(url, tableIndex){
+    try{
+      const raw = localStorage.getItem(checkpointKey(url, tableIndex));
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+  function clearCheckpoint(url, tableIndex){
+    try{ localStorage.removeItem(checkpointKey(url, tableIndex)); }catch(e){}
+  }
+  function showResumeIfAvailable(){
+    if(!tblLastDetection || !tblLastDetection.ok) { $('tblResumeBlock').style.display = 'none'; return; }
+    const url = $('tblUrl').value.trim();
+    const ckpt = loadCheckpoint(url, tblSelectedTableIndex);
+    if(ckpt && ckpt.rows && ckpt.rows.length){
+      $('tblResumeBlock').style.display = 'block';
+      $('tblResumeInfo').innerHTML = `⏸️ Adhoora job mila: <b>${ckpt.rows.length} rows</b>, page <b>${ckpt.lastCompletedPage}</b> tak (saved: ${new Date(ckpt.savedAt).toLocaleString()}). Resume karein taake dobara se shuru na karna paray.`;
+    } else {
+      $('tblResumeBlock').style.display = 'none';
+    }
+  }
+
   function updateProgressUI({ page, totalEstimate, rows, dup, errors }){
     $('tblProgPage').textContent = totalEstimate ? `${page} / ${totalEstimate}` : `${page} / ?`;
     $('tblProgRows').textContent = rows;
@@ -2696,29 +2744,47 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     $('tblProgBar').style.width = pct + '%';
   }
 
-  $('tblStartBtn').addEventListener('click', async () => {
+  async function runDownload(isResume){
     if(!tblLastDetection || !tblLastDetection.ok){ alert('Pehle Detect Table chalayein.'); return; }
     const pagination = tblLastDetection.pagination;
-    const startPage = parseInt($('tblStartPage').value, 10) || 1;
+    const url = $('tblUrl').value.trim();
     const maxPages = parseInt($('tblMaxPages').value, 10) || 1000;
     const delayMs = parseInt($('tblDelay').value, 10) || 700;
     const incSrcUrl = $('tblIncSrcUrl').checked;
     const incSrcPage = $('tblIncSrcPage').checked;
     const incRetrieved = $('tblIncRetrieved').checked;
 
+    let startPage;
+    let cursorUrl = pagination && pagination.type === 'next_link' ? url : null;
+
+    if(isResume){
+      const ckpt = loadCheckpoint(url, tblSelectedTableIndex);
+      if(!ckpt){ alert('Checkpoint nahi mila.'); return; }
+      tblJobState.rows = ckpt.rows;
+      tblJobState.headers = ckpt.headers;
+      startPage = (ckpt.lastCompletedPage || 0) + 1;
+      if(pagination && pagination.type === 'next_link') cursorUrl = ckpt.cursorUrl || url;
+      log(`Resume: ${ckpt.rows.length} purani rows load ki, page ${startPage} se continue ho raha hai.`);
+      $('tblResumeBlock').style.display = 'none';
+    } else {
+      tblJobState.rows = [];
+      tblJobState.headers = tblLastDetection.tables[tblSelectedTableIndex].headers;
+      startPage = parseInt($('tblStartPage').value, 10) || 1;
+      clearCheckpoint(url, tblSelectedTableIndex); // fresh start wipes any stale checkpoint
+    }
+
     tblJobState.running = true;
     tblJobState.cancelled = false;
-    tblJobState.rows = [];
-    tblJobState.headers = tblLastDetection.tables[tblSelectedTableIndex].headers;
 
     $('tblStartBtn').style.display = 'none';
+    $('tblResumeBlock').style.display = 'none';
     $('tblCancelBtn').style.display = 'inline-block';
     $('tblProgressBlock').style.display = 'block';
     $('tblCompleteBlock').style.display = 'none';
 
     let pagesFetched = 0, pagesFailed = 0, consecutiveEmpty = 0, lastHash = null;
     let stopReason = null;
-    let cursorUrl = pagination && pagination.type === 'next_link' ? $('tblUrl').value.trim() : null;
+    let lastCompletedPage = startPage - 1;
     const estimate = pagination && pagination.estimatedPages ? Math.min(pagination.estimatedPages, maxPages) : null;
 
     for(let pageNum = startPage; pageNum <= (startPage + maxPages - 1); pageNum++){
@@ -2727,7 +2793,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
 
       let targetUrl;
       if(pagination.type === 'next_link'){
-        targetUrl = pageNum === startPage ? cursorUrl : cursorUrl;
+        targetUrl = cursorUrl;
         if(!targetUrl){ stopReason = 'END_OF_PAGINATION'; break; }
       } else {
         targetUrl = buildPageUrl(pagination, pageNum);
@@ -2791,8 +2857,14 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       if(pagination.type === 'next_link') cursorUrl = result.nextUrl;
 
       pagesFetched++;
+      lastCompletedPage = pageNum;
       updateProgressUI({ page: pageNum, totalEstimate: estimate, rows: tblJobState.rows.length, dup: 0, errors: pagesFailed });
       log(`Page ${pageNum}: OK — ${result.rowCount} rows`);
+
+      // Checkpoint every 3 pages so a crash/close loses at most a couple pages, not the whole job
+      if(pagesFetched % 3 === 0){
+        saveCheckpoint(url, tblSelectedTableIndex, pagination, tblJobState.headers, lastCompletedPage, cursorUrl);
+      }
 
       if(pagination.type === 'next_link' && !cursorUrl){ stopReason = 'END_OF_PAGINATION'; break; }
       if(pageNum >= (startPage + maxPages - 1)){ stopReason = 'MAX_PAGES_REACHED'; break; }
@@ -2808,6 +2880,14 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       : (pagesFailed > 0 || stopReason === 'TOO_MANY_ERRORS' || (stopReason && stopReason.startsWith('BLOCKED'))) ? 'PARTIAL'
       : 'COMPLETED';
 
+    // Job genuinely finished (not cancelled/partial) — checkpoint no longer needed
+    if(finalStatus === 'COMPLETED'){
+      clearCheckpoint(url, tblSelectedTableIndex);
+    } else {
+      saveCheckpoint(url, tblSelectedTableIndex, pagination, tblJobState.headers, lastCompletedPage, cursorUrl);
+      log(`Checkpoint save ho gaya — page ${lastCompletedPage} tak. Baad mein "Resume Previous Job" se continue kar sakte hain.`);
+    }
+
     const dedupe = computeDedupe(tblJobState.rows, tblJobState.headers);
     tblJobState.dedupedRows = dedupe.uniqueRows;
     tblJobState.dupCount = dedupe.dupCount;
@@ -2821,14 +2901,14 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       Rows fetched: <b>${tblJobState.rows.length}</b><br>
       Duplicates removed: <b>${dedupe.dupCount}</b> <span style="color:var(--muted)">(key: ${dedupe.keyUsed})</span><br>
       Final unique rows: <b>${dedupe.uniqueRows.length}</b><br>
-      ${finalStatus === 'PARTIAL' ? '<span style="color:#c0392b">⚠️ Ye export incomplete hai.</span><br>' : ''}
+      ${finalStatus === 'PARTIAL' ? '<span style="color:#c0392b">⚠️ Ye export incomplete hai — "Resume Previous Job" se baad mein baaki mukammal kar sakte hain.</span><br>' : ''}
     `;
     log(`Job finished: ${finalStatus} (${stopReason || 'DONE'}) — ${tblJobState.rows.length} rows fetched, ${dedupe.dupCount} duplicates removed (key: ${dedupe.keyUsed}), ${dedupe.uniqueRows.length} unique.`);
 
     if(dedupe.uniqueRows.length > 0) populateVerifMapping();
 
     saveJobHistory({
-      url: $('tblUrl').value.trim(),
+      url,
       hostname: tblLastDetection.website,
       tableIndex: tblSelectedTableIndex,
       pagination: tblLastDetection.pagination,
@@ -2839,6 +2919,15 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       duplicatesRemoved: dedupe.dupCount,
       rowsUnique: dedupe.uniqueRows.length
     });
+  }
+
+  $('tblStartBtn').addEventListener('click', () => runDownload(false));
+  $('tblResumeBtn').addEventListener('click', () => runDownload(true));
+  $('tblDiscardResumeBtn').addEventListener('click', () => {
+    const url = $('tblUrl').value.trim();
+    clearCheckpoint(url, tblSelectedTableIndex);
+    $('tblResumeBlock').style.display = 'none';
+    log('Purana checkpoint discard kar diya — fresh start hoga.');
   });
 
   $('tblCancelBtn').addEventListener('click', () => {
