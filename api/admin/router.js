@@ -705,6 +705,23 @@ export default async function handler(req, res) {
       }
 
       /* ---------- HEC Recognized Campuses bulk import ---------- */
+      /* ---------- Bulk publish by authority (official govt data — no per-record review needed) ---------- */
+      case 'verif-publish-by-authority': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const authority = req.query.authority;
+        if (!authority) return res.status(400).json({ error: 'authority query param required' });
+        const r = await fetch(`${SB()}/rest/v1/verifications?authority=eq.${encodeURIComponent(authority)}`, {
+          method: 'PATCH',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ published: true, last_verified: new Date().toISOString() })
+        });
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        return res.status(200).json({ ok: true, authority });
+      }
+
       case 'hec-import': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
         const nowIso = new Date().toISOString();

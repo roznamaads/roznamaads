@@ -239,10 +239,14 @@
     <p class="desc">BEOE ki poori OEP (visa agency) list ek click mein import/refresh karein. Records draft (unpublished) mein aate hain — verify karke publish karein.</p>
     <button class="btn alt" id="beoeImportBtn">📦 Import BEOE Data (5271 records)</button>
     <div id="beoeImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+    <button class="btn alt" id="beoePublishAllBtn" style="margin-top:8px">✅ Publish ALL BEOE Records</button>
+    <div id="beoePublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
     <p class="desc">HEC Recognized Campuses (Public + Private sector) — Universal Table Downloader se nikala gaya, cleaned data. Records draft (unpublished) mein aate hain.</p>
     <button class="btn alt" id="hecImportBtn">🎓 Import HEC Campuses Data (77 records)</button>
     <div id="hecImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+    <button class="btn alt" id="hecPublishAllBtn" style="margin-top:8px">✅ Publish ALL HEC Records</button>
+    <div id="hecPublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
   </section>
 
   <section class="panel" data-panel="ai-extractor">
@@ -2139,6 +2143,30 @@ document.getElementById('hecImportBtn').addEventListener('click', async () => {
   try{
     const data = await callAdminApi('hec-import', { method:'POST' });
     statusBox.textContent = `✅ Mukammal! ${data.inserted} records import ho gayi.`;
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+document.getElementById('beoePublishAllBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('beoePublishStatus');
+  if(!confirm('Sab BEOE records ek sath PUBLISH karni hain? Ye official BEOE data hai — agar koi galti mile to baad mein individually unpublish/edit kar sakte hain.')) return;
+  statusBox.textContent = 'Publish ho raha hai...';
+  try{
+    await callAdminApi('verif-publish-by-authority?authority=BEOE', { method:'POST' });
+    statusBox.textContent = '✅ Sab BEOE records publish ho gayi.';
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+document.getElementById('hecPublishAllBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('hecPublishStatus');
+  if(!confirm('Sab HEC records ek sath PUBLISH karni hain? Ye official HEC data hai — agar koi galti mile to baad mein individually unpublish/edit kar sakte hain.')) return;
+  statusBox.textContent = 'Publish ho raha hai...';
+  try{
+    await callAdminApi('verif-publish-by-authority?authority=HEC', { method:'POST' });
+    statusBox.textContent = '✅ Sab HEC records publish ho gayi.';
   }catch(e){
     statusBox.textContent = `❌ Error: ${e.message}`;
   }
