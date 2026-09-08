@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import { extractTableGrids, extractLinks } from './html-lite-parser.js';
 
 const USER_AGENT = 'RoznamaAds-TableDownloader/1.0 (+https://roznamaads.com)';
-const FETCH_TIMEOUT_MS = 6000; // kept low so a retry still fits inside Vercel's ~10s hard limit
+const FETCH_TIMEOUT_MS = 8000; // government/SharePoint sites can be slow; still leaves buffer inside Vercel's ~10s limit
 const MAX_REDIRECTS = 5;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024; // 8MB safety cap
 const PAGE_FETCH_MAX_ATTEMPTS = 2; // 1 retry for 429 / 5xx
@@ -149,7 +149,11 @@ async function safeFetch(urlString) {
       });
     } catch (e) {
       clearTimeout(timer);
-      throw new Error(`Fetch failed: ${e.message}`);
+      const timedOut = ctrl.signal.aborted;
+      const causeMsg = e.cause?.message || e.cause?.code || e.message;
+      throw new Error(timedOut
+        ? `Fetch timed out after ${FETCH_TIMEOUT_MS}ms — site slow response de raha hai.`
+        : `Fetch failed: ${causeMsg}`);
     }
     clearTimeout(timer);
 
