@@ -525,15 +525,59 @@ async function safeFetchWithRetry(urlString) {
   throw lastErr || new Error('Fetch retry exhausted.');
 }
 
+// Detects two common "junk row" patterns seen on messy government sites
+// (e.g. HEC's province-header rows, mid-table repeated column titles):
+//  1. Section/group header row — every non-empty cell has the identical text
+//     (a merged/rowspan-style heading like "PUNJAB" repeated across columns).
+//  2. Header-echo row — the row's cells match the table's own column headers
+//     (happens when a page stacks several mini-tables, each with its own
+//     header row, inside one bigger table).
+// This is a general, conservative heuristic — it only strips rows that are
+// CLEARLY not data, it does not attempt any site-specific cleanup.
+function isJunkRow(rowCells, headers) {
+  const nonEmpty = rowCells.map(c => (c || '').trim()).filter(Boolean);
+  if (nonEmpty.length === 0) return true; // fully empty row
+
+  if (nonEmpty.length >= 2 && new Set(nonEmpty.map(c => c.toLowerCase())).size === 1) {
+    return true; // section header spanning all columns
+  }
+
+  const normalizedRow = rowCells.map(c => (c || '').trim().toLowerCase());
+  const normalizedHeaders = headers.map(h => (h || '').trim().toLowerCase());
+  let matchCount = 0;
+  for (let i = 0; i < normalizedHeaders.length; i++) {
+    if (normalizedHeaders[i] && normalizedRow[i] === normalizedHeaders[i]) matchCount++;
+  }
+  if (normalizedHeaders.length > 0 && matchCount >= Math.max(2, Math.ceil(normalizedHeaders.length * 0.6))) {
+    return true; // repeats the table's own header labels
+  }
+
+  return false;
+}
+
 function extractSpecificTableRows(html, tableIndex) {
   const grids = extractTableGrids(html);
   const grid = grids[tableIndex] || grids[0] || [];
   const headerRowRaw = grid.length > 0 ? grid[0] : null;
   const dataRows = grid.slice(1);
   const headers = headerRowRaw ? headerRowRaw.map(c => (c ? c.text : '')) : [];
-  const rows = dataRows.map(r => headers.map((_, i) => (r[i] ? r[i].text : '')));
-  const linkCells = dataRows.map(r => headers.map((_, i) => (r[i] ? r[i].linkHref : null)));
-  return { headers, rows, linkCells, tableFound: grids.length > 0 };
+
+  const allRows = dataRows.map(r => headers.map((_, i) => (r[i] ? r[i].text : '')));
+  const allLinkCells = dataRows.map(r => headers.map((_, i) => (r[i] ? r[i].linkHref : null)));
+
+  const rows = [];
+  const linkCells = [];
+  let junkRowsSkipped = 0;
+  allRows.forEach((rowCells, idx) => {
+    if (isJunkRow(rowCells, headers)) {
+      junkRowsSkipped++;
+    } else {
+      rows.push(rowCells);
+      linkCells.push(allLinkCells[idx]);
+    }
+  });
+
+  return { headers, rows, linkCells, tableFound: grids.length > 0, junkRowsSkipped };
 }
 
 // Fetches ONE page, extracts the chosen table's rows, and (for next_link-style
@@ -571,7 +615,7 @@ export async function fetchSinglePage(inputUrl, tableIndex, paginationType) {
     return { ok: false, reason: 'http_error', message: `Website returned HTTP ${fetched.status}.`, httpStatus: fetched.status };
   }
 
-  const { headers, rows, linkCells, tableFound } = extractSpecificTableRows(fetched.html, tableIndex);
+  const { headers, rows, linkCells, tableFound, junkRowsSkipped } = extractSpecificTableRows(fetched.html, tableIndex);
   const contentHash = crypto.createHash('sha1').update(JSON.stringify(rows)).digest('hex').slice(0, 16);
 
   let nextUrl = null;
@@ -592,6 +636,7 @@ export async function fetchSinglePage(inputUrl, tableIndex, paginationType) {
     contentHash,
     nextUrl,
     finalUrl: fetched.finalUrl,
-    insecureTLS: !!fetched.insecureTLS
+    insecureTLS: !!fetched.insecureTLS,
+    junkRowsSkipped
   };
 }

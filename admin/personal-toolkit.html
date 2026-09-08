@@ -2926,7 +2926,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       pagesFetched++;
       lastCompletedPage = pageNum;
       updateProgressUI({ page: pageNum, totalEstimate: estimate, rows: tblJobState.rows.length, dup: 0, errors: pagesFailed });
-      log(`Page ${pageNum}: OK — ${result.rowCount} rows`);
+      log(`Page ${pageNum}: OK — ${result.rowCount} rows${result.junkRowsSkipped ? ` (${result.junkRowsSkipped} junk/header rows khud filter hui)` : ''}`);
 
       // Checkpoint every 3 pages so a crash/close loses at most a couple pages, not the whole job
       if(pagesFetched % 3 === 0){
