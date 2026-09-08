@@ -239,6 +239,10 @@
     <p class="desc">BEOE ki poori OEP (visa agency) list ek click mein import/refresh karein. Records draft (unpublished) mein aate hain — verify karke publish karein.</p>
     <button class="btn alt" id="beoeImportBtn">📦 Import BEOE Data (5271 records)</button>
     <div id="beoeImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
+    <p class="desc">HEC Recognized Campuses (Public + Private sector) — Universal Table Downloader se nikala gaya, cleaned data. Records draft (unpublished) mein aate hain.</p>
+    <button class="btn alt" id="hecImportBtn">🎓 Import HEC Campuses Data (77 records)</button>
+    <div id="hecImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
   </section>
 
   <section class="panel" data-panel="ai-extractor">
@@ -2123,6 +2127,20 @@ document.getElementById('beoeImportBtn').addEventListener('click', async () => {
     }
   }catch(e){
     statusBox.textContent = `❌ Error (offset ${offset} tak ho chuka tha): ${e.message}. Dobara button dabayein — yahin se continue nahi hota, isliye offset se dobara shuru hoga.`;
+  }
+});
+
+document.getElementById('hecImportBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('hecImportStatus');
+  const secret = getAdminSecret();
+  if(!secret){ statusBox.textContent = '❌ Pehle Admin API Secret bharein.'; return; }
+  if(!confirm('HEC ki 77 Recognized Campuses records import karni hain?')) return;
+  statusBox.textContent = 'Import ho raha hai...';
+  try{
+    const data = await callAdminApi('hec-import', { method:'POST' });
+    statusBox.textContent = `✅ Mukammal! ${data.inserted} records import ho gayi.`;
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
   }
 });
 

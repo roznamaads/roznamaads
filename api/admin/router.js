@@ -3,6 +3,7 @@
 // Routes: /api/admin/<action> — vercel.json ke rewrite se yahan aata hai, e.g. /api/admin/list?status=pending
 
 import { beoeData } from './beoe-data.js';
+import { hecData } from './hec-data.js';
 import { detectTableAndPagination, fetchSinglePage } from './_lib/table-downloader.js';
 
 const VALID_CATEGORIES = [
@@ -701,6 +702,47 @@ export default async function handler(req, res) {
         }
 
         return res.status(400).json({ error: 'Unknown or not-yet-implemented operation: ' + operation });
+      }
+
+      /* ---------- HEC Recognized Campuses bulk import ---------- */
+      case 'hec-import': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const nowIso = new Date().toISOString();
+        const rows = hecData.map(r => {
+          const noteBits = [];
+          if (r.sector) noteBits.push(`Sector: ${r.sector}`);
+          if (r.region) noteBits.push(`Region: ${r.region}`);
+          if (r.campuses_raw) noteBits.push(`Recognized Campuses: ${r.campuses_raw}`);
+          return {
+            type: 'institute',
+            name: r.university_name,
+            city: null,
+            authority: 'HEC',
+            reference_no: `${r.sector}:${r.university_name}`,
+            status: 'valid',
+            blacklist_status: null,
+            last_verified: nowIso,
+            official_source_url: 'https://www.hec.gov.pk/english/universities/Pages/DAIs/HEC-recognized-Campuses.aspx',
+            notes: noteBits.join(' | '),
+            published: false
+          };
+        });
+
+        const r = await fetch(`${SB()}/rest/v1/verifications?on_conflict=authority,reference_no`, {
+          method: 'POST',
+          headers: {
+            ...sbHeaders(),
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates,return=minimal'
+          },
+          body: JSON.stringify(rows)
+        });
+
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        return res.status(200).json({ ok: true, inserted: rows.length });
       }
 
       default:
