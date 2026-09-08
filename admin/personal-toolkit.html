@@ -2806,7 +2806,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       try {
         result = await callAdminApi(`table-downloader?operation=fetch-page`, {
           method: 'POST',
-          body: JSON.stringify({ targetUrl, tableIndex: tblSelectedTableIndex, paginationType: pagination.type })
+          body: JSON.stringify({ targetUrl, tableIndex: tblSelectedTableIndex, paginationType: pagination ? pagination.type : null })
         });
       } catch(e) {
         pagesFailed++;
