@@ -440,7 +440,7 @@ function setQueryParamTemplate(baseUrl, param) {
 // 7. PUBLIC ENTRY: detect()
 // ---------------------------------------------------------------------------
 
-export async function detectTableAndPagination(inputUrl) {
+export async function detectTableAndPagination(inputUrl, overrideRobots) {
   let targetUrl;
   try {
     targetUrl = await assertPublicUrl(inputUrl);
@@ -448,9 +448,14 @@ export async function detectTableAndPagination(inputUrl) {
     return { ok: false, reason: 'ssrf_blocked', message: e.message };
   }
 
-  const robots = await isAllowedByRobots(targetUrl);
-  if (!robots.allowed) {
-    return { ok: false, reason: 'robots_disallowed', message: 'robots.txt is site ke is path ko disallow karta hai — downloader isay skip karega.' };
+  let robotsOverridden = false;
+  if (!overrideRobots) {
+    const robots = await isAllowedByRobots(targetUrl);
+    if (!robots.allowed) {
+      return { ok: false, reason: 'robots_disallowed', message: 'robots.txt is site ke is path ko disallow karta hai — "Ignore robots.txt" checkbox tick kar ke dobara try karein agar ye public, non-sensitive data hai.' };
+    }
+  } else {
+    robotsOverridden = true;
   }
 
   let fetched;
@@ -490,7 +495,8 @@ export async function detectTableAndPagination(inputUrl) {
     recommendedIndex: 0,
     pagination: pagination || null,
     paginationConfidenceNote: pagination ? null : 'Pagination confidently detect nahi ho saki — manual configuration istemal karein.',
-    insecureTLS: !!fetched.insecureTLS
+    insecureTLS: !!fetched.insecureTLS,
+    robotsOverridden
   };
 }
 

@@ -369,6 +369,9 @@
     <div class="field"><label>Admin API Secret</label><input type="password" id="tblSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
 
     <div class="field"><label>Website URL</label><input type="text" id="tblUrl" placeholder="https://example.gov.pk/list"></div>
+    <div style="margin:8px 0">
+      <label style="font-size:.85rem"><input type="checkbox" id="tblIgnoreRobots"> Ignore robots.txt (sirf public, non-sensitive government data ke liye — apni responsibility par)</label>
+    </div>
     <button class="btn" id="tblDetectBtn">Detect Table</button>
 
     <div id="tblDetectResult" style="display:none;margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px">
@@ -2693,7 +2696,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     try {
       const result = await callAdminApi(`table-downloader?operation=detect`, {
         method: 'POST',
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url, overrideRobots: $('tblIgnoreRobots').checked })
       });
       tblLastDetection = result;
 
@@ -2710,6 +2713,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       $('tblDetectResult').style.display = 'block';
       $('tblDetectBody').innerHTML = `
         ${result.insecureTLS ? '<div style="color:#c0392b;margin-bottom:8px">⚠️ Is site ka SSL certificate theek se configure nahi hai (server ki apni khaami) — hum ne is dafa certificate check kiye bina data liya hai. Data phir bhi seedha isi official site se hi aaya hai.</div>' : ''}
+        ${result.robotsOverridden ? '<div style="color:#c0392b;margin-bottom:8px">⚠️ Is site ki robots.txt ko ignore kiya gaya hai (aapki request par) — sirf public, non-sensitive data ke liye istemal karein.</div>' : ''}
         Website: <b>${result.website}</b><br>
         Source Type: <b>HTML Table</b><br>
         Detected Tables: <b>${result.tables.length}</b> &nbsp;(recommended: Table ${result.recommendedIndex+1}, ${rec.rows} rows, score ${rec.score})<br>

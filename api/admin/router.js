@@ -590,10 +590,10 @@ export default async function handler(req, res) {
         }
 
         if (operation === 'detect') {
-          const { url } = req.body || {};
+          const { url, overrideRobots } = req.body || {};
           if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url required' });
           try {
-            const result = await detectTableAndPagination(url);
+            const result = await detectTableAndPagination(url, !!overrideRobots);
             return res.status(result.ok ? 200 : 422).json(result);
           } catch (execErr) {
             return res.status(500).json({ error: 'table-downloader error: ' + execErr.message });
