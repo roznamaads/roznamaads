@@ -2645,6 +2645,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       const rec = result.tables[result.recommendedIndex];
       $('tblDetectResult').style.display = 'block';
       $('tblDetectBody').innerHTML = `
+        ${result.insecureTLS ? '<div style="color:#c0392b;margin-bottom:8px">⚠️ Is site ka SSL certificate theek se configure nahi hai (server ki apni khaami) — hum ne is dafa certificate check kiye bina data liya hai. Data phir bhi seedha isi official site se hi aaya hai.</div>' : ''}
         Website: <b>${result.website}</b><br>
         Source Type: <b>HTML Table</b><br>
         Detected Tables: <b>${result.tables.length}</b> &nbsp;(recommended: Table ${result.recommendedIndex+1}, ${rec.rows} rows, score ${rec.score})<br>

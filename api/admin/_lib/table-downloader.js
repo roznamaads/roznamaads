@@ -5,6 +5,7 @@
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import crypto from 'node:crypto';
+import { Agent } from 'undici';
 import { extractTableGrids, extractLinks } from './html-lite-parser.js';
 
 const USER_AGENT = 'RoznamaAds-TableDownloader/1.0 (+https://roznamaads.com)';
@@ -12,6 +13,22 @@ const FETCH_TIMEOUT_MS = 8000; // government/SharePoint sites can be slow; still
 const MAX_REDIRECTS = 5;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024; // 8MB safety cap
 const PAGE_FETCH_MAX_ATTEMPTS = 2; // 1 retry for 429 / 5xx
+
+// Some government sites (e.g. HEC's SharePoint) ship an incomplete certificate
+// chain (missing intermediate cert) — browsers tolerate this via OS cert
+// stores/caching, Node's fetch does not. When we hit that SPECIFIC error we
+// retry once with certificate verification relaxed, and flag the result so
+// the admin sees a clear warning (this is the target server's own
+// misconfiguration, not something we silently hide).
+const TLS_CHAIN_ERROR_CODES = new Set([
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+  'UNABLE_TO_GET_ISSUER_CERT',
+  'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  'CERT_UNTRUSTED',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'DEPTH_ZERO_SELF_SIGNED_CERT'
+]);
+const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
 
 // ---------------------------------------------------------------------------
 // 1. SSRF PROTECTION
@@ -136,6 +153,7 @@ async function isAllowedByRobots(targetUrl) {
 
 async function safeFetch(urlString) {
   let currentUrl = await assertPublicUrl(urlString);
+  let usedInsecureTLS = false;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const ctrl = new AbortController();
@@ -150,10 +168,32 @@ async function safeFetch(urlString) {
     } catch (e) {
       clearTimeout(timer);
       const timedOut = ctrl.signal.aborted;
-      const causeMsg = e.cause?.message || e.cause?.code || e.message;
-      throw new Error(timedOut
-        ? `Fetch timed out after ${FETCH_TIMEOUT_MS}ms — site slow response de raha hai.`
-        : `Fetch failed: ${causeMsg}`);
+      const causeCode = e.cause?.code;
+      const causeMsg = e.cause?.message || causeCode || e.message;
+
+      // Retry once with relaxed TLS verification if this is specifically a
+      // broken-certificate-chain error (server's own misconfiguration).
+      if (!timedOut && TLS_CHAIN_ERROR_CODES.has(causeCode)) {
+        const ctrl2 = new AbortController();
+        const timer2 = setTimeout(() => ctrl2.abort(), FETCH_TIMEOUT_MS);
+        try {
+          res = await fetch(currentUrl.toString(), {
+            headers: { 'User-Agent': USER_AGENT, Accept: 'text/html,application/xhtml+xml' },
+            redirect: 'manual',
+            signal: ctrl2.signal,
+            dispatcher: insecureAgent
+          });
+          usedInsecureTLS = true;
+        } catch (e2) {
+          clearTimeout(timer2);
+          throw new Error(`Fetch failed (TLS retry bhi fail): ${e2.cause?.message || e2.message}`);
+        }
+        clearTimeout(timer2);
+      } else {
+        throw new Error(timedOut
+          ? `Fetch timed out after ${FETCH_TIMEOUT_MS}ms — site slow response de raha hai.`
+          : `Fetch failed: ${causeMsg}`);
+      }
     }
     clearTimeout(timer);
 
@@ -186,7 +226,8 @@ async function safeFetch(urlString) {
       status: res.status,
       headers: res.headers,
       finalUrl: currentUrl.toString(),
-      html: text
+      html: text,
+      insecureTLS: usedInsecureTLS
     };
   }
   throw new Error('Too many redirects.');
@@ -448,7 +489,8 @@ export async function detectTableAndPagination(inputUrl) {
     tables: tables.map((t, i) => ({ ...t, recommended: i === 0 })),
     recommendedIndex: 0,
     pagination: pagination || null,
-    paginationConfidenceNote: pagination ? null : 'Pagination confidently detect nahi ho saki — manual configuration istemal karein.'
+    paginationConfidenceNote: pagination ? null : 'Pagination confidently detect nahi ho saki — manual configuration istemal karein.',
+    insecureTLS: !!fetched.insecureTLS
   };
 }
 
@@ -549,6 +591,7 @@ export async function fetchSinglePage(inputUrl, tableIndex, paginationType) {
     tableFound,
     contentHash,
     nextUrl,
-    finalUrl: fetched.finalUrl
+    finalUrl: fetched.finalUrl,
+    insecureTLS: !!fetched.insecureTLS
   };
 }
