@@ -2790,10 +2790,12 @@ document.getElementById('loadStats').addEventListener('click', async () => {
 
     for(let pageNum = startPage; pageNum <= (startPage + maxPages - 1); pageNum++){
       if(tblJobState.cancelled){ stopReason = 'CANCELLED'; break; }
-      if(!pagination){ stopReason = 'NO_PAGINATION'; break; }
+      if(!pagination && pageNum > startPage){ stopReason = 'END_OF_PAGINATION'; break; } // single-page site: exactly one iteration then stop
 
       let targetUrl;
-      if(pagination.type === 'next_link'){
+      if(!pagination){
+        targetUrl = url; // no pagination detected — this page IS the whole dataset
+      } else if(pagination.type === 'next_link'){
         targetUrl = cursorUrl;
         if(!targetUrl){ stopReason = 'END_OF_PAGINATION'; break; }
       } else {
@@ -2855,7 +2857,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
         tblJobState.rows.push(row);
       });
 
-      if(pagination.type === 'next_link') cursorUrl = result.nextUrl;
+      if(pagination && pagination.type === 'next_link') cursorUrl = result.nextUrl;
 
       pagesFetched++;
       lastCompletedPage = pageNum;
@@ -2867,6 +2869,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
         saveCheckpoint(url, tblSelectedTableIndex, pagination, tblJobState.headers, lastCompletedPage, cursorUrl);
       }
 
+      if(!pagination){ stopReason = 'SINGLE_PAGE_COMPLETE'; break; } // single-page site: one fetch is the whole dataset, we're done
       if(pagination.type === 'next_link' && !cursorUrl){ stopReason = 'END_OF_PAGINATION'; break; }
       if(pageNum >= (startPage + maxPages - 1)){ stopReason = 'MAX_PAGES_REACHED'; break; }
 
