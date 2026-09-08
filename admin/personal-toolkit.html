@@ -247,6 +247,10 @@
     <div id="hecImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     <button class="btn alt" id="hecPublishAllBtn" style="margin-top:8px">✅ Publish ALL HEC Records</button>
     <div id="hecPublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
+    <p class="desc">HEC Recognized Universities — base list (275 universities, koi extra campus na bhi ho to bhi ye recognized status confirm karti hai).</p>
+    <button class="btn alt" id="hecUniImportBtn">🏛️ Import HEC Recognized Universities (275 records)</button>
+    <div id="hecUniImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
   </section>
 
   <section class="panel" data-panel="ai-extractor">
@@ -2167,6 +2171,20 @@ document.getElementById('hecPublishAllBtn').addEventListener('click', async () =
   try{
     await callAdminApi('verif-publish-by-authority?authority=HEC', { method:'POST' });
     statusBox.textContent = '✅ Sab HEC records publish ho gayi.';
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+document.getElementById('hecUniImportBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('hecUniImportStatus');
+  const secret = getAdminSecret();
+  if(!secret){ statusBox.textContent = '❌ Pehle Admin API Secret bharein.'; return; }
+  if(!confirm('HEC ki 275 Recognized Universities (base list) import karni hain?')) return;
+  statusBox.textContent = 'Import ho raha hai...';
+  try{
+    const data = await callAdminApi('hec-universities-import', { method:'POST' });
+    statusBox.textContent = `✅ Mukammal! ${data.inserted} records import ho gayi.`;
   }catch(e){
     statusBox.textContent = `❌ Error: ${e.message}`;
   }

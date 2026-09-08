@@ -4,6 +4,7 @@
 
 import { beoeData } from './beoe-data.js';
 import { hecData } from './hec-data.js';
+import { hecUniversitiesData } from './hec-universities-data.js';
 import { detectTableAndPagination, fetchSinglePage } from './_lib/table-downloader.js';
 
 const VALID_CATEGORIES = [
@@ -720,6 +721,41 @@ export default async function handler(req, res) {
           return res.status(r.status).json({ error: errText });
         }
         return res.status(200).json({ ok: true, authority });
+      }
+
+      /* ---------- HEC Recognized Universities (base list) bulk import ---------- */
+      case 'hec-universities-import': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const nowIso = new Date().toISOString();
+        const rows = hecUniversitiesData.map(r => ({
+          type: 'institute',
+          name: r.university_name,
+          city: null,
+          authority: 'HEC',
+          reference_no: `university:${r.university_name}`,
+          status: 'valid',
+          blacklist_status: null,
+          last_verified: nowIso,
+          official_source_url: 'https://www.hec.gov.pk/english/universities/Pages/recognised.aspx',
+          notes: 'HEC Recognized University (base list — see separate Campuses record for branch locations, if any).',
+          published: false
+        }));
+
+        const r = await fetch(`${SB()}/rest/v1/verifications?on_conflict=authority,reference_no`, {
+          method: 'POST',
+          headers: {
+            ...sbHeaders(),
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates,return=minimal'
+          },
+          body: JSON.stringify(rows)
+        });
+
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        return res.status(200).json({ ok: true, inserted: rows.length });
       }
 
       case 'hec-import': {
