@@ -241,6 +241,9 @@
     <div id="beoeImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     <button class="btn alt" id="beoePublishAllBtn" style="margin-top:8px">✅ Publish ALL BEOE Records</button>
     <div id="beoePublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
+    <p class="desc" style="margin-top:10px">BEOE ki site server/bot requests block karti hai — refresh ke liye apne mobile browser (Kiwi Browser DevTools Console) mein ye script khud chalani parti hai. Neeche button script clipboard mein copy kar dega.</p>
+    <button class="btn alt" id="beoeCopyScriptBtn">📋 Copy BEOE Refresh Script</button>
+    <div id="beoeCopyScriptStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
     <p class="desc">HEC Recognized Campuses (Public + Private sector) — Universal Table Downloader se nikala gaya, cleaned data. Records draft (unpublished) mein aate hain.</p>
     <button class="btn alt" id="hecImportBtn">🎓 Import HEC Campuses Data (77 records)</button>
@@ -2168,6 +2171,22 @@ document.getElementById('beoePublishAllBtn').addEventListener('click', async () 
     statusBox.textContent = '✅ Sab BEOE records publish ho gayi.';
   }catch(e){
     statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+document.getElementById('beoeCopyScriptBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('beoeCopyScriptStatus');
+  // BEOE ki site server/bot requests block karti hai, isliye ye script khud
+  // BEOE ke page pe (Kiwi Browser DevTools Console mein) chalani hoti hai —
+  // real mobile browser se request jaati hai, isliye block nahi hoti.
+  // localStorage mein progress save karta hai, isliye beech mein rukne par
+  // dobara wahi script chalane se wahin se continue ho jata hai.
+  const beoeScript = "(async function(){const KEY='beoe_rows_v1';const PKEY='beoe_page_v1';let rows=JSON.parse(localStorage.getItem(KEY)||'[]');let page=parseInt(localStorage.getItem(PKEY)||'1');const maxPages=600;let consecErrors=0;while(page<=maxPages&&consecErrors<8){try{const r=await fetch(`https://beoe.gov.pk/list-of-oeps?page=${page}`,{credentials:'same-origin'});if(!r.ok){consecErrors++;document.title=`Blocked pg${page}, wait15s (${consecErrors})`;await new Promise(res=>setTimeout(res,15000));continue;}consecErrors=0;const html=await r.text();const doc=new DOMParser().parseFromString(html,'text/html');const table=doc.querySelector('table');if(!table){document.title=`No table pg${page}, stop`;break;}const trs=Array.from(table.querySelectorAll('tr')).filter(tr=>tr.querySelectorAll('td').length>=4);if(trs.length===0){document.title=`Empty pg${page}, done?`;break;}trs.forEach(tr=>{const tds=Array.from(tr.querySelectorAll('td')).map(td=>td.innerText.trim());rows.push({page,cells:tds});});localStorage.setItem(KEY,JSON.stringify(rows));page++;localStorage.setItem(PKEY,String(page));document.title=`Pg${page-1} done - ${rows.length} rows`;await new Promise(res=>setTimeout(res,2500));}catch(e){consecErrors++;document.title=`Err pg${page}`;await new Promise(res=>setTimeout(res,15000));}}const blob=new Blob([JSON.stringify(rows)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`beoe_oeps_upto_pg${page-1}.json`;document.body.appendChild(a);a.click();alert('Stopped at page '+(page-1)+'. Total rows: '+rows.length);})();";
+  try{
+    await navigator.clipboard.writeText(beoeScript);
+    statusBox.textContent = '✅ Script copy ho gaya! Ab BEOE list-of-oeps page kholein (Kiwi Browser mein), DevTools Console mein paste kar ke Enter dabayein.';
+  }catch(e){
+    statusBox.innerHTML = `❌ Clipboard access nahi mila. Neeche se manually select-copy karein:<br><textarea readonly style="width:100%;height:100px;margin-top:6px;font-size:.7rem">${beoeScript}</textarea>`;
   }
 });
 
