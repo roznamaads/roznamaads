@@ -6,6 +6,7 @@ import { beoeData } from './beoe-data.js';
 import { hecData } from './hec-data.js';
 import { hecUniversitiesData } from './hec-universities-data.js';
 import { hecIllegalData } from './hec-illegal-data.js';
+import { ppraBlacklistData } from './ppra-blacklist-data.js';
 import { detectTableAndPagination, fetchSinglePage } from './_lib/table-downloader.js';
 
 const VALID_CATEGORIES = [
@@ -774,6 +775,41 @@ export default async function handler(req, res) {
           last_verified: nowIso,
           official_source_url: 'https://www.hec.gov.pk/english/universities/Pages/Illegal-Fake-HEIs-DAIs.aspx',
           notes: `Province: ${r.province} | Sr#: ${r.sr}`,
+          published: false
+        }));
+
+        const r = await fetch(`${SB()}/rest/v1/verifications?on_conflict=authority,reference_no`, {
+          method: 'POST',
+          headers: {
+            ...sbHeaders(),
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates,return=minimal'
+          },
+          body: JSON.stringify(rows)
+        });
+
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        return res.status(200).json({ ok: true, inserted: rows.length });
+      }
+
+      /* ---------- PPRA Federal Blacklisted Firms bulk import ---------- */
+      case 'ppra-import': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const nowIso = new Date().toISOString();
+        const rows = ppraBlacklistData.map(r => ({
+          type: 'company',
+          name: r.firm_name,
+          city: null,
+          authority: 'PPRA',
+          reference_no: r.blk_number,
+          status: 'blacklisted',
+          blacklist_status: `${r.duration_type} | ${r.blacklist_period} | ${r.reasons} | Agency: ${r.procurement_agency}`,
+          last_verified: nowIso,
+          official_source_url: 'https://epms.ppra.gov.pk/public/active-blacklisted-firms',
+          notes: `Blacklisted by: ${r.procurement_agency}`,
           published: false
         }));
 

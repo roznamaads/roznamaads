@@ -258,6 +258,12 @@
     <p class="desc" style="color:#c0392b">⚠️ HEC Illegal/Fake Institutions warning list (147 records, sab provinces) — status=invalid, blacklist flag ke sath. Ye official HEC alert hai, verify kar ke publish karein.</p>
     <button class="btn alt" id="hecIllegalImportBtn">🚫 Import HEC Illegal Institutions (147 records)</button>
     <div id="hecIllegalImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
+    <p class="desc" style="color:#c0392b">⚠️ PPRA Federal Blacklisted Firms (198 records) — companies jo government tenders mein fraud/failure ki wajah se blacklist hui hain. status=blacklisted, review kar ke publish karein.</p>
+    <button class="btn alt" id="ppraImportBtn">🏢 Import PPRA Blacklisted Firms (198 records)</button>
+    <div id="ppraImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+    <button class="btn alt" id="ppraPublishAllBtn" style="margin-top:8px">✅ Publish ALL PPRA Records</button>
+    <div id="ppraPublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
   </section>
 
   <section class="panel" data-panel="ai-extractor">
@@ -2225,6 +2231,32 @@ document.getElementById('hecIllegalImportBtn').addEventListener('click', async (
   try{
     const data = await callAdminApi('hec-illegal-import', { method:'POST' });
     statusBox.textContent = `✅ Mukammal! ${data.inserted} records import ho gayi (draft mein, review kar ke publish karein).`;
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+document.getElementById('ppraImportBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('ppraImportStatus');
+  const secret = getAdminSecret();
+  if(!secret){ statusBox.textContent = '❌ Pehle Admin API Secret bharein.'; return; }
+  if(!confirm('PPRA ki 198 Blacklisted Firms import karni hain? Ye sensitive data hai — publish karne se pehle review karein.')) return;
+  statusBox.textContent = 'Import ho raha hai...';
+  try{
+    const data = await callAdminApi('ppra-import', { method:'POST' });
+    statusBox.textContent = `✅ Mukammal! ${data.inserted} records import ho gayi.`;
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+document.getElementById('ppraPublishAllBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('ppraPublishStatus');
+  if(!confirm('Sab PPRA records ek sath PUBLISH karni hain? Ye official PPRA data hai.')) return;
+  statusBox.textContent = 'Publish ho raha hai...';
+  try{
+    await callAdminApi('verif-publish-by-authority?authority=PPRA', { method:'POST' });
+    statusBox.textContent = '✅ Sab PPRA records publish ho gayi.';
   }catch(e){
     statusBox.textContent = `❌ Error: ${e.message}`;
   }
