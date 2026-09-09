@@ -279,6 +279,20 @@ export default async function handler(req, res) {
 
       /* ---------- Part A: verifications records (Import/Review) ---------- */
 
+      case 'tenders-list': {
+        const search = req.query.search;
+        const status = req.query.status;
+        const authority = req.query.authority;
+        const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 200);
+        let url = `${SB()}/rest/v1/tenders?order=updated_at.desc&select=*&limit=${limit}`;
+        if (status) url += `&status=eq.${encodeURIComponent(status)}`;
+        if (authority) url += `&authority=eq.${encodeURIComponent(authority)}`;
+        if (search) url += `&or=(title.ilike.*${encodeURIComponent(search)}*,tender_no.ilike.*${encodeURIComponent(search)}*,organization.ilike.*${encodeURIComponent(search)}*)`;
+        const r = await fetch(url, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
       case 'verif-list': {
         const type = req.query.type;
         const search = req.query.search;
@@ -701,6 +715,43 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: true, count: payload.length });
           } catch (execErr) {
             return res.status(500).json({ error: 'verif-bulk-upsert error: ' + execErr.message });
+          }
+        }
+
+        if (operation === 'tenders-bulk-upsert') {
+          const { rows } = req.body || {};
+          if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: 'rows array required' });
+          const nowIso = new Date().toISOString();
+          const payload = rows.map(r => ({
+            tender_no: r.tender_no || null,
+            title: r.title,
+            organization: r.organization || null,
+            authority: r.authority || 'PPRA',
+            status: r.status || null,
+            advertised_date: r.advertised_date || null,
+            closing_date: r.closing_date || null,
+            source_url: r.source_url || null,
+            raw_details: r.raw_details || null,
+            published: r.published !== false,
+            updated_at: nowIso
+          }));
+          try {
+            const upsertRes = await fetch(`${SB()}/rest/v1/tenders?on_conflict=authority,tender_no`, {
+              method: 'POST',
+              headers: {
+                ...sbHeaders(),
+                'Content-Type': 'application/json',
+                Prefer: 'resolution=merge-duplicates,return=minimal'
+              },
+              body: JSON.stringify(payload)
+            });
+            if (!upsertRes.ok) {
+              const errText = await upsertRes.text();
+              return res.status(upsertRes.status).json({ error: errText });
+            }
+            return res.status(200).json({ ok: true, count: payload.length });
+          } catch (execErr) {
+            return res.status(500).json({ error: 'tenders-bulk-upsert error: ' + execErr.message });
           }
         }
 

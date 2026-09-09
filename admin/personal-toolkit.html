@@ -463,6 +463,24 @@
       <div id="tblVerifProgress" style="margin-top:8px;font-size:.82rem;display:none"></div>
     </div>
 
+    <div id="tblTendersBlock" style="display:none;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📢 Send to Tenders Feed (public turant dikhta hai — tenders neutral factual notices hain, review ki zaroorat nahi)</div>
+
+      <div class="field"><label>Authority</label><input type="text" id="tblTendersAuthority" autocomplete="off" placeholder="jaise: PPRA, PPRA-Punjab" value="PPRA"></div>
+      <div class="field"><label>Title Column *</label><select id="tblTendersTitleCol" autocomplete="off"></select></div>
+      <div class="field"><label>Tender No Column</label><select id="tblTendersNoCol" autocomplete="off"></select></div>
+      <div class="field"><label>Organization Column</label><select id="tblTendersOrgCol" autocomplete="off"></select></div>
+      <div class="field"><label>Status Column</label><select id="tblTendersStatusCol" autocomplete="off"></select></div>
+      <div class="field"><label>Advertised Date Column</label><select id="tblTendersAdvCol" autocomplete="off"></select></div>
+      <div class="field"><label>Closing Date Column</label><select id="tblTendersCloseCol" autocomplete="off"></select></div>
+
+      <div id="tblTendersPreview" style="margin:10px 0;font-size:.78rem;background:#fffbea;border:1px solid #e8d98a;border-radius:6px;padding:8px"></div>
+
+      <button class="btn" id="tblTendersSendBtn">Send to Tenders Feed</button>
+      <button class="btn alt" id="tblTendersCancelBtn" style="display:none">Cancel</button>
+      <div id="tblTendersProgress" style="margin-top:8px;font-size:.82rem;display:none"></div>
+    </div>
+
     <div class="toolkit-log" id="tblLog" style="display:none"></div>
 
     <div style="margin-top:18px">
@@ -472,6 +490,22 @@
   </section>
 
 
+
+  <section class="panel" data-panel="tenders">
+    <h2>Tenders Feed</h2>
+    <p class="desc">Table Downloader se "Send to Tenders Feed" ke zariye aayi hui records — ye seedha public hoti hain (published:true).</p>
+    <div class="field-row">
+      <div class="field"><label>Authority Filter</label>
+        <input type="text" id="tendersAuthorityFilter" placeholder="jaise PPRA">
+      </div>
+      <div class="field"><label>Search (title/tender no/organization)</label>
+        <input type="text" id="tendersSearch" placeholder="e.g. Islamabad ya TS0000...">
+      </div>
+    </div>
+    <p class="desc" style="margin-top:-6px">⚠️ Ek baar mein max 50 records load hote hain — specific tender dhoondne ke liye search box use karein.</p>
+    <button class="btn" id="loadTendersBtn">📥 Load Tenders</button>
+    <div id="tendersList" style="margin-top:14px"></div>
+  </section>
 
   <section class="panel" data-panel="social">
     <h2>Social Posting</h2>
@@ -766,6 +800,7 @@ const TOOLS = [
   {id:'url-checks', label:'URL Checks'},
   {id:'category-manager', label:'Category Mgr'},
   {id:'table-downloader', label:'Table Downloader'},
+  {id:'tenders', label:'Tenders'},
   {id:'social', label:'Social Posting'},
   {id:'whatsapp', label:'WhatsApp'},
   {id:'seo-manager', label:'SEO Manager'},
@@ -2208,6 +2243,31 @@ document.getElementById('hecPublishAllBtn').addEventListener('click', async () =
   }
 });
 
+document.getElementById('loadTendersBtn').addEventListener('click', async () => {
+  const box = document.getElementById('tendersList');
+  box.innerHTML = 'Loading...';
+  try{
+    const authority = document.getElementById('tendersAuthorityFilter').value.trim();
+    const search = document.getElementById('tendersSearch').value.trim();
+    let q = '';
+    if(authority) q += `&authority=${encodeURIComponent(authority)}`;
+    if(search) q += `&search=${encodeURIComponent(search)}`;
+    const data = await callAdminApi('tenders-list' + (q ? '?' + q.slice(1) : ''));
+    const rows = Array.isArray(data) ? data : [];
+    if(rows.length === 0){ box.innerHTML = '<div class="stub">Koi tender nahi mili.</div>'; return; }
+    box.innerHTML = rows.map(t => `
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px">
+        <b>${t.title || '(no title)'}</b><br>
+        <span style="color:var(--muted);font-size:.82rem">
+          Tender No: ${t.tender_no || '—'} · Org: ${t.organization || '—'} · Authority: ${t.authority}<br>
+          Status: ${t.status || '—'} · Advertised: ${t.advertised_date || '—'} · Closing: ${t.closing_date || '—'}
+        </span><br>
+        ${t.source_url ? `<a href="${t.source_url}" target="_blank" style="font-size:.8rem">Source →</a>` : ''}
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
 document.getElementById('hecUniImportBtn').addEventListener('click', async () => {
   const statusBox = document.getElementById('hecUniImportStatus');
   const secret = getAdminSecret();
@@ -3046,7 +3106,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     `;
     log(`Job finished: ${finalStatus} (${stopReason || 'DONE'}) — ${tblJobState.rows.length} rows fetched, ${dedupe.dupCount} duplicates removed (key: ${dedupe.keyUsed}), ${dedupe.uniqueRows.length} unique.`);
 
-    if(dedupe.uniqueRows.length > 0) populateVerifMapping();
+    if(dedupe.uniqueRows.length > 0){ populateVerifMapping(); populateTendersMapping(); }
 
     saveJobHistory({
       url,
@@ -3370,6 +3430,142 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   });
 
   $('tblVerifCancelBtn').addEventListener('click', () => { tblVerifCancelled = true; });
+
+  // ---- Tenders Feed integration ----
+  function populateTendersMapping(){
+    const headers = tblJobState.headers;
+    const optsWithNone = '<option value="">-- None / Fixed default --</option>' +
+      headers.map((h,i) => `<option value="${i}">${h}</option>`).join('');
+    const optsRequired = headers.map((h,i) => `<option value="${i}">${h}</option>`).join('');
+
+    $('tblTendersTitleCol').innerHTML = optsRequired;
+    $('tblTendersNoCol').innerHTML = optsWithNone;
+    $('tblTendersOrgCol').innerHTML = optsWithNone;
+    $('tblTendersStatusCol').innerHTML = optsWithNone;
+    $('tblTendersAdvCol').innerHTML = optsWithNone;
+    $('tblTendersCloseCol').innerHTML = optsWithNone;
+
+    const guess = (patterns) => headers.findIndex(h => patterns.test(h));
+    const titleIdx = guess(/title|detail|description/i);
+    const noIdx = guess(/tender\s*no|tender#|ref/i);
+    const orgIdx = guess(/organi[sz]ation|department|agency/i);
+    const statusIdx = guess(/status/i);
+    const advIdx = guess(/advertis/i);
+    const closeIdx = guess(/clos/i);
+
+    if(titleIdx !== -1) $('tblTendersTitleCol').value = titleIdx;
+    $('tblTendersNoCol').value = noIdx !== -1 ? noIdx : '';
+    $('tblTendersOrgCol').value = orgIdx !== -1 ? orgIdx : '';
+    $('tblTendersStatusCol').value = statusIdx !== -1 ? statusIdx : '';
+    $('tblTendersAdvCol').value = advIdx !== -1 ? advIdx : '';
+    $('tblTendersCloseCol').value = closeIdx !== -1 ? closeIdx : '';
+
+    $('tblTendersBlock').style.display = 'block';
+    updateTendersPreview();
+
+    setTimeout(() => {
+      if(titleIdx !== -1) $('tblTendersTitleCol').value = titleIdx;
+      $('tblTendersNoCol').value = noIdx !== -1 ? noIdx : '';
+      $('tblTendersOrgCol').value = orgIdx !== -1 ? orgIdx : '';
+      $('tblTendersStatusCol').value = statusIdx !== -1 ? statusIdx : '';
+      $('tblTendersAdvCol').value = advIdx !== -1 ? advIdx : '';
+      $('tblTendersCloseCol').value = closeIdx !== -1 ? closeIdx : '';
+      updateTendersPreview();
+    }, 400);
+  }
+
+  function updateTendersPreview(){
+    const titleColRaw = $('tblTendersTitleCol').value;
+    const noColRaw = $('tblTendersNoCol').value;
+    const orgColRaw = $('tblTendersOrgCol').value;
+    const statusColRaw = $('tblTendersStatusCol').value;
+    const authority = $('tblTendersAuthority').value.trim() || '(khali)';
+    const box = $('tblTendersPreview');
+    if(!tblJobState.dedupedRows || !tblJobState.dedupedRows.length){ box.innerHTML = ''; return; }
+
+    const sample = tblJobState.dedupedRows.slice(0, 3);
+    const rowsHtml = sample.map(r => {
+      const title = titleColRaw !== '' ? r.cells[parseInt(titleColRaw,10)] : '(select karein)';
+      const no = noColRaw !== '' ? r.cells[parseInt(noColRaw,10)] : '—';
+      const org = orgColRaw !== '' ? r.cells[parseInt(orgColRaw,10)] : '—';
+      const status = statusColRaw !== '' ? (r.cells[parseInt(statusColRaw,10)] || '—') : '—';
+      return `<div style="padding:3px 0;border-top:1px solid #e8d98a">Title: <b>${title}</b> · No: ${no} · Org: ${org} · Authority: <b>${authority}</b> · Status: ${status}</div>`;
+    }).join('');
+    const noWarning = (noColRaw === '')
+      ? '<div style="color:#c0392b;font-weight:bold;margin-top:4px">⚠️ Tender No column select nahi ki — bina isके agli baar dobara bhejne pe DUPLICATE tenders banenge (update nahi honge)!</div>'
+      : '';
+    box.innerHTML = `⚠️ Bhejne se pehle check karein (pehli ${sample.length} rows ka preview) — ye records TURANT PUBLIC ho jayengi:${rowsHtml}${noWarning}`;
+  }
+
+  ['tblTendersTitleCol','tblTendersNoCol','tblTendersOrgCol','tblTendersStatusCol','tblTendersAdvCol','tblTendersCloseCol','tblTendersAuthority'].forEach(id => {
+    $(id).addEventListener('change', updateTendersPreview);
+    $(id).addEventListener('input', updateTendersPreview);
+  });
+
+  let tblTendersCancelled = false;
+
+  $('tblTendersSendBtn').addEventListener('click', async () => {
+    const authority = $('tblTendersAuthority').value.trim() || 'PPRA';
+    const titleColRaw = $('tblTendersTitleCol').value;
+    if(titleColRaw === ''){ alert('Title Column select karna zaroori hai.'); return; }
+    const titleCol = parseInt(titleColRaw, 10);
+    const noCol = $('tblTendersNoCol').value === '' ? null : parseInt($('tblTendersNoCol').value, 10);
+    const orgCol = $('tblTendersOrgCol').value === '' ? null : parseInt($('tblTendersOrgCol').value, 10);
+    const statusCol = $('tblTendersStatusCol').value === '' ? null : parseInt($('tblTendersStatusCol').value, 10);
+    const advCol = $('tblTendersAdvCol').value === '' ? null : parseInt($('tblTendersAdvCol').value, 10);
+    const closeCol = $('tblTendersCloseCol').value === '' ? null : parseInt($('tblTendersCloseCol').value, 10);
+    const baseUrl = $('tblUrl').value.trim();
+
+    if(noCol === null){
+      if(!confirm('⚠️ Tender No column select nahi ki. Bina isके agli baar dobara bhejne pe duplicate tenders ban jayenge. Phir bhi aage badhein?')) return;
+    }
+
+    const rows = tblJobState.dedupedRows.filter(r => (r.cells[titleCol] || '').trim());
+    if(!confirm(`${rows.length} tenders "Tenders Feed" mein bheji jayengi aur TURANT PUBLIC ho jayengi. Upar preview box zaroor check kar lein. Aage badhein?`)) return;
+
+    tblTendersCancelled = false;
+    $('tblTendersSendBtn').style.display = 'none';
+    $('tblTendersCancelBtn').style.display = 'inline-block';
+    $('tblTendersProgress').style.display = 'block';
+
+    const payloadRows = rows.map(row => ({
+      title: row.cells[titleCol],
+      tender_no: noCol !== null ? (row.cells[noCol] || null) : null,
+      organization: orgCol !== null ? (row.cells[orgCol] || null) : null,
+      authority,
+      status: statusCol !== null ? (row.cells[statusCol] || null) : null,
+      advertised_date: advCol !== null ? (row.cells[advCol] || null) : null,
+      closing_date: closeCol !== null ? (row.cells[closeCol] || null) : null,
+      source_url: row.sourceUrl || baseUrl,
+      raw_details: JSON.stringify(row.cells),
+      published: true
+    }));
+
+    const CHUNK_SIZE = 200;
+    let sent = 0, failed = 0;
+    for(let i = 0; i < payloadRows.length; i += CHUNK_SIZE){
+      if(tblTendersCancelled){ log('Tenders feed send cancelled.'); break; }
+      const chunk = payloadRows.slice(i, i + CHUNK_SIZE);
+      try {
+        const result = await callAdminApi('table-downloader?operation=tenders-bulk-upsert', {
+          method: 'POST',
+          body: JSON.stringify({ rows: chunk })
+        });
+        sent += result.count || chunk.length;
+      } catch(e) {
+        failed += chunk.length;
+        log(`Tenders bulk upsert failed for rows ${i+1}-${i+chunk.length}: ${e.message}`);
+      }
+      $('tblTendersProgress').textContent = `Processing ${Math.min(i+CHUNK_SIZE, payloadRows.length)} / ${payloadRows.length} — OK: ${sent}, Failed: ${failed}`;
+    }
+
+    $('tblTendersSendBtn').style.display = 'inline-block';
+    $('tblTendersCancelBtn').style.display = 'none';
+    $('tblTendersProgress').textContent = `Mukammal — ${sent} tenders save/update ho gayi aur public hain, ${failed} fail huin.`;
+    log(`Tenders feed bulk upsert: ${sent} saved/updated + published, ${failed} failed.`);
+  });
+
+  $('tblTendersCancelBtn').addEventListener('click', () => { tblTendersCancelled = true; });
 })();
 </script>
 </body>
