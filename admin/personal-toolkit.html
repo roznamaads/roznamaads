@@ -457,7 +457,8 @@
       <div class="field"><label>Name Column *</label><select id="tblVerifNameCol" autocomplete="off"></select></div>
       <div class="field"><label>Reference No / Licence No Column</label><select id="tblVerifRefCol" autocomplete="off"></select></div>
       <div class="field"><label>City Column</label><select id="tblVerifCityCol" autocomplete="off"></select></div>
-      <div class="field"><label>Status Column</label><select id="tblVerifStatusCol" autocomplete="off"></select></div>
+      <div class="field"><label>Status Column <span style="color:var(--muted);font-weight:400">(agar data mein status column ho)</span></label><select id="tblVerifStatusCol" autocomplete="off"></select></div>
+      <div class="field"><label>Fixed Status <span style="color:var(--muted);font-weight:400">(sab rows ke liye same — jab data mein status column na ho, jaise "Illegal/Unauthorized")</span></label><input type="text" id="tblVerifFixedStatus" autocomplete="off" placeholder="jaise: Illegal/Unauthorized, Recognized"></div>
 
       <div class="field" style="margin-top:6px">
         <label style="display:flex;align-items:center;gap:6px;font-weight:400">
@@ -3469,6 +3470,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const refColRaw = $('tblVerifRefCol').value;
     const cityColRaw = $('tblVerifCityCol').value;
     const statusColRaw = $('tblVerifStatusCol').value;
+    const fixedStatus = $('tblVerifFixedStatus').value.trim();
     const authority = $('tblVerifAuthority').value.trim() || '(khali)';
     const type = $('tblVerifType').value;
     const trustedGov = $('tblVerifTrustedGov').checked;
@@ -3480,7 +3482,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       const name = nameColRaw !== '' ? r.cells[parseInt(nameColRaw,10)] : '(select karein)';
       const ref = refColRaw !== '' ? r.cells[parseInt(refColRaw,10)] : '—';
       const city = cityColRaw !== '' ? r.cells[parseInt(cityColRaw,10)] : '—';
-      const status = statusColRaw !== '' ? (r.cells[parseInt(statusColRaw,10)] || 'unknown') : 'unknown';
+      const status = statusColRaw !== '' ? (r.cells[parseInt(statusColRaw,10)] || 'unknown') : (fixedStatus || 'unknown');
       return `<div style="padding:3px 0;border-top:1px solid #e8d98a">Name: <b>${name}</b> · Authority: <b>${authority}</b> · Type: <b>${type}</b> · Ref: ${ref} · City: ${city} · Status: ${status}</div>`;
     }).join('');
     const publishNote = trustedGov
@@ -3492,7 +3494,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     box.innerHTML = `⚠️ Bhejne se pehle check karein (pehli ${sample.length} rows ka preview):${rowsHtml}${publishNote}${refWarning}`;
   }
 
-  ['tblVerifNameCol','tblVerifRefCol','tblVerifCityCol','tblVerifStatusCol','tblVerifAuthority','tblVerifType','tblVerifTrustedGov'].forEach(id => {
+  ['tblVerifNameCol','tblVerifRefCol','tblVerifCityCol','tblVerifStatusCol','tblVerifFixedStatus','tblVerifAuthority','tblVerifType','tblVerifTrustedGov'].forEach(id => {
     $(id).addEventListener('change', updateVerifPreview);
     $(id).addEventListener('input', updateVerifPreview);
   });
@@ -3508,6 +3510,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const refCol = $('tblVerifRefCol').value === '' ? null : parseInt($('tblVerifRefCol').value, 10);
     const cityCol = $('tblVerifCityCol').value === '' ? null : parseInt($('tblVerifCityCol').value, 10);
     const statusCol = $('tblVerifStatusCol').value === '' ? null : parseInt($('tblVerifStatusCol').value, 10);
+    const fixedStatus = $('tblVerifFixedStatus').value.trim();
     const type = $('tblVerifType').value;
     const baseUrl = $('tblUrl').value.trim();
     const trustedGov = $('tblVerifTrustedGov').checked;
@@ -3533,7 +3536,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       authority,
       reference_no: refCol !== null ? (row.cells[refCol] || null) : null,
       city: cityCol !== null ? (row.cells[cityCol] || null) : null,
-      status: statusCol !== null ? (row.cells[statusCol] || 'unknown') : 'unknown',
+      status: statusCol !== null ? (row.cells[statusCol] || 'unknown') : (fixedStatus || 'unknown'),
       official_source_url: row.sourceUrl || baseUrl,
       published: trustedGov
     }));

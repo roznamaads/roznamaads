@@ -215,12 +215,88 @@ export function extractListGrids(html) {
     grids.push(grid);
   }
 
-  // NOTE: an earlier "heading + Label:Value card" pattern (Pattern B) was
-  // tried and dropped — free-text label:value regexes produced wrong column
-  // splits when a value itself contained a capitalized word (e.g. "GT Road"
-  // misread as a new label). Rather than ship unreliable columns, card-style
-  // pages fall through to "no structured data detected" until a real
-  // structural signal (e.g. <strong> label tags) can be added reliably.
+  // ---- Pattern B: repeated heading + label:value card blocks. Primary
+  // signal is REAL <strong>/<b> tags (structural, reliable — many gov/
+  // directory sites bold their field labels). A secondary pass catches
+  // plain "Word: Value" pairs that aren't bolded, restricted to a SINGLE
+  // word label so it can't swallow a multi-word value (e.g. "GT Road") the
+  // way the earlier free-text-only version did. Generic — works on any
+  // site using this common bold-label card convention, not just one. ----
+  const headingTags = ['h2', 'h3', 'h4', 'h5', 'h6'];
+  const byTag = {};
+  headingTags.forEach(tag => {
+    findElementSpans(cleaned, tag).forEach(s => {
+      if (insideChrome(s.start)) return;
+      (byTag[tag] = byTag[tag] || []).push(s);
+    });
+  });
+
+  const cleanEdges = (s) => s.replace(/^[\s|,;•\-–:]+/, '').replace(/[\s|,;•\-–:]+$/, '').trim();
+
+  Object.values(byTag).forEach(group => {
+    if (group.length < 5) return;
+    group.sort((a, b) => a.start - b.start);
+    const cards = [];
+    const allKeys = [];
+    const seenKeys = new Set();
+
+    for (let i = 0; i < group.length; i++) {
+      const heading = group[i];
+      const nameHtml = cleaned.slice(heading.innerStart, heading.innerEnd);
+      const name = stripTagsToText(nameHtml);
+      if (!name) continue;
+      const link = firstLinkInCell(nameHtml);
+      const blockEnd = (i + 1 < group.length) ? group[i + 1].start : Math.min(cleaned.length, heading.end + 3000);
+      const blockHtml = cleaned.slice(heading.end, blockEnd);
+      const kv = {};
+
+      // Primary: real bold tags as labels.
+      const boldSpans = [...findElementSpans(blockHtml, 'strong'), ...findElementSpans(blockHtml, 'b')]
+        .sort((a, b) => a.start - b.start);
+      boldSpans.forEach((span, bi) => {
+        const label = cleanEdges(stripTagsToText(blockHtml.slice(span.innerStart, span.innerEnd)));
+        if (!label || label.length > 30) return;
+        const valueEnd = (bi + 1 < boldSpans.length) ? boldSpans[bi + 1].start : blockHtml.length;
+        let valueText = stripTagsToText(blockHtml.slice(span.end, valueEnd));
+        // Don't let a bold field's value run into a later PLAIN "Label:" pair.
+        const cut = valueText.search(/\s[A-Z][A-Za-z]{1,15}:\s/);
+        if (cut > 0) valueText = valueText.slice(0, cut);
+        valueText = cleanEdges(valueText);
+        if (valueText) { kv[label] = valueText; if (!seenKeys.has(label)) { seenKeys.add(label); allKeys.push(label); } }
+      });
+
+      // Secondary: plain single-word "Label: Value" pairs left over.
+      const maskedBlock = maskSpans(blockHtml, boldSpans);
+      const plainText = stripTagsToText(maskedBlock);
+      const plainRe = /\b([A-Z][A-Za-z]{1,15}):\s*([^\s][^:]*?)(?=\s+[A-Z][A-Za-z]{1,15}:|$)/g;
+      let m;
+      while ((m = plainRe.exec(plainText))) {
+        const key = m[1].trim();
+        const val = cleanEdges(m[2]);
+        if (key && val && !kv[key]) { kv[key] = val; if (!seenKeys.has(key)) { seenKeys.add(key); allKeys.push(key); } }
+      }
+
+      cards.push({ name, link, kv });
+    }
+    if (cards.length < 5 || allKeys.length === 0) return;
+
+    const keys = allKeys.slice(0, 8); // keep row width sane
+    const grid = [[
+      { text: 'Name', isHeader: true, linkHref: null },
+      ...keys.map(k => ({ text: k, isHeader: true, linkHref: null }))
+    ]];
+    cards.forEach(c => {
+      grid.push([
+        { text: c.name, isHeader: false, linkHref: c.link },
+        ...keys.map(k => ({ text: c.kv[k] || '', isHeader: false, linkHref: null }))
+      ]);
+    });
+    grids.push(grid);
+  });
+
+  // Earlier attempt at Pattern B used free-text regex only (no bold-tag
+  // signal) and mis-split values like "GT Road" as a false label — fixed
+  // above by anchoring primary extraction to real <strong>/<b> tags.
 
   return grids;
 }
