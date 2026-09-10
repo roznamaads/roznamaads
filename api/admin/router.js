@@ -600,7 +600,7 @@ export default async function handler(req, res) {
       case 'table-downloader': {
         const operationParam = req.query.operation;
         const operation = Array.isArray(operationParam) ? operationParam[0] : operationParam;
-        const READ_ONLY_OPERATIONS = ['history-list'];
+        const READ_ONLY_OPERATIONS = ['history-list', 'list-sources'];
         if (!READ_ONLY_OPERATIONS.includes(operation) && req.method !== 'POST') {
           return res.status(405).json({ error: 'Method not allowed' });
         }
@@ -752,6 +752,57 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: true, count: payload.length });
           } catch (execErr) {
             return res.status(500).json({ error: 'tenders-bulk-upsert error: ' + execErr.message });
+          }
+        }
+
+        /* ---- Batch C: Saved Sources (Scheduled Auto-Update registry) ---- */
+        if (operation === 'save-source') {
+          const { id, name, url, target, frequency, mapping, maxPagesPerRun } = req.body || {};
+          if (!name || !url || !target || !mapping) return res.status(400).json({ error: 'name, url, target, mapping required' });
+          if (!['verifications', 'tenders'].includes(target)) return res.status(400).json({ error: 'target must be verifications or tenders' });
+          if (!['daily', 'weekly', 'monthly'].includes(frequency)) return res.status(400).json({ error: 'frequency must be daily, weekly or monthly' });
+          try {
+            const payload = {
+              name, url, target, frequency, mapping,
+              max_pages_per_run: Number.isInteger(maxPagesPerRun) ? maxPagesPerRun : 20
+            };
+            const endpoint = id
+              ? `${SB()}/rest/v1/table_downloader_sources?id=eq.${encodeURIComponent(id)}`
+              : `${SB()}/rest/v1/table_downloader_sources`;
+            const r = await fetch(endpoint, {
+              method: id ? 'PATCH' : 'POST',
+              headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+              body: JSON.stringify(id ? payload : [payload])
+            });
+            const data = await r.json();
+            return res.status(r.status).json(data);
+          } catch (execErr) {
+            return res.status(500).json({ error: 'save-source error: ' + execErr.message });
+          }
+        }
+
+        if (operation === 'list-sources') {
+          try {
+            const r = await fetch(`${SB()}/rest/v1/table_downloader_sources?order=name.asc&select=*`, { headers: sbHeaders() });
+            const data = await r.json();
+            return res.status(r.status).json(data);
+          } catch (execErr) {
+            return res.status(500).json({ error: 'list-sources error: ' + execErr.message });
+          }
+        }
+
+        if (operation === 'delete-source') {
+          const { id } = req.body || {};
+          if (!id) return res.status(400).json({ error: 'id required' });
+          try {
+            const r = await fetch(`${SB()}/rest/v1/table_downloader_sources?id=eq.${encodeURIComponent(id)}`, {
+              method: 'DELETE',
+              headers: sbHeaders()
+            });
+            if (!r.ok) { const errText = await r.text(); return res.status(r.status).json({ error: errText }); }
+            return res.status(200).json({ ok: true });
+          } catch (execErr) {
+            return res.status(500).json({ error: 'delete-source error: ' + execErr.message });
           }
         }
 

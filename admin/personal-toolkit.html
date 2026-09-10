@@ -473,6 +473,20 @@
       <button class="btn" id="tblVerifSendBtn">Send to Verification Queue</button>
       <button class="btn alt" id="tblVerifCancelBtn" style="display:none">Cancel</button>
       <div id="tblVerifProgress" style="margin-top:8px;font-size:.82rem;display:none"></div>
+
+      <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
+        <div style="font-size:.82rem;color:var(--muted);margin-bottom:6px">📅 Isay Scheduled Source ki tarah save karein — cron isay frequency ke hisab se dobara chalayega aur purana data update karega</div>
+        <div class="field"><label>Source Name</label><input type="text" id="tblVerifSrcName" autocomplete="off" placeholder="jaise: CDA Illegal Housing Schemes"></div>
+        <div class="field"><label>Frequency</label>
+          <select id="tblVerifSrcFreq" autocomplete="off">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly" selected>Monthly</option>
+          </select>
+        </div>
+        <button class="btn alt" id="tblVerifSaveSrcBtn" type="button">💾 Scheduled Source Save Karein</button>
+        <div id="tblVerifSaveSrcStatus" style="font-size:.75rem;color:var(--muted);margin-top:6px"></div>
+      </div>
     </div>
 
     <div id="tblTendersBlock" style="display:none;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px">
@@ -494,6 +508,20 @@
       <button class="btn" id="tblTendersSendBtn">Send to Tenders Feed</button>
       <button class="btn alt" id="tblTendersCancelBtn" style="display:none">Cancel</button>
       <div id="tblTendersProgress" style="margin-top:8px;font-size:.82rem;display:none"></div>
+
+      <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
+        <div style="font-size:.82rem;color:var(--muted);margin-bottom:6px">📅 Isay Scheduled Source ki tarah save karein — cron isay frequency ke hisab se dobara chalayega aur purana data update karega (tenders ke liye Daily rakhein)</div>
+        <div class="field"><label>Source Name</label><input type="text" id="tblTendersSrcName" autocomplete="off" placeholder="jaise: PPRA Tenders Feed"></div>
+        <div class="field"><label>Frequency</label>
+          <select id="tblTendersSrcFreq" autocomplete="off">
+            <option value="daily" selected>Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        <button class="btn alt" id="tblTendersSaveSrcBtn" type="button">💾 Scheduled Source Save Karein</button>
+        <div id="tblTendersSaveSrcStatus" style="font-size:.75rem;color:var(--muted);margin-top:6px"></div>
+      </div>
     </div>
 
     <div class="toolkit-log" id="tblLog" style="display:none"></div>
@@ -501,6 +529,13 @@
     <div style="margin-top:18px">
       <button class="btn alt" id="tblHistoryRefreshBtn">Job History Refresh Karein</button>
       <div id="tblHistoryList" style="margin-top:10px;font-size:.82rem;line-height:1.8"></div>
+    </div>
+
+    <div style="margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px">
+      <div style="font-size:.95rem;font-weight:600;margin-bottom:4px">📅 Scheduled Sources</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:8px">Daily cron in sab ko unki frequency ke hisab se automatically refresh karta hai (~3 AM). Har source apne max-pages-per-run tak mehdood hai — bara site ho to PARTIAL bhi ho sakta hai (history mein saaf dikhega).</div>
+      <button class="btn alt" id="tblSourcesRefreshBtn">Saved Sources Load Karein</button>
+      <div id="tblSourcesList" style="margin-top:10px;font-size:.82rem;line-height:1.7"></div>
     </div>
   </section>
 
@@ -3576,6 +3611,51 @@ document.getElementById('loadStats').addEventListener('click', async () => {
 
   $('tblVerifCancelBtn').addEventListener('click', () => { tblVerifCancelled = true; });
 
+  $('tblVerifSaveSrcBtn').addEventListener('click', async () => {
+    const statusEl = $('tblVerifSaveSrcStatus');
+    const name = $('tblVerifSrcName').value.trim();
+    const url = $('tblUrl').value.trim();
+    const authority = $('tblVerifAuthority').value.trim();
+    const headers = tblJobState.headers || [];
+    const nameColRaw = $('tblVerifNameCol').value;
+    if(!name){ statusEl.textContent = '⚠️ Source Name likhna zaroori hai.'; return; }
+    if(!url){ statusEl.textContent = '⚠️ Website URL khali hai.'; return; }
+    if(!authority){ statusEl.textContent = '⚠️ Authority likhna zaroori hai.'; return; }
+    if(nameColRaw === ''){ statusEl.textContent = '⚠️ Name Column select karna zaroori hai.'; return; }
+
+    const idx = (v) => v === '' ? -1 : parseInt(v, 10);
+    const mapping = {
+      name_header: headers[idx($('tblVerifNameCol').value)] || null,
+      ref_header: idx($('tblVerifRefCol').value) !== -1 ? headers[idx($('tblVerifRefCol').value)] : null,
+      city_header: idx($('tblVerifCityCol').value) !== -1 ? headers[idx($('tblVerifCityCol').value)] : null,
+      status_header: idx($('tblVerifStatusCol').value) !== -1 ? headers[idx($('tblVerifStatusCol').value)] : null,
+      fixed_status: $('tblVerifFixedStatus').value.trim() || null,
+      notes_header: idx($('tblVerifNotesCol').value) !== -1 ? headers[idx($('tblVerifNotesCol').value)] : null,
+      authority,
+      type: $('tblVerifType').value,
+      trusted_gov: $('tblVerifTrustedGov').checked
+    };
+
+    statusEl.textContent = '⏳ Save ho raha hai...';
+    $('tblVerifSaveSrcBtn').disabled = true;
+    try {
+      await callAdminApi('table-downloader?operation=save-source', {
+        method: 'POST',
+        body: JSON.stringify({
+          name, url, target: 'verifications',
+          frequency: $('tblVerifSrcFreq').value,
+          mapping, maxPagesPerRun: 20
+        })
+      });
+      statusEl.textContent = '✅ Scheduled Source save ho gaya — daily cron isay ab track karega.';
+      log(`Scheduled source saved: ${name} (verifications, ${$('tblVerifSrcFreq').value})`);
+    } catch(e) {
+      statusEl.textContent = '❌ Save fail: ' + e.message;
+    } finally {
+      $('tblVerifSaveSrcBtn').disabled = false;
+    }
+  });
+
   // ---- Tenders Feed integration ----
   function populateTendersMapping(){
     const headers = tblJobState.headers;
@@ -3739,6 +3819,84 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   });
 
   $('tblTendersCancelBtn').addEventListener('click', () => { tblTendersCancelled = true; });
+
+  $('tblTendersSaveSrcBtn').addEventListener('click', async () => {
+    const statusEl = $('tblTendersSaveSrcStatus');
+    const name = $('tblTendersSrcName').value.trim();
+    const url = $('tblUrl').value.trim();
+    const authority = $('tblTendersAuthority').value.trim();
+    const headers = tblJobState.headers || [];
+    const titleColRaw = $('tblTendersTitleCol').value;
+    if(!name){ statusEl.textContent = '⚠️ Source Name likhna zaroori hai.'; return; }
+    if(!url){ statusEl.textContent = '⚠️ Website URL khali hai.'; return; }
+    if(titleColRaw === ''){ statusEl.textContent = '⚠️ Title Column select karna zaroori hai.'; return; }
+
+    const idx = (v) => v === '' ? -1 : parseInt(v, 10);
+    const mapping = {
+      title_header: headers[idx($('tblTendersTitleCol').value)] || null,
+      no_header: idx($('tblTendersNoCol').value) !== -1 ? headers[idx($('tblTendersNoCol').value)] : null,
+      org_header: idx($('tblTendersOrgCol').value) !== -1 ? headers[idx($('tblTendersOrgCol').value)] : null,
+      status_header: idx($('tblTendersStatusCol').value) !== -1 ? headers[idx($('tblTendersStatusCol').value)] : null,
+      adv_header: idx($('tblTendersAdvCol').value) !== -1 ? headers[idx($('tblTendersAdvCol').value)] : null,
+      close_header: idx($('tblTendersCloseCol').value) !== -1 ? headers[idx($('tblTendersCloseCol').value)] : null,
+      authority: authority || 'PPRA'
+    };
+
+    statusEl.textContent = '⏳ Save ho raha hai...';
+    $('tblTendersSaveSrcBtn').disabled = true;
+    try {
+      await callAdminApi('table-downloader?operation=save-source', {
+        method: 'POST',
+        body: JSON.stringify({
+          name, url, target: 'tenders',
+          frequency: $('tblTendersSrcFreq').value,
+          mapping, maxPagesPerRun: 20
+        })
+      });
+      statusEl.textContent = '✅ Scheduled Source save ho gaya — daily cron isay ab track karega.';
+      log(`Scheduled source saved: ${name} (tenders, ${$('tblTendersSrcFreq').value})`);
+    } catch(e) {
+      statusEl.textContent = '❌ Save fail: ' + e.message;
+    } finally {
+      $('tblTendersSaveSrcBtn').disabled = false;
+    }
+  });
+
+  // ---- Batch C: Saved Sources manager (view / delete) ----
+  const FREQ_LABEL = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
+  async function loadSourcesList(){
+    $('tblSourcesList').innerHTML = 'Loading...';
+    try {
+      const rows = await callAdminApi('table-downloader?operation=list-sources', { method: 'GET' });
+      if(!Array.isArray(rows) || rows.length === 0){ $('tblSourcesList').innerHTML = '<span style="color:var(--muted)">Abhi koi scheduled source save nahi hua.</span>'; return; }
+      $('tblSourcesList').innerHTML = rows.map(s => {
+        const lastRun = s.last_run_at
+          ? `${new Date(s.last_run_at).toLocaleString()} — <b>${s.last_run_status || '—'}</b> (${s.last_run_rows ?? 0} rows)${s.last_run_message ? `<br><span style="color:var(--muted)">${s.last_run_message}</span>` : ''}`
+          : 'Abhi tak run nahi hua — agli daily cron run pe hoga.';
+        return `
+          <div style="border-bottom:1px solid var(--line);padding:8px 0">
+            <b>${s.name}</b> · ${FREQ_LABEL[s.frequency] || s.frequency} · ${s.target}<br>
+            <span style="color:var(--muted);word-break:break-all">${s.url}</span><br>
+            <span style="font-size:.75rem">${lastRun}</span><br>
+            <button class="btn alt" data-del-src="${s.id}" style="margin-top:6px;font-size:.78rem;padding:4px 10px">🗑️ Delete</button>
+          </div>`;
+      }).join('');
+    } catch(e) {
+      $('tblSourcesList').innerHTML = `<span style="color:#c0392b">❌ ${e.message}</span>`;
+    }
+  }
+  $('tblSourcesRefreshBtn').addEventListener('click', loadSourcesList);
+  $('tblSourcesList').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-del-src]');
+    if(!btn) return;
+    if(!confirm('Ye scheduled source delete karein? Ye sirf schedule hata dega — jo data pehle publish ho chuka hai wo affect nahi hoga.')) return;
+    try {
+      await callAdminApi('table-downloader?operation=delete-source', { method: 'POST', body: JSON.stringify({ id: btn.dataset.delSrc }) });
+      loadSourcesList();
+    } catch(e) {
+      alert('Delete fail: ' + e.message);
+    }
+  });
 })();
 </script>
 </body>

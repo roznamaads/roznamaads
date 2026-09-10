@@ -656,3 +656,184 @@ export async function fetchSinglePage(inputUrl, tableIndex, paginationType) {
     junkRowsSkipped
   };
 }
+
+// ===========================================================================
+// Batch C — Scheduled Auto-Update support. Everything below runs entirely
+// server-side (used by the cron endpoint) since there's no browser present
+// to drive a page-by-page loop the way the interactive UI does.
+// ===========================================================================
+
+function buildPageUrlServer(pagination, pageNumber) {
+  if (pagination.type === 'query_parameter') {
+    const value = pagination.start + (pageNumber - 1) * pagination.increment;
+    return pagination.urlTemplate.replace('{page}', value);
+  }
+  if (pagination.type === 'path') {
+    const value = pagination.start + (pageNumber - 1) * pagination.increment;
+    return pagination.template.replace('{page}', value);
+  }
+  return null; // next_link handled via cursor
+}
+
+// Runs a full multi-page fetch for one source, in-process (no HTTP self-calls).
+// Mirrors the interactive runDownload() loop in personal-toolkit.html — same
+// stop conditions — but bounded by maxPages to fit a single serverless
+// invocation's runtime. Returns PARTIAL (not COMPLETED) if maxPages is hit
+// before real end-of-pagination, so callers can be honest about coverage.
+export async function runFullPaginatedJob(url, maxPages, delayMs) {
+  const detected = await detectTableAndPagination(url, false);
+  if (!detected.ok) {
+    return { ok: false, reason: detected.reason, message: detected.message };
+  }
+
+  const tableIndex = 0; // always the top-recommended candidate on a fresh run
+  const headers = detected.tables[tableIndex].headers;
+  const pagination = detected.pagination;
+
+  const rows = [];
+  let pagesFetched = 0, pagesFailed = 0, consecutiveEmpty = 0, lastHash = null;
+  let cursorUrl = pagination && pagination.type === 'next_link' ? url : null;
+  let stopReason = 'MAX_PAGES_REACHED';
+
+  for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+    if (!pagination && pageNum > 1) { stopReason = 'END_OF_PAGINATION'; break; }
+
+    let targetUrl;
+    if (!pagination) {
+      targetUrl = url;
+    } else if (pagination.type === 'next_link') {
+      targetUrl = cursorUrl;
+      if (!targetUrl) { stopReason = 'END_OF_PAGINATION'; break; }
+    } else {
+      targetUrl = buildPageUrlServer(pagination, pageNum);
+    }
+
+    let result;
+    try {
+      result = await fetchSinglePage(targetUrl, tableIndex, pagination ? pagination.type : null);
+    } catch (e) {
+      pagesFailed++;
+      if (pagesFailed >= 5) { stopReason = 'TOO_MANY_ERRORS'; break; }
+      await sleep(delayMs);
+      continue;
+    }
+
+    if (!result.ok) {
+      if (result.reason && result.reason.startsWith('blocked_')) { stopReason = result.reason.toUpperCase(); break; }
+      pagesFailed++;
+      if (pagesFailed >= 5) { stopReason = 'TOO_MANY_ERRORS'; break; }
+      await sleep(delayMs);
+      continue;
+    }
+
+    if (result.endOfPagination) { stopReason = 'END_OF_PAGINATION'; break; }
+
+    if (result.isEmpty) {
+      consecutiveEmpty++;
+      if (consecutiveEmpty >= 2) { stopReason = 'END_OF_PAGINATION'; break; }
+    } else {
+      consecutiveEmpty = 0;
+    }
+
+    if (result.contentHash && result.contentHash === lastHash) { stopReason = 'REPEATED_CONTENT'; break; }
+    lastHash = result.contentHash;
+
+    result.rows.forEach(r => rows.push({ cells: r, sourceUrl: targetUrl }));
+    if (pagination && pagination.type === 'next_link') cursorUrl = result.nextUrl;
+
+    pagesFetched++;
+    if (!pagination) { stopReason = 'SINGLE_PAGE_COMPLETE'; break; }
+    if (pagination.type === 'next_link' && !cursorUrl) { stopReason = 'END_OF_PAGINATION'; break; }
+
+    await sleep(delayMs);
+  }
+
+  const partial = stopReason === 'MAX_PAGES_REACHED' || stopReason === 'TOO_MANY_ERRORS';
+  return { ok: true, headers, rows, pagesFetched, pagesFailed, stopReason, partial };
+}
+
+// Same dedupe logic as the frontend's computeDedupe() — kept independent
+// (not imported) since one runs in the browser and one in a serverless fn.
+const SERVER_DEDUPE_KEY_PATTERNS = [
+  { label: 'ID', re: /^\s*id\s*$|^\s*id\s*(no\.?|number|#)\s*$/i },
+  { label: 'Licence No', re: /licen[cs]e\s*(no\.?|number|#)?\s*$/i },
+  { label: 'Registration No', re: /registration\s*(no\.?|number|#)?\s*$/i },
+  { label: 'Reference No', re: /reference\s*(no\.?|number|#)?\s*$/i },
+  { label: 'Application No', re: /application\s*(no\.?|number|#)?\s*$/i },
+  { label: 'URL column', re: /url\s*$/i }
+];
+function normalizeForCompareServer(v) {
+  return String(v ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+export function computeDedupeServer(rows, headers) {
+  let keyIndex = -1;
+  for (const pat of SERVER_DEDUPE_KEY_PATTERNS) {
+    const idx = headers.findIndex(h => pat.re.test(h));
+    if (idx !== -1) { keyIndex = idx; break; }
+  }
+  const seen = new Set();
+  const uniqueRows = [];
+  let dupCount = 0;
+  for (const row of rows) {
+    const key = keyIndex !== -1
+      ? normalizeForCompareServer(row.cells[keyIndex])
+      : normalizeForCompareServer(row.cells.join('|'));
+    if (key && seen.has(key)) { dupCount++; continue; }
+    if (key) seen.add(key);
+    uniqueRows.push(row);
+  }
+  return { uniqueRows, dupCount };
+}
+
+// Header-NAME based mapping (not index) — a saved source's mapping was
+// captured against header text, so it still works if the site later
+// reorders columns. Missing headers just map to null for that field.
+export function mapRowsToTarget(headers, rows, mapping, target) {
+  const findIdx = (headerName) => {
+    if (!headerName) return -1;
+    return headers.findIndex(h => (h || '').trim().toLowerCase() === headerName.trim().toLowerCase());
+  };
+  const cell = (row, idx) => (idx !== -1 && row.cells[idx] ? row.cells[idx] : null);
+
+  if (target === 'tenders') {
+    const titleIdx = findIdx(mapping.title_header);
+    const noIdx = findIdx(mapping.no_header);
+    const orgIdx = findIdx(mapping.org_header);
+    const statusIdx = findIdx(mapping.status_header);
+    const advIdx = findIdx(mapping.adv_header);
+    const closeIdx = findIdx(mapping.close_header);
+    return rows
+      .filter(r => cell(r, titleIdx))
+      .map(r => ({
+        title: cell(r, titleIdx),
+        tender_no: cell(r, noIdx),
+        organization: cell(r, orgIdx),
+        authority: mapping.authority || 'PPRA',
+        status: cell(r, statusIdx),
+        advertised_date: cell(r, advIdx),
+        closing_date: cell(r, closeIdx),
+        source_url: r.sourceUrl || null,
+        published: true
+      }));
+  }
+
+  // verifications (default)
+  const nameIdx = findIdx(mapping.name_header);
+  const refIdx = findIdx(mapping.ref_header);
+  const cityIdx = findIdx(mapping.city_header);
+  const statusIdx = findIdx(mapping.status_header);
+  const notesIdx = findIdx(mapping.notes_header);
+  return rows
+    .filter(r => cell(r, nameIdx))
+    .map(r => ({
+      type: mapping.type || 'society',
+      name: cell(r, nameIdx),
+      authority: mapping.authority,
+      reference_no: cell(r, refIdx),
+      city: cell(r, cityIdx),
+      status: cell(r, statusIdx) || mapping.fixed_status || 'unknown',
+      notes: cell(r, notesIdx),
+      official_source_url: r.sourceUrl || null,
+      published: mapping.trusted_gov === true
+    }));
+}
