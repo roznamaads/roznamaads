@@ -155,6 +155,77 @@ export function extractTableGrids(html) {
 }
 
 // ---------------------------------------------------------------------------
+// Public: extract "list-style" data as table-shaped grids, for sites that
+// present rows as <ul>/<ol><li> lists or repeated heading+"Label: Value" card
+// blocks instead of a real <table>. Generic — not tied to any one website.
+// Returns grids in the SAME shape as extractTableGrids() (array of rows of
+// {text, isHeader, linkHref}) so callers can score/consume them identically.
+// ---------------------------------------------------------------------------
+
+export function extractListGrids(html) {
+  const cleaned = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ');
+  const grids = [];
+
+  // ---- Pattern A: bullet/numbered lists (<ul>/<ol> -> <li>) ----
+  const chromeSpans = [
+    ...findElementSpans(cleaned, 'nav'),
+    ...findElementSpans(cleaned, 'header'),
+    ...findElementSpans(cleaned, 'footer')
+  ];
+  const insideChrome = (pos) => chromeSpans.some(s => pos >= s.start && pos < s.end);
+
+  const listSpans = [...findElementSpans(cleaned, 'ul'), ...findElementSpans(cleaned, 'ol')];
+  for (const listSpan of listSpans) {
+    if (insideChrome(listSpan.start)) continue;
+    const inner = cleaned.slice(listSpan.innerStart, listSpan.innerEnd);
+    // Mask nested lists so their <li> aren't double-counted as this list's rows.
+    const nestedLists = [...findElementSpans(inner, 'ul'), ...findElementSpans(inner, 'ol')];
+    const maskedInner = maskSpans(inner, nestedLists);
+    const liSpans = findElementSpans(maskedInner, 'li');
+    if (liSpans.length < 5) continue;
+
+    const items = liSpans
+      .map(li => {
+        const liHtml = inner.slice(li.innerStart, li.innerEnd);
+        return { text: stripTagsToText(liHtml), link: firstLinkInCell(liHtml) };
+      })
+      .filter(it => it.text);
+    if (items.length < 5) continue;
+
+    // Skip lists that look like short nav/menu labels rather than data rows.
+    const meaningful = items.filter(it => it.text.length >= 3).length;
+    if (meaningful / items.length < 0.7) continue;
+
+    const grid = [[
+      { text: 'List Item', isHeader: true, linkHref: null },
+      { text: 'Detail / Link', isHeader: true, linkHref: null }
+    ]];
+    items.forEach(it => {
+      let col1 = it.text, col2 = it.link || '';
+      const commaIdx = it.text.indexOf(',');
+      if (commaIdx > 0 && commaIdx < it.text.length - 1) {
+        col1 = it.text.slice(0, commaIdx).trim();
+        col2 = it.text.slice(commaIdx + 1).trim() || (it.link || '');
+      }
+      grid.push([
+        { text: col1, isHeader: false, linkHref: it.link },
+        { text: col2, isHeader: false, linkHref: null }
+      ]);
+    });
+    grids.push(grid);
+  }
+
+  // NOTE: an earlier "heading + Label:Value card" pattern (Pattern B) was
+  // tried and dropped — free-text label:value regexes produced wrong column
+  // splits when a value itself contained a capitalized word (e.g. "GT Road"
+  // misread as a new label). Rather than ship unreliable columns, card-style
+  // pages fall through to "no structured data detected" until a real
+  // structural signal (e.g. <strong> label tags) can be added reliably.
+
+  return grids;
+}
+
+// ---------------------------------------------------------------------------
 // Public: extract every <a href="..."> on the page with its text + rel attr.
 // ---------------------------------------------------------------------------
 

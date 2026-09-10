@@ -381,6 +381,13 @@
     <p class="desc">Kisi bhi public website ka paginated HTML table detect kar ke sab pages fetch, combine aur CSV/JSON mein export karein.</p>
     <div class="field"><label>Admin API Secret</label><input type="password" id="tblSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
 
+    <div style="margin:12px 0;padding:10px;border:1px dashed var(--line);border-radius:8px">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:6px">📁 Ya CSV file upload karein (agar website fetch na ho paye) — sirf .csv support hai; Excel ho to pehle "Save As CSV" karke upload karein</div>
+      <input type="file" id="tblFileInput" accept=".csv,text/csv">
+      <button class="btn alt" id="tblFileUploadBtn" type="button">Upload &amp; Process CSV</button>
+      <div id="tblFileStatus" style="font-size:.78rem;color:var(--muted);margin-top:6px"></div>
+    </div>
+
     <div class="field"><label>Website URL</label><input type="text" id="tblUrl" placeholder="https://example.gov.pk/list"></div>
     <div style="margin:8px 0">
       <label style="font-size:.85rem"><input type="checkbox" id="tblIgnoreRobots"> Ignore robots.txt (sirf public, non-sensitive government data ke liye — apni responsibility par)</label>
@@ -2804,6 +2811,85 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   };
 
   let tblLastDetection = null;
+
+  // ---- File Upload Mode (Batch B): CSV only — reuses the same dedupe +
+  // mapping + publish pipeline as a URL-fetched job. Excel not supported
+  // (would need a binary .xlsx parser — out of zero-npm scope for now). ----
+  function parseCSV(text){
+    if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // strip UTF-8 BOM
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for(let i = 0; i < text.length; i++){
+      const c = text[i];
+      if(inQuotes){
+        if(c === '"'){
+          if(text[i+1] === '"'){ field += '"'; i++; } else { inQuotes = false; }
+        } else field += c;
+      } else {
+        if(c === '"') inQuotes = true;
+        else if(c === ',') { row.push(field); field = ''; }
+        else if(c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else if(c === '\r') { /* skip — \n handles the line break */ }
+        else field += c;
+      }
+    }
+    if(field.length || row.length){ row.push(field); rows.push(row); }
+    return rows.filter(r => r.some(cell => (cell || '').trim() !== ''));
+  }
+
+  function dedupeCsvHeaders(names){
+    const seen = new Map();
+    return names.map(raw => {
+      const name = raw && raw.trim() ? raw.trim() : 'Column';
+      const count = (seen.get(name) || 0) + 1;
+      seen.set(name, count);
+      return count === 1 ? name : `${name}_${count}`;
+    });
+  }
+
+  $('tblFileUploadBtn').addEventListener('click', async () => {
+    const fileInput = $('tblFileInput');
+    const file = fileInput.files[0];
+    const statusEl = $('tblFileStatus');
+    if(!file){ alert('Pehle CSV file choose karein.'); return; }
+    if(!/\.csv$/i.test(file.name) && !confirm('Ye .csv extension nahi hai — sirf CSV support hai (Excel nahi). Phir bhi try karein?')) return;
+
+    statusEl.textContent = '⏳ File padhi ja rahi hai...';
+    $('tblFileUploadBtn').disabled = true;
+    try {
+      const text = await file.text();
+      const table = parseCSV(text);
+      if(table.length < 2) throw new Error('CSV mein header row + kam az kam 1 data row honi chahiye.');
+
+      const headers = dedupeCsvHeaders(table[0]);
+      const dataRows = table.slice(1).map(r => headers.map((_, i) => (r[i] !== undefined ? r[i] : '')));
+
+      tblJobState.headers = headers;
+      tblJobState.rows = dataRows.map(cells => ({ cells, sourceUrl: `file:${file.name}`, retrievedAt: new Date().toISOString() }));
+
+      const dedupe = computeDedupe(tblJobState.rows, tblJobState.headers);
+      tblJobState.dedupedRows = dedupe.uniqueRows;
+      tblJobState.dupCount = dedupe.dupCount;
+      tblJobState.dedupeKeyUsed = dedupe.keyUsed;
+
+      $('tblCompleteBlock').style.display = 'block';
+      $('tblCompleteBody').innerHTML = `
+        Status: <b>COMPLETED</b> (FILE_UPLOAD)<br>
+        Source file: <b>${file.name}</b><br>
+        Rows read: <b>${tblJobState.rows.length}</b><br>
+        Duplicates removed: <b>${dedupe.dupCount}</b> <span style="color:var(--muted)">(key: ${dedupe.keyUsed})</span><br>
+        Final unique rows: <b>${dedupe.uniqueRows.length}</b><br>
+      `;
+      log(`File upload: ${file.name} — ${tblJobState.rows.length} rows read, ${dedupe.dupCount} duplicates removed, ${dedupe.uniqueRows.length} unique.`);
+
+      if(dedupe.uniqueRows.length > 0){ populateVerifMapping(); populateTendersMapping(); }
+      statusEl.textContent = '✅ File process ho gayi — neeche mapping check karein.';
+    } catch(e) {
+      statusEl.textContent = '❌ ' + e.message;
+    } finally {
+      $('tblFileUploadBtn').disabled = false;
+    }
+  });
 
   function renderPagination(p){
     if(!p) return '<span style="color:var(--muted)">Confidently detect nahi hui — manual config istemal karein.</span>';

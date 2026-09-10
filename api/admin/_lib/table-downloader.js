@@ -6,7 +6,7 @@ import dns from 'node:dns/promises';
 import net from 'node:net';
 import crypto from 'node:crypto';
 import { Agent } from 'undici';
-import { extractTableGrids, extractLinks } from './html-lite-parser.js';
+import { extractTableGrids, extractListGrids, extractLinks } from './html-lite-parser.js';
 
 const USER_AGENT = 'RoznamaAds-TableDownloader/1.0 (+https://roznamaads.com)';
 const FETCH_TIMEOUT_MS = 8000; // government/SharePoint sites can be slow; still leaves buffer inside Vercel's ~10s limit
@@ -291,9 +291,18 @@ function dedupeHeaderNames(names) {
   });
 }
 
+// Combines real <table> grids with generic list/card-detected grids into one
+// ordered candidate array. Both detect() and fetch-page() must use this SAME
+// function so a given tableIndex always refers to the same source on a page.
+function extractAllGrids(html) {
+  const tableGrids = extractTableGrids(html).map(grid => ({ grid, sourceType: 'table' }));
+  const listGrids = extractListGrids(html).map(grid => ({ grid, sourceType: 'list' }));
+  return [...tableGrids, ...listGrids];
+}
+
 function extractTables(html) {
-  const grids = extractTableGrids(html);
-  const results = grids.map((grid, idx) => {
+  const candidates = extractAllGrids(html);
+  const results = candidates.map(({ grid, sourceType }, idx) => {
     const { score, cols, nonEmptyPct, headerRow, consistency } = scoreTable(grid);
 
     let headers;
@@ -313,6 +322,7 @@ function extractTables(html) {
 
     return {
       index: idx,
+      sourceType,
       rows: dataRows.length,
       cols,
       score,
@@ -481,7 +491,7 @@ export async function detectTableAndPagination(inputUrl, overrideRobots) {
 
   const tables = extractTables(fetched.html);
   if (tables.length === 0) {
-    return { ok: false, reason: 'no_table', message: 'No HTML table detected. Website JS-rendered ho sakti hai — public API/XHR endpoint chahiye ho sakta hai.' };
+    return { ok: false, reason: 'no_table', message: 'No HTML table ya list detect nahi hui. Website JS-rendered ho sakti hai — public API/XHR endpoint chahiye ho sakta hai.' };
   }
 
   const pagination = detectPagination(fetched.html, fetched.finalUrl);
@@ -490,7 +500,7 @@ export async function detectTableAndPagination(inputUrl, overrideRobots) {
     ok: true,
     website: targetUrl.hostname,
     finalUrl: fetched.finalUrl,
-    sourceType: 'html_table',
+    sourceType: tables[0].sourceType === 'list' ? 'html_list' : 'html_table',
     tables: tables.map((t, i) => ({ ...t, recommended: i === 0 })),
     recommendedIndex: 0,
     pagination: pagination || null,
@@ -562,7 +572,7 @@ function isJunkRow(rowCells, headers) {
 }
 
 function extractSpecificTableRows(html, tableIndex) {
-  const grids = extractTableGrids(html);
+  const grids = extractAllGrids(html).map(c => c.grid);
   const grid = grids[tableIndex] || grids[0] || [];
   const headerRowRaw = grid.length > 0 ? grid[0] : null;
   const dataRows = grid.slice(1);
