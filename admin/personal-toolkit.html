@@ -437,6 +437,9 @@
     <div id="tblVerifBlock" style="display:none;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px">
       <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📋 Send to Verification Queue (optional — sirf review ke liye jaata hai, public turant nahi hoti)</div>
 
+      <button class="btn alt" id="tblVerifAiMapBtn" type="button">🤖 Gemini Se Columns Map Karo</button>
+      <div id="tblVerifAiMapStatus" style="font-size:.75rem;color:var(--muted);margin:4px 0 8px"></div>
+
       <div class="field"><label>Type</label>
         <select id="tblVerifType" autocomplete="off">
           <option value="society">Society</option>
@@ -465,6 +468,9 @@
 
     <div id="tblTendersBlock" style="display:none;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px">
       <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📢 Send to Tenders Feed (public turant dikhta hai — tenders neutral factual notices hain, review ki zaroorat nahi)</div>
+
+      <button class="btn alt" id="tblTendersAiMapBtn" type="button">🤖 Gemini Se Columns Map Karo</button>
+      <div id="tblTendersAiMapStatus" style="font-size:.75rem;color:var(--muted);margin:4px 0 8px"></div>
 
       <div class="field"><label>Authority</label><input type="text" id="tblTendersAuthority" autocomplete="off" placeholder="jaise: PPRA, PPRA-Punjab" value="PPRA"></div>
       <div class="field"><label>Title Column *</label><select id="tblTendersTitleCol" autocomplete="off"></select></div>
@@ -3329,6 +3335,49 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     }, 400);
   }
 
+  function tblBuildHeaderSampleText(maxRows){
+    const headers = tblJobState.headers || [];
+    const headerLines = headers.map((h,i) => `${i}: ${h}`).join('\n');
+    const sampleRows = (tblJobState.dedupedRows || []).slice(0, maxRows || 5)
+      .map(r => r.cells.map((c,i) => `${headers[i] || i}=${(c||'').toString().slice(0,60)}`).join(' | '))
+      .join('\n');
+    return { headerLines, sampleRows };
+  }
+
+  function tblParseGeminiJson(raw){
+    const cleaned = raw.replace(/```json/gi,'').replace(/```/g,'').trim();
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if(start === -1 || end === -1) throw new Error('Gemini ne valid JSON nahi diya.');
+    return JSON.parse(cleaned.slice(start, end+1));
+  }
+
+  async function aiMapVerifColumns(){
+    const statusEl = $('tblVerifAiMapStatus');
+    if(!tblJobState.headers || !tblJobState.headers.length){ statusEl.textContent = '⚠️ Pehle table detect/fetch karein.'; return; }
+    statusEl.textContent = '⏳ Gemini se columns map ho rahe hain...';
+    $('tblVerifAiMapBtn').disabled = true;
+    try {
+      const { headerLines, sampleRows } = tblBuildHeaderSampleText(5);
+      const prompt = `Ye kisi Pakistani government/institutional website ki table hai (licence, society, visa agency, ya recognized institute jaisi verification-type entity).\n\nColumns (index: header):\n${headerLines}\n\nSample rows:\n${sampleRows}\n\nBata do in fields ke liye sabse behtar match karne wala column INDEX (0-based number). Agar koi column theek se match na ho to null do.\nFields: name (entity/proprietor/institute ka naam — required), reference_no (licence/registration/reference number), city (city/office/location), status (status/recognition state).\n\nSirf is format mein JSON return karo, koi explanation ya extra text nahi:\n{"name": <int|null>, "reference_no": <int|null>, "city": <int|null>, "status": <int|null>}`;
+      const raw = await rzCallGemini(prompt);
+      const map = tblParseGeminiJson(raw);
+      const headers = tblJobState.headers;
+      const valid = (idx) => Number.isInteger(idx) && idx >= 0 && idx < headers.length;
+      if(valid(map.name)) $('tblVerifNameCol').value = map.name;
+      $('tblVerifRefCol').value = valid(map.reference_no) ? map.reference_no : '';
+      $('tblVerifCityCol').value = valid(map.city) ? map.city : '';
+      $('tblVerifStatusCol').value = valid(map.status) ? map.status : '';
+      updateVerifPreview();
+      statusEl.textContent = '✅ Gemini mapping laga di gayi — neeche check kar ke confirm karein.';
+    } catch(e) {
+      statusEl.textContent = '❌ Gemini mapping fail: ' + e.message;
+    } finally {
+      $('tblVerifAiMapBtn').disabled = false;
+    }
+  }
+  $('tblVerifAiMapBtn').addEventListener('click', aiMapVerifColumns);
+
   function updateVerifPreview(){
     const nameColRaw = $('tblVerifNameCol').value;
     const refColRaw = $('tblVerifRefCol').value;
@@ -3473,6 +3522,34 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       updateTendersPreview();
     }, 400);
   }
+
+  async function aiMapTendersColumns(){
+    const statusEl = $('tblTendersAiMapStatus');
+    if(!tblJobState.headers || !tblJobState.headers.length){ statusEl.textContent = '⚠️ Pehle table detect/fetch karein.'; return; }
+    statusEl.textContent = '⏳ Gemini se columns map ho rahe hain...';
+    $('tblTendersAiMapBtn').disabled = true;
+    try {
+      const { headerLines, sampleRows } = tblBuildHeaderSampleText(5);
+      const prompt = `Ye kisi Pakistani government procurement/tender listing website ki table hai.\n\nColumns (index: header):\n${headerLines}\n\nSample rows:\n${sampleRows}\n\nBata do in fields ke liye sabse behtar match karne wala column INDEX (0-based number). Agar koi column theek se match na ho to null do.\nFields: title (tender title/description — required), tender_no (tender number/reference), organization (department/agency), status, advertised_date, closing_date.\n\nSirf is format mein JSON return karo, koi explanation ya extra text nahi:\n{"title": <int|null>, "tender_no": <int|null>, "organization": <int|null>, "status": <int|null>, "advertised_date": <int|null>, "closing_date": <int|null>}`;
+      const raw = await rzCallGemini(prompt);
+      const map = tblParseGeminiJson(raw);
+      const headers = tblJobState.headers;
+      const valid = (idx) => Number.isInteger(idx) && idx >= 0 && idx < headers.length;
+      if(valid(map.title)) $('tblTendersTitleCol').value = map.title;
+      $('tblTendersNoCol').value = valid(map.tender_no) ? map.tender_no : '';
+      $('tblTendersOrgCol').value = valid(map.organization) ? map.organization : '';
+      $('tblTendersStatusCol').value = valid(map.status) ? map.status : '';
+      $('tblTendersAdvCol').value = valid(map.advertised_date) ? map.advertised_date : '';
+      $('tblTendersCloseCol').value = valid(map.closing_date) ? map.closing_date : '';
+      updateTendersPreview();
+      statusEl.textContent = '✅ Gemini mapping laga di gayi — neeche check kar ke confirm karein.';
+    } catch(e) {
+      statusEl.textContent = '❌ Gemini mapping fail: ' + e.message;
+    } finally {
+      $('tblTendersAiMapBtn').disabled = false;
+    }
+  }
+  $('tblTendersAiMapBtn').addEventListener('click', aiMapTendersColumns);
 
   function updateTendersPreview(){
     const titleColRaw = $('tblTendersTitleCol').value;
