@@ -459,6 +459,7 @@
       <div class="field"><label>City Column</label><select id="tblVerifCityCol" autocomplete="off"></select></div>
       <div class="field"><label>Status Column <span style="color:var(--muted);font-weight:400">(agar data mein status column ho)</span></label><select id="tblVerifStatusCol" autocomplete="off"></select></div>
       <div class="field"><label>Fixed Status <span style="color:var(--muted);font-weight:400">(sab rows ke liye same — jab data mein status column na ho, jaise "Illegal/Unauthorized")</span></label><input type="text" id="tblVerifFixedStatus" autocomplete="off" placeholder="jaise: Illegal/Unauthorized, Recognized"></div>
+      <div class="field"><label>Notes Column <span style="color:var(--muted);font-weight:400">(optional — extra info jo Status mein nahi aayi, jaise LOP)</span></label><select id="tblVerifNotesCol" autocomplete="off"></select></div>
 
       <div class="field" style="margin-top:6px">
         <label style="display:flex;align-items:center;gap:6px;font-weight:400">
@@ -3393,6 +3394,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     $('tblVerifRefCol').innerHTML = optsWithNone;
     $('tblVerifCityCol').innerHTML = optsWithNone;
     $('tblVerifStatusCol').innerHTML = optsWithNone;
+    $('tblVerifNotesCol').innerHTML = optsWithNone;
 
     // Sensible auto-guesses so Boss doesn't have to map manually every time
     const guess = (patterns) => headers.findIndex(h => patterns.test(h));
@@ -3403,6 +3405,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     $('tblVerifRefCol').value = '';
     $('tblVerifCityCol').value = '';
     $('tblVerifStatusCol').value = '';
+    $('tblVerifNotesCol').value = '';
     if(nameIdx !== -1) $('tblVerifNameCol').value = nameIdx;
     if(refIdx !== -1) $('tblVerifRefCol').value = refIdx;
     if(cityIdx !== -1) $('tblVerifCityCol').value = cityIdx;
@@ -3471,6 +3474,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const cityColRaw = $('tblVerifCityCol').value;
     const statusColRaw = $('tblVerifStatusCol').value;
     const fixedStatus = $('tblVerifFixedStatus').value.trim();
+    const notesColRaw = $('tblVerifNotesCol').value;
     const authority = $('tblVerifAuthority').value.trim() || '(khali)';
     const type = $('tblVerifType').value;
     const trustedGov = $('tblVerifTrustedGov').checked;
@@ -3483,7 +3487,8 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       const ref = refColRaw !== '' ? r.cells[parseInt(refColRaw,10)] : '—';
       const city = cityColRaw !== '' ? r.cells[parseInt(cityColRaw,10)] : '—';
       const status = statusColRaw !== '' ? (r.cells[parseInt(statusColRaw,10)] || 'unknown') : (fixedStatus || 'unknown');
-      return `<div style="padding:3px 0;border-top:1px solid #e8d98a">Name: <b>${name}</b> · Authority: <b>${authority}</b> · Type: <b>${type}</b> · Ref: ${ref} · City: ${city} · Status: ${status}</div>`;
+      const notes = notesColRaw !== '' ? (r.cells[parseInt(notesColRaw,10)] || '—') : null;
+      return `<div style="padding:3px 0;border-top:1px solid #e8d98a">Name: <b>${name}</b> · Authority: <b>${authority}</b> · Type: <b>${type}</b> · Ref: ${ref} · City: ${city} · Status: ${status}${notes !== null ? ` · Notes: ${notes}` : ''}</div>`;
     }).join('');
     const publishNote = trustedGov
       ? '<div style="color:#2a7a2a;font-weight:bold;margin-top:4px">✅ Ye records TURANT PUBLISH ho jayenge (published: true)</div>'
@@ -3494,7 +3499,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     box.innerHTML = `⚠️ Bhejne se pehle check karein (pehli ${sample.length} rows ka preview):${rowsHtml}${publishNote}${refWarning}`;
   }
 
-  ['tblVerifNameCol','tblVerifRefCol','tblVerifCityCol','tblVerifStatusCol','tblVerifFixedStatus','tblVerifAuthority','tblVerifType','tblVerifTrustedGov'].forEach(id => {
+  ['tblVerifNameCol','tblVerifRefCol','tblVerifCityCol','tblVerifStatusCol','tblVerifFixedStatus','tblVerifNotesCol','tblVerifAuthority','tblVerifType','tblVerifTrustedGov'].forEach(id => {
     $(id).addEventListener('change', updateVerifPreview);
     $(id).addEventListener('input', updateVerifPreview);
   });
@@ -3511,6 +3516,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const cityCol = $('tblVerifCityCol').value === '' ? null : parseInt($('tblVerifCityCol').value, 10);
     const statusCol = $('tblVerifStatusCol').value === '' ? null : parseInt($('tblVerifStatusCol').value, 10);
     const fixedStatus = $('tblVerifFixedStatus').value.trim();
+    const notesCol = $('tblVerifNotesCol').value === '' ? null : parseInt($('tblVerifNotesCol').value, 10);
     const type = $('tblVerifType').value;
     const baseUrl = $('tblUrl').value.trim();
     const trustedGov = $('tblVerifTrustedGov').checked;
@@ -3537,6 +3543,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       reference_no: refCol !== null ? (row.cells[refCol] || null) : null,
       city: cityCol !== null ? (row.cells[cityCol] || null) : null,
       status: statusCol !== null ? (row.cells[statusCol] || 'unknown') : (fixedStatus || 'unknown'),
+      notes: notesCol !== null ? (row.cells[notesCol] || null) : null,
       official_source_url: row.sourceUrl || baseUrl,
       published: trustedGov
     }));
