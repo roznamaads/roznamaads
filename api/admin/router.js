@@ -3,6 +3,7 @@
 // Routes: /api/admin/<action> — vercel.json ke rewrite se yahan aata hai, e.g. /api/admin/list?status=pending
 
 import { logVerificationStatusChanges } from './_lib/verification-diff.js';
+import { beoeData } from './_lib/beoe-data.js';
 import { hecData } from './_lib/hec-data.js';
 import { hecUniversitiesData } from './_lib/hec-universities-data.js';
 import { hecIllegalData } from './_lib/hec-illegal-data.js';

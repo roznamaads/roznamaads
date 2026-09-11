@@ -22,9 +22,6 @@
     }
   ],
   "functions": {
-    "api/admin/router.js": {
-      "includeFiles": "api/admin/beoe-data.json"
-    },
     "api/cron/tenders-refresh.js": {
       "maxDuration": 60
     },
