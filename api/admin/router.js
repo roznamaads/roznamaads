@@ -2,11 +2,11 @@
 // (Vercel Hobby plan sirf 12 functions allow karta hai, isliye sab merge kiya gaya hai)
 // Routes: /api/admin/<action> — vercel.json ke rewrite se yahan aata hai, e.g. /api/admin/list?status=pending
 
-import { beoeData } from './beoe-data.js';
-import { hecData } from './hec-data.js';
-import { hecUniversitiesData } from './hec-universities-data.js';
-import { hecIllegalData } from './hec-illegal-data.js';
-import { ppraBlacklistData } from './ppra-blacklist-data.js';
+import { beoeData } from './_lib/beoe-data.js';
+import { hecData } from './_lib/hec-data.js';
+import { hecUniversitiesData } from './_lib/hec-universities-data.js';
+import { hecIllegalData } from './_lib/hec-illegal-data.js';
+import { ppraBlacklistData } from './_lib/ppra-blacklist-data.js';
 import { detectTableAndPagination, fetchSinglePage } from './_lib/table-downloader.js';
 
 const VALID_CATEGORIES = [

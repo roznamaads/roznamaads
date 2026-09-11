@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/expire-ads", "schedule": "0 0 * * *" },
+    { "path": "/api/cron/tenders-refresh", "schedule": "0 1 * * *" },
     { "path": "/api/cron/table-downloader-refresh", "schedule": "0 3 * * *" }
   ],
   "rewrites": [
@@ -23,6 +24,9 @@
   "functions": {
     "api/admin/router.js": {
       "includeFiles": "api/admin/beoe-data.json"
+    },
+    "api/cron/tenders-refresh.js": {
+      "maxDuration": 60
     },
     "api/cron/table-downloader-refresh.js": {
       "maxDuration": 60
