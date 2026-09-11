@@ -14,6 +14,7 @@
 //   of risking a hard timeout mid-fetch.
 
 import { runFullPaginatedJob, computeDedupeServer, mapRowsToTarget } from '../admin/_lib/table-downloader.js';
+import { logVerificationStatusChanges } from '../admin/_lib/verification-diff.js';
 
 const TIME_BUDGET_MS = 50000; // leave headroom under Vercel's ~60s cap
 const DELAY_MS = 700; // same polite default as the interactive tool
@@ -52,7 +53,7 @@ async function markRun(id, status, rows, message) {
 }
 
 async function upsertVerifications(rows) {
-  if (rows.length === 0) return;
+  if (rows.length === 0) return 0;
   const nowIso = new Date().toISOString();
   const payload = rows.map(r => ({
     type: r.type,
@@ -69,12 +70,14 @@ async function upsertVerifications(rows) {
     published: r.published === true,
     updated_at: nowIso
   }));
+  const changed = await logVerificationStatusChanges(SB, sbHeaders, payload);
   const r = await fetch(`${SB()}/rest/v1/verifications?on_conflict=authority,reference_no`, {
     method: 'POST',
     headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
     body: JSON.stringify(payload)
   });
   if (!r.ok) throw new Error(await r.text());
+  return changed;
 }
 
 async function upsertTenders(rows) {
@@ -132,15 +135,16 @@ export default async function handler(req, res) {
         const { uniqueRows } = computeDedupeServer(job.rows, job.headers);
         const mappedRows = mapRowsToTarget(job.headers, uniqueRows, source.mapping, source.target);
 
+        const changed = source.target === 'tenders' ? 0 : await upsertVerifications(mappedRows);
         if (source.target === 'tenders') await upsertTenders(mappedRows);
-        else await upsertVerifications(mappedRows);
 
         const status = job.partial ? 'PARTIAL' : 'COMPLETED';
+        const changedNote = changed > 0 ? ` ${changed} status change(s) logged to History.` : '';
         const message = job.partial
-          ? `Max pages (${source.max_pages_per_run}) reached before end-of-pagination — increase max pages or run manually for a full refresh.`
-          : `${job.pagesFetched} pages, ${mappedRows.length} rows updated.`;
+          ? `Max pages (${source.max_pages_per_run}) reached before end-of-pagination — increase max pages or run manually for a full refresh.${changedNote}`
+          : `${job.pagesFetched} pages, ${mappedRows.length} rows updated.${changedNote}`;
         await markRun(source.id, status, mappedRows.length, message);
-        results.push({ id: source.id, name: source.name, status, rows: mappedRows.length });
+        results.push({ id: source.id, name: source.name, status, rows: mappedRows.length, changed });
       } catch (e) {
         await markRun(source.id, 'FAILED', 0, e.message);
         results.push({ id: source.id, name: source.name, status: 'FAILED', message: e.message });

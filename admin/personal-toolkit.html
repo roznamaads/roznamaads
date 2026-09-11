@@ -3584,7 +3584,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     }));
 
     const CHUNK_SIZE = 200;
-    let sent = 0, failed = 0;
+    let sent = 0, failed = 0, changedTotal = 0;
     for(let i = 0; i < payloadRows.length; i += CHUNK_SIZE){
       if(tblVerifCancelled){ log('Verification queue send cancelled.'); break; }
       const chunk = payloadRows.slice(i, i + CHUNK_SIZE);
@@ -3594,6 +3594,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
           body: JSON.stringify({ rows: chunk })
         });
         sent += result.count || chunk.length;
+        changedTotal += result.changed || 0;
       } catch(e) {
         failed += chunk.length;
         log(`Bulk upsert failed for rows ${i+1}-${i+chunk.length}: ${e.message}`);
@@ -3601,12 +3602,13 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       $('tblVerifProgress').textContent = `Processing ${Math.min(i+CHUNK_SIZE, payloadRows.length)} / ${payloadRows.length} — OK: ${sent}, Failed: ${failed}`;
     }
 
+    const changedNote = changedTotal > 0 ? ` 🔄 ${changedTotal} record(s) ka status change hua hai (History tab mein dekhein).` : '';
     $('tblVerifSendBtn').style.display = 'inline-block';
     $('tblVerifCancelBtn').style.display = 'none';
-    $('tblVerifProgress').textContent = trustedGov
+    $('tblVerifProgress').textContent = (trustedGov
       ? `Mukammal — ${sent} records save/update ho gaye aur PUBLISH ho gaye, ${failed} fail huin.`
-      : `Mukammal — ${sent} records save/update ho gaye, ${failed} fail huin. Review "Verification Records" tab mein karein (abhi published nahi hain).`;
-    log(`Verification queue bulk upsert: ${sent} saved/updated${trustedGov ? ' + published' : ''}, ${failed} failed.`);
+      : `Mukammal — ${sent} records save/update ho gaye, ${failed} fail huin. Review "Verification Records" tab mein karein (abhi published nahi hain).`) + changedNote;
+    log(`Verification queue bulk upsert: ${sent} saved/updated${trustedGov ? ' + published' : ''}, ${failed} failed, ${changedTotal} status changes.`);
   });
 
   $('tblVerifCancelBtn').addEventListener('click', () => { tblVerifCancelled = true; });
@@ -3873,11 +3875,13 @@ document.getElementById('loadStats').addEventListener('click', async () => {
         const lastRun = s.last_run_at
           ? `${new Date(s.last_run_at).toLocaleString()} — <b>${s.last_run_status || '—'}</b> (${s.last_run_rows ?? 0} rows)${s.last_run_message ? `<br><span style="color:var(--muted)">${s.last_run_message}</span>` : ''}`
           : 'Abhi tak run nahi hua — agli daily cron run pe hoga.';
+        const isActive = s.active !== false;
         return `
-          <div style="border-bottom:1px solid var(--line);padding:8px 0">
-            <b>${s.name}</b> · ${FREQ_LABEL[s.frequency] || s.frequency} · ${s.target}<br>
+          <div style="border-bottom:1px solid var(--line);padding:8px 0${isActive ? '' : ';opacity:.55'}">
+            <b>${s.name}</b> · ${FREQ_LABEL[s.frequency] || s.frequency} · ${s.target} · ${isActive ? '<span style="color:#2e7d32">● Active</span>' : '<span style="color:var(--muted)">⏸ Paused</span>'}<br>
             <span style="color:var(--muted);word-break:break-all">${s.url}</span><br>
             <span style="font-size:.75rem">${lastRun}</span><br>
+            <button class="btn alt" data-toggle-src="${s.id}" data-toggle-active="${isActive ? '0' : '1'}" style="margin-top:6px;font-size:.78rem;padding:4px 10px">${isActive ? '⏸ Pause' : '▶️ Resume'}</button>
             <button class="btn alt" data-del-src="${s.id}" style="margin-top:6px;font-size:.78rem;padding:4px 10px">🗑️ Delete</button>
           </div>`;
       }).join('');
@@ -3887,6 +3891,19 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   }
   $('tblSourcesRefreshBtn').addEventListener('click', loadSourcesList);
   $('tblSourcesList').addEventListener('click', async (e) => {
+    const toggleBtn = e.target.closest('button[data-toggle-src]');
+    if(toggleBtn){
+      try {
+        await callAdminApi('table-downloader?operation=toggle-source', {
+          method: 'POST',
+          body: JSON.stringify({ id: toggleBtn.dataset.toggleSrc, active: toggleBtn.dataset.toggleActive === '1' })
+        });
+        loadSourcesList();
+      } catch(e) {
+        alert('Toggle fail: ' + e.message);
+      }
+      return;
+    }
     const btn = e.target.closest('button[data-del-src]');
     if(!btn) return;
     if(!confirm('Ye scheduled source delete karein? Ye sirf schedule hata dega — jo data pehle publish ho chuka hai wo affect nahi hoga.')) return;

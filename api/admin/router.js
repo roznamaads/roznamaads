@@ -2,7 +2,7 @@
 // (Vercel Hobby plan sirf 12 functions allow karta hai, isliye sab merge kiya gaya hai)
 // Routes: /api/admin/<action> — vercel.json ke rewrite se yahan aata hai, e.g. /api/admin/list?status=pending
 
-import { beoeData } from './_lib/beoe-data.js';
+import { logVerificationStatusChanges } from './_lib/verification-diff.js';
 import { hecData } from './_lib/hec-data.js';
 import { hecUniversitiesData } from './_lib/hec-universities-data.js';
 import { hecIllegalData } from './_lib/hec-illegal-data.js';
@@ -699,6 +699,7 @@ export default async function handler(req, res) {
             updated_at: nowIso
           }));
           try {
+            const changed = await logVerificationStatusChanges(SB, sbHeaders, payload);
             const upsertRes = await fetch(`${SB()}/rest/v1/verifications?on_conflict=authority,reference_no`, {
               method: 'POST',
               headers: {
@@ -712,7 +713,7 @@ export default async function handler(req, res) {
               const errText = await upsertRes.text();
               return res.status(upsertRes.status).json({ error: errText });
             }
-            return res.status(200).json({ ok: true, count: payload.length });
+            return res.status(200).json({ ok: true, count: payload.length, changed });
           } catch (execErr) {
             return res.status(500).json({ error: 'verif-bulk-upsert error: ' + execErr.message });
           }
@@ -762,6 +763,17 @@ export default async function handler(req, res) {
           if (!['verifications', 'tenders'].includes(target)) return res.status(400).json({ error: 'target must be verifications or tenders' });
           if (!['daily', 'weekly', 'monthly'].includes(frequency)) return res.status(400).json({ error: 'frequency must be daily, weekly or monthly' });
           try {
+            if (!id) {
+              // Batch 2: warn instead of silently creating a second schedule for the same URL+target.
+              const dupCheck = await fetch(
+                `${SB()}/rest/v1/table_downloader_sources?url=eq.${encodeURIComponent(url)}&target=eq.${encodeURIComponent(target)}&select=id,name`,
+                { headers: sbHeaders() }
+              );
+              const dupRows = await dupCheck.json();
+              if (Array.isArray(dupRows) && dupRows[0]) {
+                return res.status(409).json({ error: `Ye URL is target ke sath pehle se "${dupRows[0].name}" naam se saved hai. Pehle usay edit/delete karein, ya URL check karein.` });
+              }
+            }
             const payload = {
               name, url, target, frequency, mapping,
               max_pages_per_run: Number.isInteger(maxPagesPerRun) ? maxPagesPerRun : 20
@@ -778,6 +790,22 @@ export default async function handler(req, res) {
             return res.status(r.status).json(data);
           } catch (execErr) {
             return res.status(500).json({ error: 'save-source error: ' + execErr.message });
+          }
+        }
+
+        if (operation === 'toggle-source') {
+          const { id, active } = req.body || {};
+          if (!id || typeof active !== 'boolean') return res.status(400).json({ error: 'id and active(boolean) required' });
+          try {
+            const r = await fetch(`${SB()}/rest/v1/table_downloader_sources?id=eq.${encodeURIComponent(id)}`, {
+              method: 'PATCH',
+              headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
+              body: JSON.stringify({ active })
+            });
+            if (!r.ok) { const errText = await r.text(); return res.status(r.status).json({ error: errText }); }
+            return res.status(200).json({ ok: true });
+          } catch (execErr) {
+            return res.status(500).json({ error: 'toggle-source error: ' + execErr.message });
           }
         }
 
