@@ -27,6 +27,9 @@
     },
     "api/cron/table-downloader-refresh.js": {
       "maxDuration": 60
+    },
+    "api/admin/router.js": {
+      "maxDuration": 60
     }
   }
 }

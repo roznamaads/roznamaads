@@ -9,7 +9,7 @@ import { Agent } from 'undici';
 import { extractTableGrids, extractListGrids, extractLinks } from './html-lite-parser.js';
 
 const USER_AGENT = 'RoznamaAds-TableDownloader/1.0 (+https://roznamaads.com)';
-const FETCH_TIMEOUT_MS = 8000; // government/SharePoint sites can be slow; still leaves buffer inside Vercel's ~10s limit
+const FETCH_TIMEOUT_MS = 25000; // some govt sites (e.g. Punjab eproc.punjab.gov.pk) are very slow; router.js now has maxDuration:60 so this is safe
 const MAX_REDIRECTS = 5;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024; // 8MB safety cap
 const PAGE_FETCH_MAX_ATTEMPTS = 2; // 1 retry for 429 / 5xx
