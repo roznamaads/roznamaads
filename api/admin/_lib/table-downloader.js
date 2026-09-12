@@ -9,7 +9,7 @@ import { Agent } from 'undici';
 import { extractTableGrids, extractListGrids, extractLinks } from './html-lite-parser.js';
 
 const USER_AGENT = 'RoznamaAds-TableDownloader/1.0 (+https://roznamaads.com)';
-const FETCH_TIMEOUT_MS = 8000; // government/SharePoint sites can be slow; still leaves buffer inside Vercel's ~10s limit
+const FETCH_TIMEOUT_MS = 25000; // some govt sites (e.g. Punjab eproc.punjab.gov.pk) are very slow; router.js now has maxDuration:60 so this is safe
 const MAX_REDIRECTS = 5;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024; // 8MB safety cap
 const PAGE_FETCH_MAX_ATTEMPTS = 2; // 1 retry for 429 / 5xx
@@ -29,6 +29,73 @@ const TLS_CHAIN_ERROR_CODES = new Set([
   'DEPTH_ZERO_SELF_SIGNED_CERT'
 ]);
 const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
+
+// ---------------------------------------------------------------------------
+// RELAY (Google Apps Script) — fallback for sites that block datacenter IPs
+// (same problem as BEOE, e.g. PPRA-Punjab's eproc.punjab.gov.pk). Google's own
+// IP range is generally not blocked by these sites. Free, no proxy cost.
+// ---------------------------------------------------------------------------
+const RELAY_URL = process.env.RELAY_URL || '';
+const RELAY_SECRET = process.env.RELAY_SECRET || '';
+const CONNECTION_ERROR_RE = /connect timeout|econnrefused|enotfound|econnreset|ehostunreach|eai_again|network is unreachable|other side closed|fetch failed/i;
+
+function parseSetCookieHeader(rawHeaderValue) {
+  if (!rawHeaderValue) return [];
+  // Google Apps Script's getAllHeaders() returns an array when a header
+  // appears multiple times (e.g. several Set-Cookie headers).
+  if (Array.isArray(rawHeaderValue)) {
+    return rawHeaderValue.map(c => c.trim().split(';')[0]).filter(Boolean);
+  }
+  // Otherwise best-effort split of multiple cookies joined by comma.
+  return rawHeaderValue.split(/,(?=\s*[^;,]+?=)/).map(c => c.trim().split(';')[0]).filter(Boolean);
+}
+
+function extractCookiesFromFetchHeaders(headers) {
+  if (typeof headers.getSetCookie === 'function') {
+    return headers.getSetCookie().map(c => c.split(';')[0]);
+  }
+  return parseSetCookieHeader(headers.get ? headers.get('set-cookie') : null);
+}
+
+async function relayRequest(urlString, { method = 'GET', headers = {}, body = null, contentType = null } = {}) {
+  if (!RELAY_URL || !RELAY_SECRET) {
+    throw new Error('Relay configure nahi hai (RELAY_URL / RELAY_SECRET Vercel env vars missing).');
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(RELAY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: RELAY_SECRET, url: urlString, method, headers, body, contentType }),
+      signal: ctrl.signal
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error(`Relay tak pohonch nahi hui: ${e.cause?.message || e.message}`);
+  }
+  clearTimeout(timer);
+  if (!res.ok) throw new Error(`Relay ne HTTP ${res.status} return kiya.`);
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error('Relay se invalid response mila.');
+  }
+  if (data.error) throw new Error(`Relay error: ${data.error}`);
+
+  const headerEntries = Object.entries(data.headers || {}).map(([k, v]) => [k.toLowerCase(), v]);
+  const headerMap = new Map(headerEntries);
+  const cookies = parseSetCookieHeader(headerMap.get('set-cookie'));
+
+  return {
+    status: data.status,
+    headers: headerMap,
+    html: data.body || '',
+    cookies
+  };
+}
 
 // ---------------------------------------------------------------------------
 // 1. SSRF PROTECTION
@@ -189,6 +256,24 @@ async function safeFetch(urlString) {
           throw new Error(`Fetch failed (TLS retry bhi fail): ${e2.cause?.message || e2.message}`);
         }
         clearTimeout(timer2);
+      } else if (RELAY_URL && RELAY_SECRET && (timedOut || CONNECTION_ERROR_RE.test(causeMsg) || CONNECTION_ERROR_RE.test(causeCode || ''))) {
+        // Direct connection blocked or hanging — likely datacenter-IP blocking
+        // (same pattern as BEOE). Retry via the Google Apps Script relay,
+        // which fetches from Google's IP range instead.
+        try {
+          const relayResult = await relayRequest(currentUrl.toString(), { method: 'GET' });
+          return {
+            status: relayResult.status,
+            headers: relayResult.headers,
+            finalUrl: currentUrl.toString(),
+            html: relayResult.html,
+            insecureTLS: false,
+            usedRelay: true,
+            cookies: relayResult.cookies
+          };
+        } catch (relayErr) {
+          throw new Error(`Direct connection fail hui (site shayad datacenter IPs block karti hai) aur relay bhi fail: ${relayErr.message}`);
+        }
       } else {
         throw new Error(timedOut
           ? `Fetch timed out after ${FETCH_TIMEOUT_MS}ms — site slow response de raha hai.`
@@ -227,7 +312,9 @@ async function safeFetch(urlString) {
       headers: res.headers,
       finalUrl: currentUrl.toString(),
       html: text,
-      insecureTLS: usedInsecureTLS
+      insecureTLS: usedInsecureTLS,
+      usedRelay: false,
+      cookies: extractCookiesFromFetchHeaders(res.headers)
     };
   }
   throw new Error('Too many redirects.');
@@ -437,7 +524,77 @@ export function detectPagination(html, baseUrl) {
     };
   }
 
+  // 5) ASP.NET WebForms postback pagination (__doPostBack) — common on govt
+  // sites built with old ASP.NET grids (e.g. Telerik RadGrid). No real href,
+  // page click runs client-side JS that submits a form (__EVENTTARGET /
+  // __EVENTARGUMENT). Detected separately since it needs stateful POSTs,
+  // not a URL template.
+  const postback = detectPostbackPagination(html);
+  if (postback) return postback;
+
   return null;
+}
+
+function decodeHtmlEntities(str) {
+  return String(str)
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#43;/g, '+')
+    .replace(/&#61;/g, '=')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function detectPostbackPagination(html) {
+  const re = /__doPostBack\((?:&#39;|')([^'&]+)(?:&#39;|'),\s*(?:&#39;|')Page\$(\d+)(?:&#39;|')\)/g;
+  let m;
+  let control = null;
+  let maxPage = 0;
+  while ((m = re.exec(html))) {
+    if (!control) control = decodeHtmlEntities(m[1]);
+    const pg = parseInt(m[2], 10);
+    if (pg > maxPage) maxPage = pg;
+  }
+  if (!control) return null;
+
+  // Prefer an on-page "X items in Y pages" summary (seen on PPRA-style
+  // grids) over the visible page-number window, which is often truncated
+  // (e.g. "1 2 3 4 ... 12").
+  let estimatedPages = maxPage || null;
+  const summaryMatch = html.match(/(\d+)\s+items?\s+in\s+(\d+)\s+pages?/i);
+  if (summaryMatch) estimatedPages = parseInt(summaryMatch[2], 10);
+
+  return {
+    type: 'postback',
+    control,
+    estimatedPages,
+    confidence: summaryMatch ? 0.9 : 0.55
+  };
+}
+
+function extractHiddenFields(html) {
+  const fields = {};
+  const re = /<input\b[^>]*type=["']hidden["'][^>]*>/gi;
+  let m;
+  while ((m = re.exec(html))) {
+    const tag = m[0];
+    const nameMatch = tag.match(/\bname=["']([^"']+)["']/i);
+    if (!nameMatch) continue;
+    const valueMatch = tag.match(/\bvalue=["']([^"']*)["']/i);
+    fields[decodeHtmlEntities(nameMatch[1])] = valueMatch ? decodeHtmlEntities(valueMatch[1]) : '';
+  }
+  return fields;
+}
+
+function buildPostbackFormBody(hiddenFields, control, argument) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(hiddenFields)) {
+    params.set(key, value);
+  }
+  params.set('__EVENTTARGET', control);
+  params.set('__EVENTARGUMENT', argument);
+  return params.toString();
 }
 
 function setQueryParamTemplate(baseUrl, param) {
@@ -506,77 +663,8 @@ export async function detectTableAndPagination(inputUrl, overrideRobots) {
     pagination: pagination || null,
     paginationConfidenceNote: pagination ? null : 'Pagination confidently detect nahi ho saki — manual configuration istemal karein.',
     insecureTLS: !!fetched.insecureTLS,
+    usedRelay: !!fetched.usedRelay,
     robotsOverridden
-  };
-}
-
-// ---------------------------------------------------------------------------
-// 7B. PUBLIC ENTRY: detect from admin-supplied HTML (paste / bookmarklet path)
-//
-// For sites that actively block automated fetches (Cloudflare/WAF/CAPTCHA —
-// e.g. BEOE), safeFetch() will never get through, no matter what headers or
-// retries are used. This path skips fetching entirely: an admin opens the
-// page in their own real browser (which is NOT blocked, since it's genuine
-// human browsing, not automation) and sends the already-rendered HTML here.
-// The exact same table/list detection + pagination-link logic runs on it as
-// on a normally-fetched page. Nothing here bypasses any challenge — the
-// browser already got past whatever the site presented, on its own.
-// ---------------------------------------------------------------------------
-
-function safeHostnameFromLabel(label) {
-  try { return new URL(label).hostname; } catch { return null; }
-}
-
-export function detectTableFromHtml(html, sourceLabel) {
-  if (!html || typeof html !== 'string' || !html.trim()) {
-    return { ok: false, reason: 'empty_html', message: 'Koi HTML content nahi mila — pehle page ka HTML paste karein.' };
-  }
-
-  const tables = extractTables(html);
-  if (tables.length === 0) {
-    return { ok: false, reason: 'no_table', message: 'Pasted HTML mein koi table/list detect nahi hui.' };
-  }
-
-  let pagination = null;
-  if (sourceLabel) {
-    try { pagination = detectPagination(html, sourceLabel); } catch { pagination = null; }
-  }
-
-  return {
-    ok: true,
-    website: sourceLabel ? (safeHostnameFromLabel(sourceLabel) || 'pasted-html') : 'pasted-html',
-    finalUrl: sourceLabel || null,
-    sourceType: tables[0].sourceType === 'list' ? 'html_list' : 'html_table',
-    tables: tables.map((t, i) => ({ ...t, recommended: i === 0 })),
-    recommendedIndex: 0,
-    pagination: pagination || null,
-    paginationConfidenceNote: pagination
-      ? null
-      : 'Is single pasted page mein pagination link detect nahi hui — agli page ka HTML alag se paste karein.',
-    insecureTLS: false,
-    robotsOverridden: false,
-    fromPastedHtml: true
-  };
-}
-
-export function extractRowsFromHtml(html, tableIndex) {
-  if (!html || typeof html !== 'string' || !html.trim()) {
-    return { ok: false, reason: 'empty_html', message: 'Koi HTML content nahi mila.' };
-  }
-  const idx = Number.isInteger(tableIndex) ? tableIndex : 0;
-  const { headers, rows, linkCells, tableFound, junkRowsSkipped } = extractSpecificTableRows(html, idx);
-  const contentHash = crypto.createHash('sha1').update(JSON.stringify(rows)).digest('hex').slice(0, 16);
-  return {
-    ok: true,
-    headers,
-    rows,
-    linkCells,
-    rowCount: rows.length,
-    isEmpty: rows.length === 0,
-    tableFound,
-    contentHash,
-    junkRowsSkipped,
-    fromPastedHtml: true
   };
 }
 
@@ -723,7 +811,117 @@ export async function fetchSinglePage(inputUrl, tableIndex, paginationType) {
     nextUrl,
     finalUrl: fetched.finalUrl,
     insecureTLS: !!fetched.insecureTLS,
+    usedRelay: !!fetched.usedRelay,
     junkRowsSkipped
+  };
+}
+
+// Fetches ONE page of an ASP.NET __doPostBack-paginated grid (e.g. PPRA
+// provincial blacklist sites). Stateful: page 1 is a plain GET; every
+// subsequent page needs the hidden form fields (__VIEWSTATE etc.) AND
+// cookies from the previous response — the frontend carries `postbackState`
+// forward between calls (same "frontend drives the loop" pattern as other
+// pagination types), and checkpoints it like it does cursorUrl for next_link.
+export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumber, priorState) {
+  let targetUrl;
+  try {
+    targetUrl = await assertPublicUrl(inputUrl);
+  } catch (e) {
+    return { ok: false, reason: 'ssrf_blocked', message: e.message };
+  }
+
+  let fetched;
+  try {
+    if (pageNumber <= 1 || !priorState) {
+      fetched = await safeFetchWithRetry(targetUrl.toString());
+    } else {
+      const body = buildPostbackFormBody(priorState.hiddenFields || {}, control, `Page$${pageNumber}`);
+      const cookieHeader = (priorState.cookies || []).join('; ');
+      if (RELAY_URL && RELAY_SECRET) {
+        // Postback almost always happens on sites we already had to relay
+        // for (that's how we got here), so POST via relay directly.
+        const relayResult = await relayRequest(targetUrl.toString(), {
+          method: 'POST',
+          body,
+          contentType: 'application/x-www-form-urlencoded',
+          headers: cookieHeader ? { Cookie: cookieHeader } : {}
+        });
+        fetched = {
+          status: relayResult.status,
+          headers: relayResult.headers,
+          finalUrl: targetUrl.toString(),
+          html: relayResult.html,
+          insecureTLS: false,
+          usedRelay: true,
+          cookies: relayResult.cookies.length ? relayResult.cookies : (priorState.cookies || [])
+        };
+      } else {
+        // No relay configured — try a direct POST (works for postback grids
+        // that aren't IP-blocked).
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+        const res = await fetch(targetUrl.toString(), {
+          method: 'POST',
+          headers: {
+            'User-Agent': USER_AGENT,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            ...(cookieHeader ? { Cookie: cookieHeader } : {})
+          },
+          body,
+          signal: ctrl.signal
+        });
+        clearTimeout(timer);
+        const html = await res.text();
+        fetched = {
+          status: res.status,
+          headers: res.headers,
+          finalUrl: targetUrl.toString(),
+          html,
+          insecureTLS: false,
+          usedRelay: false,
+          cookies: extractCookiesFromFetchHeaders(res.headers)
+        };
+      }
+    }
+  } catch (e) {
+    return { ok: false, reason: 'fetch_error', message: e.message };
+  }
+
+  const challenge = detectBlockingChallenge(fetched.status, fetched.headers, fetched.html);
+  if (challenge.blocked) {
+    return { ok: false, reason: `blocked_${challenge.reason}`, message: 'Site ne block/challenge return kiya.', httpStatus: fetched.status };
+  }
+  if (fetched.status >= 400) {
+    return { ok: false, reason: 'http_error', message: `Website returned HTTP ${fetched.status}.`, httpStatus: fetched.status };
+  }
+
+  const { headers, rows, linkCells, tableFound, junkRowsSkipped } = extractSpecificTableRows(fetched.html, tableIndex);
+  const contentHash = crypto.createHash('sha1').update(JSON.stringify(rows)).digest('hex').slice(0, 16);
+
+  // Merge cookies: keep any prior cookie whose name isn't overwritten by a new one.
+  const newCookies = fetched.cookies || [];
+  const priorCookies = (priorState && priorState.cookies) || [];
+  const newNames = new Set(newCookies.map(c => c.split('=')[0]));
+  const mergedCookies = [...priorCookies.filter(c => !newNames.has(c.split('=')[0])), ...newCookies];
+
+  return {
+    ok: true,
+    httpStatus: fetched.status,
+    headers,
+    rows,
+    linkCells,
+    rowCount: rows.length,
+    isEmpty: rows.length === 0,
+    tableFound,
+    contentHash,
+    finalUrl: fetched.finalUrl,
+    usedRelay: !!fetched.usedRelay,
+    junkRowsSkipped,
+    // carried forward by the frontend for the NEXT page's postback request
+    postbackState: {
+      hiddenFields: extractHiddenFields(fetched.html),
+      cookies: mergedCookies
+    }
   };
 }
 

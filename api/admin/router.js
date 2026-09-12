@@ -8,7 +8,7 @@ import { hecData } from './_lib/hec-data.js';
 import { hecUniversitiesData } from './_lib/hec-universities-data.js';
 import { hecIllegalData } from './_lib/hec-illegal-data.js';
 import { ppraBlacklistData } from './_lib/ppra-blacklist-data.js';
-import { detectTableAndPagination, fetchSinglePage, detectTableFromHtml, extractRowsFromHtml } from './_lib/table-downloader.js';
+import { detectTableAndPagination, fetchSinglePage, fetchPostbackPage } from './_lib/table-downloader.js';
 
 const VALID_CATEGORIES = [
   'property','jobs','vehicles','matrimonial','visa','auctions',
@@ -618,37 +618,13 @@ export default async function handler(req, res) {
         }
 
         if (operation === 'fetch-page') {
-          const { targetUrl, tableIndex, paginationType } = req.body || {};
+          const { targetUrl, tableIndex, paginationType, control, pageNumber, postbackState } = req.body || {};
           if (!targetUrl || typeof targetUrl !== 'string') return res.status(400).json({ error: 'targetUrl required' });
           const idx = Number.isInteger(tableIndex) ? tableIndex : 0;
           try {
-            const result = await fetchSinglePage(targetUrl, idx, paginationType || null);
-            return res.status(result.ok ? 200 : 422).json(result);
-          } catch (execErr) {
-            return res.status(500).json({ error: 'table-downloader error: ' + execErr.message });
-          }
-        }
-
-        /* ---- Paste-HTML / Bookmarklet path — for sites that block automated
-           fetches (BEOE-style WAF/Cloudflare). No fetch happens here at all;
-           the admin's own real browser already retrieved this HTML. ---- */
-        if (operation === 'detect-from-html') {
-          const { html, sourceLabel } = req.body || {};
-          if (!html || typeof html !== 'string') return res.status(400).json({ error: 'html required' });
-          try {
-            const result = detectTableFromHtml(html, sourceLabel || null);
-            return res.status(result.ok ? 200 : 422).json(result);
-          } catch (execErr) {
-            return res.status(500).json({ error: 'table-downloader error: ' + execErr.message });
-          }
-        }
-
-        if (operation === 'extract-from-html') {
-          const { html, tableIndex } = req.body || {};
-          if (!html || typeof html !== 'string') return res.status(400).json({ error: 'html required' });
-          const idx = Number.isInteger(tableIndex) ? tableIndex : 0;
-          try {
-            const result = extractRowsFromHtml(html, idx);
+            const result = paginationType === 'postback'
+              ? await fetchPostbackPage(targetUrl, idx, control, Number(pageNumber) || 1, postbackState || null)
+              : await fetchSinglePage(targetUrl, idx, paginationType || null);
             return res.status(result.ok ? 200 : 422).json(result);
           } catch (execErr) {
             return res.status(500).json({ error: 'table-downloader error: ' + execErr.message });
