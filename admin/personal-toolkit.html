@@ -1945,6 +1945,20 @@ function buildPostbackBodyClientSide(hiddenFields, control, argument){
   return params.toString();
 }
 
+// Mirrors findNextPostbackTarget() on the backend — Telerik's numeric pager
+// only shows a WINDOW of page numbers, so jump to the smallest available
+// number greater than the last page actually fetched, not a rigid +1.
+function findNextPostbackTargetClientSide(linkMap, afterPage){
+  let bestNum = null, bestLink = null;
+  Object.entries(linkMap).forEach(([text, link]) => {
+    const n = parseInt(text, 10);
+    if(!Number.isNaN(n) && n > afterPage){
+      if(bestNum === null || n < bestNum){ bestNum = n; bestLink = link; }
+    }
+  });
+  return bestNum ? { pageNumber: bestNum, control: bestLink.control, argument: bestLink.argument } : null;
+}
+
 // DIRECT PHONE FETCH — bypasses the Google relay entirely too. For the rare
 // case where even Google's IPs are blocked. Requires a CORS-unblocking
 // browser extension (e.g. "Allow CORS: Access-Control-Allow-Origin") since
@@ -3202,14 +3216,16 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   // result so the rest of runDownload() doesn't need to know which path ran.
   async function fetchPageViaBrowserRelay(pagination, targetUrl, pageNum, priorPostbackState){
     let relayResult;
+    let actualPageNumber = pageNum;
     try {
       const isPostback = pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic');
       if(isPostback && pageNum > 1 && priorPostbackState){
         let ctrl, arg;
         if(pagination.type === 'postback_dynamic'){
-          const link = (priorPostbackState.linkMap || {})[String(pageNum)];
-          if(!link) return { ok: false, reason: 'no_next_link', message: `Page ${pageNum} ka link pichle page ke pager mein nahi mila — shayad ye aakhri page hai.` };
-          ctrl = link.control; arg = link.argument;
+          const lastPage = priorPostbackState.lastPageNumber != null ? priorPostbackState.lastPageNumber : (pageNum - 1);
+          const target = findNextPostbackTargetClientSide(priorPostbackState.linkMap || {}, lastPage);
+          if(!target) return { ok: false, reason: 'no_next_link', message: `Page ${lastPage} ke baad koi aur page link nahi mila — shayad ye aakhri page hai.` };
+          ctrl = target.control; arg = target.argument; actualPageNumber = target.pageNumber;
         } else {
           ctrl = pagination.control; arg = `Page$${pageNum}`;
         }
@@ -3244,6 +3260,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     if(!extracted.ok) return extracted;
 
     extracted.usedRelay = true;
+    extracted.actualPageNumber = actualPageNumber;
     if(pagination && pagination.type === 'next_link' && extracted.pagination){
       extracted.nextUrl = extracted.pagination.nextUrl || null;
     }
@@ -3253,7 +3270,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       const priorCookies = (priorPostbackState && priorPostbackState.cookies) || [];
       const newNames = new Set(newCookies.map(c => c.split('=')[0]));
       const mergedCookies = [...priorCookies.filter(c => !newNames.has(c.split('=')[0])), ...newCookies];
-      extracted.postbackState = { hiddenFields: newHidden, cookies: mergedCookies, linkMap: extractPostbackLinkMapClientSide(relayResult.html) };
+      extracted.postbackState = { hiddenFields: newHidden, cookies: mergedCookies, linkMap: extractPostbackLinkMapClientSide(relayResult.html), lastPageNumber: actualPageNumber };
     }
     return extracted;
   }
@@ -3262,14 +3279,16 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   // straight to the target site from this browser tab.
   async function fetchPageViaDirectPhone(pagination, targetUrl, pageNum, priorPostbackState){
     let fetched;
+    let actualPageNumber = pageNum;
     try {
       const isPostback = pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic');
       if(isPostback && pageNum > 1 && priorPostbackState){
         let ctrl, arg;
         if(pagination.type === 'postback_dynamic'){
-          const link = (priorPostbackState.linkMap || {})[String(pageNum)];
-          if(!link) return { ok: false, reason: 'no_next_link', message: `Page ${pageNum} ka link pichle page ke pager mein nahi mila — shayad ye aakhri page hai.` };
-          ctrl = link.control; arg = link.argument;
+          const lastPage = priorPostbackState.lastPageNumber != null ? priorPostbackState.lastPageNumber : (pageNum - 1);
+          const target = findNextPostbackTargetClientSide(priorPostbackState.linkMap || {}, lastPage);
+          if(!target) return { ok: false, reason: 'no_next_link', message: `Page ${lastPage} ke baad koi aur page link nahi mila — shayad ye aakhri page hai.` };
+          ctrl = target.control; arg = target.argument; actualPageNumber = target.pageNumber;
         } else {
           ctrl = pagination.control; arg = `Page$${pageNum}`;
         }
@@ -3298,11 +3317,12 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     if(!extracted.ok) return extracted;
 
     extracted.usedRelay = false;
+    extracted.actualPageNumber = actualPageNumber;
     if(pagination && pagination.type === 'next_link' && extracted.pagination){
       extracted.nextUrl = extracted.pagination.nextUrl || null;
     }
     if(pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic')){
-      extracted.postbackState = { hiddenFields: extractHiddenFieldsClientSide(fetched.html), cookies: [], linkMap: extractPostbackLinkMapClientSide(fetched.html) };
+      extracted.postbackState = { hiddenFields: extractHiddenFieldsClientSide(fetched.html), cookies: [], linkMap: extractPostbackLinkMapClientSide(fetched.html), lastPageNumber: actualPageNumber };
     }
     return extracted;
   }
@@ -3437,6 +3457,13 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       lastHash = result.contentHash;
 
       const retrievedAt = new Date().toISOString();
+      // Telerik-style dynamic pagination may jump ahead of pageNum+1 (pager
+      // window shift) — sync our loop counter to whatever page was actually
+      // fetched so sourcePage/logging/next-lookup are all correct.
+      if(pagination && pagination.type === 'postback_dynamic' && result.actualPageNumber){
+        pageNum = result.actualPageNumber;
+      }
+
       result.rows.forEach(r => {
         const row = { cells: r };
         if(incSrcUrl) row.sourceUrl = targetUrl;

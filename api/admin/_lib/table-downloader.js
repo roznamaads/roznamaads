@@ -585,6 +585,25 @@ function extractPostbackLinkMap(html) {
   return map;
 }
 
+// Telerik's numeric pager only shows a WINDOW of page numbers (e.g. "1..10"
+// on page 1); once you're deep in the grid the window shifts and the exact
+// "current+1" number may not be a link on the current page (e.g. page 10's
+// window might only go up to 10, with 11 appearing only after that window
+// shifts). Rather than requiring an exact match, jump to whatever the
+// SMALLEST available page number greater than the current one is — this is
+// exactly what clicking the pager's own "next available" button would do.
+function findNextPostbackTarget(linkMap, afterPage) {
+  let bestNum = null;
+  let bestLink = null;
+  for (const [text, link] of Object.entries(linkMap)) {
+    const n = parseInt(text, 10);
+    if (!Number.isNaN(n) && n > afterPage) {
+      if (bestNum === null || n < bestNum) { bestNum = n; bestLink = link; }
+    }
+  }
+  return bestNum ? { pageNumber: bestNum, control: bestLink.control, argument: bestLink.argument } : null;
+}
+
 function detectPostbackDynamicPagination(html) {
   const linkMap = extractPostbackLinkMap(html);
   // Require a "2" link to confirm this is really a numbered pager (and that
@@ -963,6 +982,7 @@ export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumbe
     return { ok: false, reason: 'ssrf_blocked', message: e.message };
   }
 
+  let actualPageNumber = pageNumber;
   let fetched;
   try {
     if (pageNumber <= 1 || !priorState) {
@@ -973,12 +993,17 @@ export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumbe
       if (paginationType === 'postback_dynamic') {
         // Telerik RadGrid style: each page number is its own control, only
         // discoverable by reading the PRIOR page's own rendered pager links.
-        const link = (priorState.linkMap || {})[String(pageNumber)];
-        if (!link) {
-          return { ok: false, reason: 'no_next_link', message: `Page ${pageNumber} ka link pichle page ke pager mein nahi mila — shayad ye aakhri page hai.` };
+        // The pager window may not contain the exact next number (it only
+        // shows a window) — jump to whatever the smallest available number
+        // greater than the last page fetched is.
+        const lastPage = (priorState.lastPageNumber != null) ? priorState.lastPageNumber : (pageNumber - 1);
+        const target = findNextPostbackTarget(priorState.linkMap || {}, lastPage);
+        if (!target) {
+          return { ok: false, reason: 'no_next_link', message: `Page ${lastPage} ke baad koi aur page link nahi mila — shayad ye aakhri page hai.` };
         }
-        targetControl = link.control;
-        targetArgument = link.argument;
+        targetControl = target.control;
+        targetArgument = target.argument;
+        actualPageNumber = target.pageNumber;
       }
       const body = buildPostbackFormBody(priorState.hiddenFields || {}, targetControl, targetArgument);
       const cookieHeader = (priorState.cookies || []).join('; ');
@@ -1062,11 +1087,13 @@ export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumbe
     finalUrl: fetched.finalUrl,
     usedRelay: !!fetched.usedRelay,
     junkRowsSkipped,
+    actualPageNumber,
     // carried forward by the frontend for the NEXT page's postback request
     postbackState: {
       hiddenFields: extractHiddenFields(fetched.html),
       cookies: mergedCookies,
-      linkMap: extractPostbackLinkMap(fetched.html)
+      linkMap: extractPostbackLinkMap(fetched.html),
+      lastPageNumber: actualPageNumber
     }
   };
 }
