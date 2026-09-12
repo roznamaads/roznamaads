@@ -601,22 +601,11 @@ function findNextPostbackTarget(linkMap, afterPage) {
       if (bestNum === null || n < bestNum) { bestNum = n; bestLink = link; }
     }
   }
-  if (bestNum) return { pageNumber: bestNum, control: bestLink.control, argument: bestLink.argument };
-
-  // No literal number found beyond the current pager window (e.g. window
-  // shows "1..10", next number isn't a direct link) — fall back to a
-  // "..."/next-style control that shifts the window forward. We can't know
-  // in advance exactly which page this lands on, so assume afterPage+1 for
-  // bookkeeping; if that guess is wrong the next iteration's own re-scan
-  // will self-correct since it always reads the REAL current page number
-  // fresh off whatever HTML comes back.
-  const NEXT_TEXT_RE = /^(\.\.\.|›|»|next|more|agla|▶)$/i;
-  for (const [text, link] of Object.entries(linkMap)) {
-    if (NEXT_TEXT_RE.test(text.trim())) {
-      return { pageNumber: afterPage + 1, control: link.control, argument: link.argument };
-    }
-  }
-  return null;
+  // Deliberately numeric-only: a "..."/next-arrow fallback was tried and
+  // caused a runaway loop (it matched an unrelated on-page control, not the
+  // actual pager), so if no literal higher page number exists on this page,
+  // treat that as genuine end-of-pagination rather than guessing further.
+  return bestNum ? { pageNumber: bestNum, control: bestLink.control, argument: bestLink.argument } : null;
 }
 
 function detectPostbackDynamicPagination(html) {
