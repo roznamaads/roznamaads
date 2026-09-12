@@ -9,7 +9,7 @@ import { Agent } from 'undici';
 import { extractTableGrids, extractListGrids, extractLinks } from './html-lite-parser.js';
 
 const USER_AGENT = 'RoznamaAds-TableDownloader/1.0 (+https://roznamaads.com)';
-const FETCH_TIMEOUT_MS = 25000; // some govt sites (e.g. Punjab eproc.punjab.gov.pk) are very slow; router.js now has maxDuration:60 so this is safe
+const FETCH_TIMEOUT_MS = 8000; // government/SharePoint sites can be slow; still leaves buffer inside Vercel's ~10s limit
 const MAX_REDIRECTS = 5;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024; // 8MB safety cap
 const PAGE_FETCH_MAX_ATTEMPTS = 2; // 1 retry for 429 / 5xx
@@ -507,6 +507,76 @@ export async function detectTableAndPagination(inputUrl, overrideRobots) {
     paginationConfidenceNote: pagination ? null : 'Pagination confidently detect nahi ho saki — manual configuration istemal karein.',
     insecureTLS: !!fetched.insecureTLS,
     robotsOverridden
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 7B. PUBLIC ENTRY: detect from admin-supplied HTML (paste / bookmarklet path)
+//
+// For sites that actively block automated fetches (Cloudflare/WAF/CAPTCHA —
+// e.g. BEOE), safeFetch() will never get through, no matter what headers or
+// retries are used. This path skips fetching entirely: an admin opens the
+// page in their own real browser (which is NOT blocked, since it's genuine
+// human browsing, not automation) and sends the already-rendered HTML here.
+// The exact same table/list detection + pagination-link logic runs on it as
+// on a normally-fetched page. Nothing here bypasses any challenge — the
+// browser already got past whatever the site presented, on its own.
+// ---------------------------------------------------------------------------
+
+function safeHostnameFromLabel(label) {
+  try { return new URL(label).hostname; } catch { return null; }
+}
+
+export function detectTableFromHtml(html, sourceLabel) {
+  if (!html || typeof html !== 'string' || !html.trim()) {
+    return { ok: false, reason: 'empty_html', message: 'Koi HTML content nahi mila — pehle page ka HTML paste karein.' };
+  }
+
+  const tables = extractTables(html);
+  if (tables.length === 0) {
+    return { ok: false, reason: 'no_table', message: 'Pasted HTML mein koi table/list detect nahi hui.' };
+  }
+
+  let pagination = null;
+  if (sourceLabel) {
+    try { pagination = detectPagination(html, sourceLabel); } catch { pagination = null; }
+  }
+
+  return {
+    ok: true,
+    website: sourceLabel ? (safeHostnameFromLabel(sourceLabel) || 'pasted-html') : 'pasted-html',
+    finalUrl: sourceLabel || null,
+    sourceType: tables[0].sourceType === 'list' ? 'html_list' : 'html_table',
+    tables: tables.map((t, i) => ({ ...t, recommended: i === 0 })),
+    recommendedIndex: 0,
+    pagination: pagination || null,
+    paginationConfidenceNote: pagination
+      ? null
+      : 'Is single pasted page mein pagination link detect nahi hui — agli page ka HTML alag se paste karein.',
+    insecureTLS: false,
+    robotsOverridden: false,
+    fromPastedHtml: true
+  };
+}
+
+export function extractRowsFromHtml(html, tableIndex) {
+  if (!html || typeof html !== 'string' || !html.trim()) {
+    return { ok: false, reason: 'empty_html', message: 'Koi HTML content nahi mila.' };
+  }
+  const idx = Number.isInteger(tableIndex) ? tableIndex : 0;
+  const { headers, rows, linkCells, tableFound, junkRowsSkipped } = extractSpecificTableRows(html, idx);
+  const contentHash = crypto.createHash('sha1').update(JSON.stringify(rows)).digest('hex').slice(0, 16);
+  return {
+    ok: true,
+    headers,
+    rows,
+    linkCells,
+    rowCount: rows.length,
+    isEmpty: rows.length === 0,
+    tableFound,
+    contentHash,
+    junkRowsSkipped,
+    fromPastedHtml: true
   };
 }
 

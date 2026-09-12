@@ -388,6 +388,35 @@
       <div id="tblFileStatus" style="font-size:.78rem;color:var(--muted);margin-top:6px"></div>
     </div>
 
+    <div style="margin:12px 0;padding:10px;border:1px dashed var(--line);border-radius:8px">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:6px">
+        🧩 <b>Paste HTML Mode</b> — BEOE jaisi sites ke liye jo automated fetch ko WAF/Cloudflare se block karti hain. Yahan koi fetch nahi hota — aap khud apne normal browser mein page kholte hain (jo block nahi hoti), phir uska HTML yahan paste karte hain. Neeche bookmarklet se ye copy karna 1-click ho jaata hai.
+      </div>
+
+      <details style="margin-bottom:8px">
+        <summary style="cursor:pointer;font-size:.8rem;color:var(--accent,#2563eb)">📌 Bookmarklet banane ka tareeqa (ek dafa setup)</summary>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:6px;line-height:1.6">
+          1. Neeche button ko apne phone/desktop browser ke <b>bookmarks bar</b> mein drag karein (ya bookmark bana kar niche wala poora code uske URL/address field mein paste karein).<br>
+          2. Jab BEOE (ya koi bhi blocked site) ka page khula ho, is bookmarklet par tap/click karein — page ka HTML apne-aap copy ho jayega (ya ek popup mein dikhega).<br>
+          3. Wapas is admin panel mein aa kar neeche wale box mein paste karein aur "Detect from Pasted HTML" dabayein.
+        </div>
+        <div style="margin-top:8px">
+          <a id="tblBookmarkletLink" href="#" style="display:inline-block;padding:6px 12px;background:var(--card);border:1px solid var(--line);border-radius:6px;font-size:.8rem;text-decoration:none" onclick="alert('Ise CLICK nahi, DRAG karke bookmarks bar mein daalein.'); return false;">📋 Grab Page HTML</a>
+        </div>
+      </details>
+
+      <div class="field"><label>Source URL <span style="color:var(--muted);font-weight:400">(optional — pagination detect karne ke liye)</span></label><input type="text" id="tblPasteSourceUrl" placeholder="https://beoe.gov.pk/list-of-oeps"></div>
+      <div class="field"><label>Pasted HTML</label><textarea id="tblPasteHtml" rows="6" style="width:100%;font-family:monospace;font-size:.75rem" placeholder="Bookmarklet se copy kiya hua HTML yahan paste karein, ya page par right-click → View Page Source → sab select kar ke copy karein"></textarea></div>
+      <button class="btn" id="tblPasteDetectBtn" type="button">Detect from Pasted HTML</button>
+
+      <div id="tblPasteResult" style="display:none;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px">
+        <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Paste-Detect Result</div>
+        <div id="tblPasteBody" style="font-size:.85rem;line-height:1.7"></div>
+        <div id="tblPasteChoices" style="margin-top:8px"></div>
+      </div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:6px">Table choose karne ke baad rows neeche existing "Download CSV/JSON" aur "Send to Verification Queue" section mein hi aa jayengi — agli page ke liye BEOE par "Next" khol kar wahi HTML dobara paste-detect karein, dono baar ki rows automatically merge/dedupe ho jayengi.</div>
+    </div>
+
     <div class="field"><label>Website URL</label><input type="text" id="tblUrl" placeholder="https://example.gov.pk/list"></div>
     <div style="margin:8px 0">
       <label style="font-size:.85rem"><input type="checkbox" id="tblIgnoreRobots"> Ignore robots.txt (sirf public, non-sensitive government data ke liye — apni responsibility par)</label>
@@ -2925,6 +2954,121 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       statusEl.textContent = '❌ ' + e.message;
     } finally {
       $('tblFileUploadBtn').disabled = false;
+    }
+  });
+
+  // ---- Paste HTML / Bookmarklet path (for WAF-blocked sites like BEOE) ----
+  // No fetch happens here — the admin's own browser already retrieved this
+  // HTML by opening the page normally, so whatever challenge the site shows
+  // was already passed by a real human browsing, not by this code.
+  (function setupBookmarklet(){
+    const bookmarkletSrc = "javascript:(function(){try{var h=document.documentElement.outerHTML;if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(h).then(function(){alert('Page HTML clipboard mein copy ho gaya ('+h.length+' characters). Ab admin panel mein paste kar dein.');}).catch(function(){prompt('Clipboard access nahi mila — neeche se manually copy karein:',h);});}else{prompt('Neeche se manually copy karein (select all + copy):',h);}}catch(e){alert('HTML grab nahi ho saka: '+e.message);}})();";
+    const link = $('tblBookmarkletLink');
+    if(link) link.setAttribute('href', bookmarkletSrc);
+  })();
+
+  $('tblPasteDetectBtn').addEventListener('click', async () => {
+    const html = $('tblPasteHtml').value;
+    const sourceUrl = $('tblPasteSourceUrl').value.trim();
+    const resultBox = $('tblPasteResult');
+    const bodyEl = $('tblPasteBody');
+    const choicesEl = $('tblPasteChoices');
+
+    if(!html || !html.trim()){ alert('Pehle HTML paste karein.'); return; }
+
+    resultBox.style.display = 'block';
+    bodyEl.textContent = '⏳ Detect ho raha hai...';
+    choicesEl.innerHTML = '';
+    $('tblPasteDetectBtn').disabled = true;
+
+    try {
+      const result = await callAdminApi(`table-downloader?operation=detect-from-html`, {
+        method: 'POST',
+        body: JSON.stringify({ html, sourceLabel: sourceUrl || null })
+      });
+      if(!result || !result.ok){
+        bodyEl.innerHTML = `❌ ${result ? (result.message || result.reason) : 'Unknown error'}`;
+        return;
+      }
+
+      bodyEl.innerHTML = `
+        Source: <b>${result.website}</b><br>
+        Tables/Lists mile: <b>${result.tables.length}</b><br>
+        Pagination: <b>${result.pagination ? result.pagination.type : 'Detect nahi hui (' + (result.paginationConfidenceNote || '') + ')'}</b>
+      `;
+
+      choicesEl.innerHTML = '';
+      result.tables.forEach((t) => {
+        const div = document.createElement('div');
+        div.style.cssText = 'border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px;font-size:.82rem';
+        div.innerHTML = `
+          <div><b>Table #${t.index}</b> ${t.recommended ? '⭐ (recommended)' : ''} — ${t.rows} rows × ${t.cols} cols (score: ${t.score})</div>
+          <div style="color:var(--muted);margin:4px 0">Headers: ${t.headers.join(', ')}</div>
+          <button class="btn alt" type="button" data-use-table="${t.index}">Extract Rows from this Table</button>
+        `;
+        choicesEl.appendChild(div);
+      });
+
+      choicesEl.querySelectorAll('[data-use-table]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const tableIndex = parseInt(btn.getAttribute('data-use-table'), 10);
+          btn.disabled = true;
+          btn.textContent = 'Extract ho raha hai...';
+          try {
+            const rowsResult = await callAdminApi(`table-downloader?operation=extract-from-html`, {
+              method: 'POST',
+              body: JSON.stringify({ html, tableIndex })
+            });
+            if(!rowsResult || !rowsResult.ok){
+              alert('Extract fail: ' + (rowsResult ? (rowsResult.message || rowsResult.reason) : 'Unknown error'));
+              btn.disabled = false;
+              btn.textContent = 'Extract Rows from this Table';
+              return;
+            }
+
+            // Merge headers (first paste sets them) and APPEND rows, so
+            // page-by-page pasting (page 1, page 2, ...) accumulates into
+            // one job before dedupe/export — same downstream flow as the
+            // existing CSV-upload and URL-fetch paths.
+            if(!tblJobState.headers || tblJobState.headers.length === 0){
+              tblJobState.headers = rowsResult.headers;
+            }
+            const nowIso = new Date().toISOString();
+            const newRows = rowsResult.rows.map(cells => ({
+              cells,
+              sourceUrl: sourceUrl || 'pasted-html',
+              retrievedAt: nowIso
+            }));
+            tblJobState.rows = (tblJobState.rows || []).concat(newRows);
+
+            const dedupe = computeDedupe(tblJobState.rows, tblJobState.headers);
+            tblJobState.dedupedRows = dedupe.uniqueRows;
+            tblJobState.dupCount = dedupe.dupCount;
+            tblJobState.dedupeKeyUsed = dedupe.keyUsed;
+
+            $('tblCompleteBlock').style.display = 'block';
+            $('tblCompleteBody').innerHTML = `
+              Status: <b>COMPLETED</b> (PASTED_HTML)<br>
+              Total rows accumulated so far: <b>${tblJobState.rows.length}</b><br>
+              Duplicates removed: <b>${dedupe.dupCount}</b> <span style="color:var(--muted)">(key: ${dedupe.keyUsed})</span><br>
+              Final unique rows: <b>${dedupe.uniqueRows.length}</b><br>
+            `;
+            log(`Paste-HTML extract: table #${tableIndex}, ${rowsResult.rows.length} rows is page se, total accumulated ${tblJobState.rows.length}, unique ${dedupe.uniqueRows.length}.`);
+
+            if(dedupe.uniqueRows.length > 0){ populateVerifMapping(); populateTendersMapping(); }
+
+            btn.textContent = '✅ Added to job (' + rowsResult.rows.length + ' rows)';
+          } catch(e) {
+            alert('Error: ' + e.message);
+            btn.disabled = false;
+            btn.textContent = 'Extract Rows from this Table';
+          }
+        });
+      });
+    } catch(e) {
+      bodyEl.innerHTML = '❌ ' + e.message;
+    } finally {
+      $('tblPasteDetectBtn').disabled = false;
     }
   });
 
