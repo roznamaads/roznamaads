@@ -37,6 +37,7 @@ const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
 // ---------------------------------------------------------------------------
 const RELAY_URL = process.env.RELAY_URL || '';
 const RELAY_SECRET = process.env.RELAY_SECRET || '';
+const RELAY_TIMEOUT_MS = 45000; // relay hop (us -> Google Apps Script -> slow govt site -> back) needs more slack than a direct fetch; router.js has maxDuration:60 so this fits
 const CONNECTION_ERROR_RE = /connect timeout|econnrefused|enotfound|econnreset|ehostunreach|eai_again|network is unreachable|other side closed|fetch failed/i;
 
 function parseSetCookieHeader(rawHeaderValue) {
@@ -62,7 +63,7 @@ async function relayRequest(urlString, { method = 'GET', headers = {}, body = nu
     throw new Error('Relay configure nahi hai (RELAY_URL / RELAY_SECRET Vercel env vars missing).');
   }
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), RELAY_TIMEOUT_MS);
   let res;
   try {
     res = await fetch(RELAY_URL, {
