@@ -570,13 +570,16 @@ function decodeHtmlEntities(str) {
 // page N is to look up its actual link off the page that's currently showing
 // (exactly like a human clicking it) — the ID can't be computed in advance.
 function extractPostbackLinkMap(html) {
-  const re = /<a[^>]*href=["']javascript:__doPostBack\((?:&#39;|')([^'&]+)(?:&#39;|'),\s*(?:&#39;|')([^'&]*)(?:&#39;|')\)["'][^>]*>\s*([^<]*?)\s*<\/a>/gi;
+  // Inner content is captured lazily and tags stripped afterward — Telerik
+  // pager numbers are often wrapped in a <span> (or similar), so a naive
+  // "no nested tags" capture misses them entirely.
+  const re = /<a[^>]*href=["']javascript:__doPostBack\((?:&#39;|')([^'&]+)(?:&#39;|'),\s*(?:&#39;|')([^'&]*)(?:&#39;|')\)["'][^>]*>([\s\S]*?)<\/a>/gi;
   const map = {};
   let m;
   while ((m = re.exec(html))) {
     const control = decodeHtmlEntities(m[1]);
     const argument = decodeHtmlEntities(m[2]);
-    const text = decodeHtmlEntities(m[3]).trim();
+    const text = decodeHtmlEntities(m[3].replace(/<[^>]+>/g, '')).trim();
     if (text) map[text] = { control, argument };
   }
   return map;
