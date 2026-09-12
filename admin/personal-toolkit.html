@@ -3962,6 +3962,22 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     };
   });
 
+  // Some sources genuinely repeat the same firm+city (e.g. blacklisted more
+  // than once on different dates) — that collapses to the same synthetic
+  // reference_no, which then collides within a single batch just like a
+  // missing reference_no did. Make any such repeats locally distinct so the
+  // batch always succeeds (only affects the rare repeat rows, not the
+  // normal case).
+  {
+    const seenCounts = new Map();
+    for(const r of payloadRows){
+      const key = r.reference_no;
+      const n = (seenCounts.get(key) || 0) + 1;
+      seenCounts.set(key, n);
+      if(n > 1) r.reference_no = `${key}:${n}`;
+    }
+  }
+
     const CHUNK_SIZE = 200;
     let sent = 0, failed = 0, changedTotal = 0;
     for(let i = 0; i < payloadRows.length; i += CHUNK_SIZE){
