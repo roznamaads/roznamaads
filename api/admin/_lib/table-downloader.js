@@ -393,7 +393,7 @@ function extractAllGrids(html) {
   return [...tableGrids, ...listGrids];
 }
 
-function extractTables(html) {
+function computeRankedTables(html) {
   const candidates = extractAllGrids(html);
   const results = candidates.map(({ grid, sourceType }, idx) => {
     const { score, cols, nonEmptyPct, headerRow, consistency } = scoreTable(grid);
@@ -422,12 +422,17 @@ function extractTables(html) {
       nonEmptyPct,
       consistency,
       headers,
-      sampleRows
+      sampleRows,
+      dataRows // kept for extraction; stripped before this is sent to the client
     };
   }).filter(t => t.rows > 0 && t.cols > 0);
 
   results.sort((a, b) => b.score - a.score);
   return results;
+}
+
+function extractTables(html) {
+  return computeRankedTables(html).map(({ dataRows, ...summary }) => summary);
 }
 
 // ---------------------------------------------------------------------------
@@ -804,11 +809,15 @@ function isJunkRow(rowCells, headers) {
 }
 
 function extractSpecificTableRows(html, tableIndex) {
-  const grids = extractAllGrids(html).map(c => c.grid);
-  const grid = grids[tableIndex] || grids[0] || [];
-  const headerRowRaw = grid.length > 0 ? grid[0] : null;
-  const dataRows = grid.slice(1);
-  const headers = headerRowRaw ? headerRowRaw.map(c => (c ? c.text : '')) : [];
+  // Must use the exact same filtered+sorted order as extractTables()
+  // (used by Detect), or "Table N" in the download step can silently be a
+  // different table than "Table N" shown during detect (e.g. a nav-menu
+  // <table> that Detect's scoring filtered out, but which sat earlier in the
+  // page's raw, unranked table order).
+  const ranked = computeRankedTables(html);
+  const picked = ranked[tableIndex] || ranked[0];
+  const headers = picked ? picked.headers : [];
+  const dataRows = picked ? picked.dataRows : [];
 
   const allRows = dataRows.map(r => headers.map((_, i) => (r[i] ? r[i].text : '')));
   const allLinkCells = dataRows.map(r => headers.map((_, i) => (r[i] ? r[i].linkHref : null)));
@@ -825,7 +834,7 @@ function extractSpecificTableRows(html, tableIndex) {
     }
   });
 
-  return { headers, rows, linkCells, tableFound: grids.length > 0, junkRowsSkipped };
+  return { headers, rows, linkCells, tableFound: ranked.length > 0, junkRowsSkipped };
 }
 
 // Fetches ONE page, extracts the chosen table's rows, and (for next_link-style
