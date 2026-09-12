@@ -536,10 +536,17 @@ export function detectPagination(html, baseUrl) {
   }
 
   // 5) ASP.NET WebForms postback pagination (__doPostBack) — common on govt
-  // sites built with old ASP.NET grids (e.g. Telerik RadGrid). No real href,
-  // page click runs client-side JS that submits a form (__EVENTTARGET /
-  // __EVENTARGUMENT). Detected separately since it needs stateful POSTs,
-  // not a URL template.
+  // sites built with old ASP.NET grids. No real href, page click runs
+  // client-side JS that submits a form (__EVENTTARGET / __EVENTARGUMENT).
+  // Two different flavours seen in practice:
+  //   a) Telerik RadGrid style — each numbered pager button is its OWN
+  //      control with an empty argument (control ID isn't predictable/
+  //      computable in advance, must be read off each page's own HTML).
+  //   b) Plain ASP.NET GridView style — one shared control, argument is a
+  //      predictable "Page$N" — safe to construct for any page number.
+  const postbackDynamic = detectPostbackDynamicPagination(html);
+  if (postbackDynamic) return postbackDynamic;
+
   const postback = detectPostbackPagination(html);
   if (postback) return postback;
 
@@ -555,6 +562,46 @@ function decodeHtmlEntities(str) {
     .replace(/&#61;/g, '=')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>');
+}
+
+// Maps visible pager text (e.g. "2", "3", "Next") -> {control, argument} for
+// every __doPostBack anchor on the page. Telerik RadGrid gives each pager
+// number its own unique control ID, so the ONLY reliable way to navigate to
+// page N is to look up its actual link off the page that's currently showing
+// (exactly like a human clicking it) — the ID can't be computed in advance.
+function extractPostbackLinkMap(html) {
+  const re = /<a[^>]*href=["']javascript:__doPostBack\((?:&#39;|')([^'&]+)(?:&#39;|'),\s*(?:&#39;|')([^'&]*)(?:&#39;|')\)["'][^>]*>\s*([^<]*?)\s*<\/a>/gi;
+  const map = {};
+  let m;
+  while ((m = re.exec(html))) {
+    const control = decodeHtmlEntities(m[1]);
+    const argument = decodeHtmlEntities(m[2]);
+    const text = decodeHtmlEntities(m[3]).trim();
+    if (text) map[text] = { control, argument };
+  }
+  return map;
+}
+
+function detectPostbackDynamicPagination(html) {
+  const linkMap = extractPostbackLinkMap(html);
+  // Require a "2" link to confirm this is really a numbered pager (and that
+  // we're not already sitting on the last page of a 1-page result).
+  if (!linkMap['2']) return null;
+
+  let estimatedPages = null;
+  const summaryMatch = html.match(/(\d+)\s+items?\s+in\s+(\d+)\s+pages?/i);
+  if (summaryMatch) {
+    estimatedPages = parseInt(summaryMatch[2], 10);
+  } else {
+    const numericTexts = Object.keys(linkMap).filter(t => /^\d+$/.test(t)).map(Number);
+    if (numericTexts.length) estimatedPages = Math.max(...numericTexts);
+  }
+
+  return {
+    type: 'postback_dynamic',
+    estimatedPages,
+    confidence: summaryMatch ? 0.85 : 0.5
+  };
 }
 
 function detectPostbackPagination(html) {
@@ -905,7 +952,7 @@ export async function fetchSinglePage(inputUrl, tableIndex, paginationType) {
 // cookies from the previous response — the frontend carries `postbackState`
 // forward between calls (same "frontend drives the loop" pattern as other
 // pagination types), and checkpoints it like it does cursorUrl for next_link.
-export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumber, priorState) {
+export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumber, priorState, paginationType) {
   let targetUrl;
   try {
     targetUrl = await assertPublicUrl(inputUrl);
@@ -918,7 +965,19 @@ export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumbe
     if (pageNumber <= 1 || !priorState) {
       fetched = await safeFetchWithRetry(targetUrl.toString());
     } else {
-      const body = buildPostbackFormBody(priorState.hiddenFields || {}, control, `Page$${pageNumber}`);
+      let targetControl = control;
+      let targetArgument = `Page$${pageNumber}`;
+      if (paginationType === 'postback_dynamic') {
+        // Telerik RadGrid style: each page number is its own control, only
+        // discoverable by reading the PRIOR page's own rendered pager links.
+        const link = (priorState.linkMap || {})[String(pageNumber)];
+        if (!link) {
+          return { ok: false, reason: 'no_next_link', message: `Page ${pageNumber} ka link pichle page ke pager mein nahi mila — shayad ye aakhri page hai.` };
+        }
+        targetControl = link.control;
+        targetArgument = link.argument;
+      }
+      const body = buildPostbackFormBody(priorState.hiddenFields || {}, targetControl, targetArgument);
       const cookieHeader = (priorState.cookies || []).join('; ');
       if (RELAY_URL && RELAY_SECRET) {
         // Postback almost always happens on sites we already had to relay
@@ -1003,7 +1062,8 @@ export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumbe
     // carried forward by the frontend for the NEXT page's postback request
     postbackState: {
       hiddenFields: extractHiddenFields(fetched.html),
-      cookies: mergedCookies
+      cookies: mergedCookies,
+      linkMap: extractPostbackLinkMap(fetched.html)
     }
   };
 }

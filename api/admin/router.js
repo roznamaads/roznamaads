@@ -652,8 +652,8 @@ export default async function handler(req, res) {
           if (!targetUrl || typeof targetUrl !== 'string') return res.status(400).json({ error: 'targetUrl required' });
           const idx = Number.isInteger(tableIndex) ? tableIndex : 0;
           try {
-            const result = paginationType === 'postback'
-              ? await fetchPostbackPage(targetUrl, idx, control, Number(pageNumber) || 1, postbackState || null)
+            const result = (paginationType === 'postback' || paginationType === 'postback_dynamic')
+              ? await fetchPostbackPage(targetUrl, idx, control, Number(pageNumber) || 1, postbackState || null, paginationType)
               : await fetchSinglePage(targetUrl, idx, paginationType || null);
             return res.status(result.ok ? 200 : 422).json(result);
           } catch (execErr) {

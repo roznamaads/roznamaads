@@ -1921,6 +1921,22 @@ function extractHiddenFieldsClientSide(html){
   return fields;
 }
 
+// Telerik RadGrid style pager: each page-number link is its OWN control with
+// no predictable ID pattern, so build a lookup {visibleText -> {control,argument}}
+// straight off whatever page is currently loaded (same info a human sees).
+function extractPostbackLinkMapClientSide(html){
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const map = {};
+  doc.querySelectorAll('a[href^="javascript:__doPostBack"]').forEach(a => {
+    const href = a.getAttribute('href') || '';
+    const m = href.match(/__doPostBack\('([^']+)',\s*'([^']*)'\)/);
+    if(!m) return;
+    const text = (a.textContent || '').trim();
+    if(text) map[text] = { control: m[1], argument: m[2] };
+  });
+  return map;
+}
+
 function buildPostbackBodyClientSide(hiddenFields, control, argument){
   const params = new URLSearchParams();
   Object.entries(hiddenFields).forEach(([k,v]) => params.set(k, v));
@@ -3021,7 +3037,12 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       return `Method: <b>Next-link only</b> (single hop, jump-to-page nahi)<br>Next URL: <code>${p.nextUrl}</code><br>Confidence: <b>${Math.round(p.confidence*100)}%</b>`;
     }
     if(p.type === 'postback'){
-      return `Method: <b>ASP.NET postback grid</b> (__doPostBack, e.g. Telerik-style govt sites)<br>Control: <code>${p.control}</code><br>` +
+      return `Method: <b>ASP.NET postback grid</b> (__doPostBack, fixed control + Page$N)<br>Control: <code>${p.control}</code><br>` +
+             (p.estimatedPages ? `Estimated Pages: <b>${p.estimatedPages}</b><br>` : '') +
+             `Confidence: <b>${Math.round(p.confidence*100)}%</b>`;
+    }
+    if(p.type === 'postback_dynamic'){
+      return `Method: <b>ASP.NET postback grid (Telerik RadGrid style)</b> — har page number ka apna control ID hai, har page se agla link dhoonda jata hai<br>` +
              (p.estimatedPages ? `Estimated Pages: <b>${p.estimatedPages}</b><br>` : '') +
              `Confidence: <b>${Math.round(p.confidence*100)}%</b>`;
     }
@@ -3182,8 +3203,17 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   async function fetchPageViaBrowserRelay(pagination, targetUrl, pageNum, priorPostbackState){
     let relayResult;
     try {
-      if(pagination && pagination.type === 'postback' && pageNum > 1 && priorPostbackState){
-        const body = buildPostbackBodyClientSide(priorPostbackState.hiddenFields || {}, pagination.control, `Page$${pageNum}`);
+      const isPostback = pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic');
+      if(isPostback && pageNum > 1 && priorPostbackState){
+        let ctrl, arg;
+        if(pagination.type === 'postback_dynamic'){
+          const link = (priorPostbackState.linkMap || {})[String(pageNum)];
+          if(!link) return { ok: false, reason: 'no_next_link', message: `Page ${pageNum} ka link pichle page ke pager mein nahi mila — shayad ye aakhri page hai.` };
+          ctrl = link.control; arg = link.argument;
+        } else {
+          ctrl = pagination.control; arg = `Page$${pageNum}`;
+        }
+        const body = buildPostbackBodyClientSide(priorPostbackState.hiddenFields || {}, ctrl, arg);
         const cookieHeader = (priorPostbackState.cookies || []).join('; ');
         relayResult = await relayFetchClientSide(targetUrl, {
           method: 'POST',
@@ -3217,13 +3247,13 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     if(pagination && pagination.type === 'next_link' && extracted.pagination){
       extracted.nextUrl = extracted.pagination.nextUrl || null;
     }
-    if(pagination && pagination.type === 'postback'){
+    if(pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic')){
       const newHidden = extractHiddenFieldsClientSide(relayResult.html);
       const newCookies = relayResult.cookies || [];
       const priorCookies = (priorPostbackState && priorPostbackState.cookies) || [];
       const newNames = new Set(newCookies.map(c => c.split('=')[0]));
       const mergedCookies = [...priorCookies.filter(c => !newNames.has(c.split('=')[0])), ...newCookies];
-      extracted.postbackState = { hiddenFields: newHidden, cookies: mergedCookies };
+      extracted.postbackState = { hiddenFields: newHidden, cookies: mergedCookies, linkMap: extractPostbackLinkMapClientSide(relayResult.html) };
     }
     return extracted;
   }
@@ -3233,8 +3263,17 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   async function fetchPageViaDirectPhone(pagination, targetUrl, pageNum, priorPostbackState){
     let fetched;
     try {
-      if(pagination && pagination.type === 'postback' && pageNum > 1 && priorPostbackState){
-        const body = buildPostbackBodyClientSide(priorPostbackState.hiddenFields || {}, pagination.control, `Page$${pageNum}`);
+      const isPostback = pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic');
+      if(isPostback && pageNum > 1 && priorPostbackState){
+        let ctrl, arg;
+        if(pagination.type === 'postback_dynamic'){
+          const link = (priorPostbackState.linkMap || {})[String(pageNum)];
+          if(!link) return { ok: false, reason: 'no_next_link', message: `Page ${pageNum} ka link pichle page ke pager mein nahi mila — shayad ye aakhri page hai.` };
+          ctrl = link.control; arg = link.argument;
+        } else {
+          ctrl = pagination.control; arg = `Page$${pageNum}`;
+        }
+        const body = buildPostbackBodyClientSide(priorPostbackState.hiddenFields || {}, ctrl, arg);
         fetched = await directFetchClientSide(targetUrl, { method: 'POST', body, contentType: 'application/x-www-form-urlencoded' });
       } else {
         fetched = await directFetchClientSide(targetUrl, { method: 'GET' });
@@ -3262,8 +3301,8 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     if(pagination && pagination.type === 'next_link' && extracted.pagination){
       extracted.nextUrl = extracted.pagination.nextUrl || null;
     }
-    if(pagination && pagination.type === 'postback'){
-      extracted.postbackState = { hiddenFields: extractHiddenFieldsClientSide(fetched.html), cookies: [] };
+    if(pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic')){
+      extracted.postbackState = { hiddenFields: extractHiddenFieldsClientSide(fetched.html), cookies: [], linkMap: extractPostbackLinkMapClientSide(fetched.html) };
     }
     return extracted;
   }
@@ -3289,7 +3328,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       tblJobState.headers = ckpt.headers;
       startPage = (ckpt.lastCompletedPage || 0) + 1;
       if(pagination && pagination.type === 'next_link') cursorUrl = ckpt.cursorUrl || url;
-      if(pagination && pagination.type === 'postback'){
+      if(pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic')){
         postbackState = ckpt.postbackState || null;
         log('⚠️ Postback (ASP.NET grid) resume — agar session/VIEWSTATE expire ho chuki hai to pehla page fail hoga; is case mein fresh start karein.');
       }
@@ -3326,7 +3365,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       } else if(pagination.type === 'next_link'){
         targetUrl = cursorUrl;
         if(!targetUrl){ stopReason = 'END_OF_PAGINATION'; break; }
-      } else if(pagination.type === 'postback'){
+      } else if((pagination.type === 'postback' || pagination.type === 'postback_dynamic')){
         targetUrl = url; // postback always POSTs to the same page URL
       } else {
         targetUrl = buildPageUrl(pagination, pageNum);
@@ -3342,7 +3381,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
           result = await fetchPageViaBrowserRelay(pagination, targetUrl, pageNum, postbackState);
         } else {
           const reqBody = { targetUrl, tableIndex: tblSelectedTableIndex, paginationType: pagination ? pagination.type : null };
-          if(pagination && pagination.type === 'postback'){
+          if(pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic')){
             reqBody.control = pagination.control;
             reqBody.pageNumber = pageNum;
             reqBody.postbackState = postbackState;
@@ -3362,6 +3401,11 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       }
 
       if(!result.ok){
+        if(result.reason === 'no_next_link'){
+          log(`Page ${pageNum}: agla page link nahi mila — pagination yahin khatam ho gayi (${lastCompletedPage} pages mil chuki hain).`);
+          stopReason = 'END_OF_PAGINATION';
+          break;
+        }
         if(result.reason && result.reason.startsWith('blocked_')){
           log(`Page ${pageNum}: STOPPED — ${result.message}`);
           stopReason = result.reason.toUpperCase();
@@ -3402,7 +3446,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       });
 
       if(pagination && pagination.type === 'next_link') cursorUrl = result.nextUrl;
-      if(pagination && pagination.type === 'postback') postbackState = result.postbackState || postbackState;
+      if(pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic')) postbackState = result.postbackState || postbackState;
 
       pagesFetched++;
       lastCompletedPage = pageNum;
@@ -3416,7 +3460,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
 
       if(!pagination){ stopReason = 'SINGLE_PAGE_COMPLETE'; break; } // single-page site: one fetch is the whole dataset, we're done
       if(pagination.type === 'next_link' && !cursorUrl){ stopReason = 'END_OF_PAGINATION'; break; }
-      if(pagination.type === 'postback' && pagination.estimatedPages && pageNum >= pagination.estimatedPages){ stopReason = 'END_OF_PAGINATION'; break; }
+      if((pagination.type === 'postback' || pagination.type === 'postback_dynamic') && pagination.estimatedPages && pageNum >= pagination.estimatedPages){ stopReason = 'END_OF_PAGINATION'; break; }
       if(pageNum >= (startPage + maxPages - 1)){ stopReason = 'MAX_PAGES_REACHED'; break; }
 
       await new Promise(r => setTimeout(r, delayMs));
