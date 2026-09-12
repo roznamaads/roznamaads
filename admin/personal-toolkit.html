@@ -391,7 +391,8 @@
     <div class="field"><label>Website URL</label><input type="text" id="tblUrl" placeholder="https://example.gov.pk/list"></div>
     <div style="margin:8px 0">
       <label style="font-size:.85rem"><input type="checkbox" id="tblIgnoreRobots"> Ignore robots.txt (sirf public, non-sensitive government data ke liye — apni responsibility par)</label><br>
-      <label style="font-size:.85rem"><input type="checkbox" id="tblBrowserRelay"> Fetch via Browser Relay (jab site direct/server-relay dono se timeout ho jaye — is phone ke browser se fetch karta hai, koi time-limit nahi)</label>
+      <label style="font-size:.85rem"><input type="checkbox" id="tblBrowserRelay"> Fetch via Browser Relay (jab site direct/server-relay dono se timeout ho jaye — is phone ke browser se fetch karta hai, koi time-limit nahi)</label><br>
+      <label style="font-size:.85rem"><input type="checkbox" id="tblDirectPhoneFetch"> Direct Phone Fetch (jab Google relay bhi block ho — seedha is phone ke internet se fetch karta hai; "Allow CORS" extension ON hona zaroori hai)</label>
     </div>
     <button class="btn" id="tblDetectBtn">Detect Table</button>
 
@@ -1928,6 +1929,24 @@ function buildPostbackBodyClientSide(hiddenFields, control, argument){
   return params.toString();
 }
 
+// DIRECT PHONE FETCH — bypasses the Google relay entirely too. For the rare
+// case where even Google's IPs are blocked. Requires a CORS-unblocking
+// browser extension (e.g. "Allow CORS: Access-Control-Allow-Origin") since
+// we're now fetching a foreign origin straight from this page with no
+// intermediary that can add CORS headers itself.
+async function directFetchClientSide(targetUrl, { method='GET', body=null, contentType=null, headers={} } = {}){
+  const fetchHeaders = { ...headers };
+  if(contentType) fetchHeaders['Content-Type'] = contentType;
+  let res;
+  try {
+    res = await fetch(targetUrl, { method, headers: fetchHeaders, body: body || undefined });
+  } catch(e) {
+    throw new Error(`Direct fetch fail hui (CORS extension ON hai? Mixed-content block to nahi?): ${e.message}`);
+  }
+  const html = await res.text();
+  return { status: res.status, html };
+}
+
 (function restoreServiceKey(){
   const saved = sessionStorage.getItem('rz_admin_secret');
   if(saved){
@@ -3014,12 +3033,20 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     if(!url){ alert('Pehle website URL daalein.'); return; }
     if(!getAdminSecret()) return;
     const useBrowserRelay = $('tblBrowserRelay').checked;
-    log(`Detect requested for: ${url}${useBrowserRelay ? ' [browser relay]' : ''}`);
+    const useDirectPhone = $('tblDirectPhoneFetch').checked;
+    log(`Detect requested for: ${url}${useBrowserRelay ? ' [browser relay]' : ''}${useDirectPhone ? ' [direct phone]' : ''}`);
     $('tblDetectBtn').disabled = true;
     $('tblDetectBtn').textContent = 'Detecting…';
     try {
       let result;
-      if(useBrowserRelay){
+      if(useDirectPhone){
+        log('Is phone se seedha fetch kar raha hoon…');
+        const directResult = await directFetchClientSide(url, { method: 'GET' });
+        result = await callAdminApi(`table-downloader?operation=detect-from-html`, {
+          method: 'POST',
+          body: JSON.stringify({ html: directResult.html, sourceLabel: url })
+        });
+      } else if(useBrowserRelay){
         log('Browser se relay ko call kar raha hoon (ye 30-60+ second le sakta hai, sabar karein)…');
         const relayResult = await relayFetchClientSide(url, { method: 'GET' });
         result = await callAdminApi(`table-downloader?operation=detect-from-html`, {
@@ -3201,6 +3228,46 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     return extracted;
   }
 
+  // Same idea as fetchPageViaBrowserRelay but skips Google entirely — talks
+  // straight to the target site from this browser tab.
+  async function fetchPageViaDirectPhone(pagination, targetUrl, pageNum, priorPostbackState){
+    let fetched;
+    try {
+      if(pagination && pagination.type === 'postback' && pageNum > 1 && priorPostbackState){
+        const body = buildPostbackBodyClientSide(priorPostbackState.hiddenFields || {}, pagination.control, `Page$${pageNum}`);
+        fetched = await directFetchClientSide(targetUrl, { method: 'POST', body, contentType: 'application/x-www-form-urlencoded' });
+      } else {
+        fetched = await directFetchClientSide(targetUrl, { method: 'GET' });
+      }
+    } catch(e) {
+      return { ok: false, reason: 'direct_fetch_error', message: e.message };
+    }
+
+    if(fetched.status >= 400){
+      return { ok: false, reason: 'http_error', message: `Website returned HTTP ${fetched.status}.` };
+    }
+
+    let extracted;
+    try {
+      extracted = await callAdminApi(`table-downloader?operation=extract-from-html`, {
+        method: 'POST',
+        body: JSON.stringify({ html: fetched.html, tableIndex: tblSelectedTableIndex, sourceLabel: targetUrl })
+      });
+    } catch(e) {
+      return { ok: false, reason: 'extract_error', message: e.message };
+    }
+    if(!extracted.ok) return extracted;
+
+    extracted.usedRelay = false;
+    if(pagination && pagination.type === 'next_link' && extracted.pagination){
+      extracted.nextUrl = extracted.pagination.nextUrl || null;
+    }
+    if(pagination && pagination.type === 'postback'){
+      extracted.postbackState = { hiddenFields: extractHiddenFieldsClientSide(fetched.html), cookies: [] };
+    }
+    return extracted;
+  }
+
   async function runDownload(isResume){
     if(!tblLastDetection || !tblLastDetection.ok){ alert('Pehle Detect Table chalayein.'); return; }
     const pagination = tblLastDetection.pagination;
@@ -3267,8 +3334,11 @@ document.getElementById('loadStats').addEventListener('click', async () => {
 
       let result;
       const useBrowserRelay = $('tblBrowserRelay').checked;
+      const useDirectPhone = $('tblDirectPhoneFetch').checked;
       try {
-        if(useBrowserRelay){
+        if(useDirectPhone){
+          result = await fetchPageViaDirectPhone(pagination, targetUrl, pageNum, postbackState);
+        } else if(useBrowserRelay){
           result = await fetchPageViaBrowserRelay(pagination, targetUrl, pageNum, postbackState);
         } else {
           const reqBody = { targetUrl, tableIndex: tblSelectedTableIndex, paginationType: pagination ? pagination.type : null };
