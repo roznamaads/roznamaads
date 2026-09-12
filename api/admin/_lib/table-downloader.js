@@ -29,6 +29,10 @@ const TLS_CHAIN_ERROR_CODES = new Set([
   'DEPTH_ZERO_SELF_SIGNED_CERT'
 ]);
 const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
+// Direct-connection attempts to a blocked/unreachable host otherwise waste ~10s
+// (undici's own default connect timeout) before we even get to try the relay.
+// Failing fast here leaves much more of our 60s budget for the relay hop.
+const fastFailAgent = new Agent({ connect: { timeout: 5000 } });
 
 // ---------------------------------------------------------------------------
 // RELAY (Google Apps Script) — fallback for sites that block datacenter IPs
@@ -37,7 +41,7 @@ const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
 // ---------------------------------------------------------------------------
 const RELAY_URL = process.env.RELAY_URL || '';
 const RELAY_SECRET = process.env.RELAY_SECRET || '';
-const RELAY_TIMEOUT_MS = 45000; // relay hop (us -> Google Apps Script -> slow govt site -> back) needs more slack than a direct fetch; router.js has maxDuration:60 so this fits
+const RELAY_TIMEOUT_MS = 48000; // relay hop (us -> Google Apps Script -> slow govt site -> back) needs a lot of slack; router.js has maxDuration:60
 const CONNECTION_ERROR_RE = /connect timeout|econnrefused|enotfound|econnreset|ehostunreach|eai_again|network is unreachable|other side closed|fetch failed/i;
 
 function parseSetCookieHeader(rawHeaderValue) {
@@ -231,7 +235,8 @@ async function safeFetch(urlString) {
       res = await fetch(currentUrl.toString(), {
         headers: { 'User-Agent': USER_AGENT, Accept: 'text/html,application/xhtml+xml' },
         redirect: 'manual',
-        signal: ctrl.signal
+        signal: ctrl.signal,
+        dispatcher: fastFailAgent
       });
     } catch (e) {
       clearTimeout(timer);
