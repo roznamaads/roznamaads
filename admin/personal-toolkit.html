@@ -1956,7 +1956,17 @@ function findNextPostbackTargetClientSide(linkMap, afterPage){
       if(bestNum === null || n < bestNum){ bestNum = n; bestLink = link; }
     }
   });
-  return bestNum ? { pageNumber: bestNum, control: bestLink.control, argument: bestLink.argument } : null;
+  if(bestNum) return { pageNumber: bestNum, control: bestLink.control, argument: bestLink.argument };
+
+  // No literal number beyond the window — try a "..."/next-style control
+  // that shifts the pager window forward instead.
+  const NEXT_TEXT_RE = /^(\.\.\.|›|»|next|more|agla|▶)$/i;
+  for(const [text, link] of Object.entries(linkMap)){
+    if(NEXT_TEXT_RE.test(text.trim())){
+      return { pageNumber: afterPage + 1, control: link.control, argument: link.argument };
+    }
+  }
+  return null;
 }
 
 // DIRECT PHONE FETCH — bypasses the Google relay entirely too. For the rare
