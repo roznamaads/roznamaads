@@ -390,7 +390,8 @@
 
     <div class="field"><label>Website URL</label><input type="text" id="tblUrl" placeholder="https://example.gov.pk/list"></div>
     <div style="margin:8px 0">
-      <label style="font-size:.85rem"><input type="checkbox" id="tblIgnoreRobots"> Ignore robots.txt (sirf public, non-sensitive government data ke liye — apni responsibility par)</label>
+      <label style="font-size:.85rem"><input type="checkbox" id="tblIgnoreRobots"> Ignore robots.txt (sirf public, non-sensitive government data ke liye — apni responsibility par)</label><br>
+      <label style="font-size:.85rem"><input type="checkbox" id="tblBrowserRelay"> Fetch via Browser Relay (jab site direct/server-relay dono se timeout ho jaye — is phone ke browser se fetch karta hai, koi time-limit nahi)</label>
     </div>
     <button class="btn" id="tblDetectBtn">Detect Table</button>
 
@@ -1868,6 +1869,60 @@ async function callAdminApi(path, options){
   if(!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// BROWSER RELAY — for sites where even the server-side relay hop times out
+// (Vercel functions have a hard 60s ceiling). Calling Google Apps Script
+// directly from the admin's own browser has no such limit, so slow
+// government sites just take as long as they take instead of failing.
+// ---------------------------------------------------------------------------
+let _relayConfigCache = null;
+async function getRelayConfig(){
+  if(_relayConfigCache) return _relayConfigCache;
+  const result = await callAdminApi('table-downloader?operation=relay-config', { method: 'GET' });
+  if(!result || !result.ok) throw new Error((result && result.message) || 'Relay configure nahi hai.');
+  _relayConfigCache = { relayUrl: result.relayUrl, relaySecret: result.relaySecret };
+  return _relayConfigCache;
+}
+
+async function relayFetchClientSide(targetUrl, { method='GET', body=null, contentType=null, headers={} } = {}){
+  const cfg = await getRelayConfig();
+  const res = await fetch(cfg.relayUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret: cfg.relaySecret, url: targetUrl, method, headers, body, contentType })
+  });
+  if(!res.ok) throw new Error(`Relay ne HTTP ${res.status} return kiya.`);
+  const data = await res.json();
+  if(data.error) throw new Error(`Relay error: ${data.error}`);
+  const headerEntries = Object.entries(data.headers || {}).map(([k,v]) => [k.toLowerCase(), v]);
+  const headerMap = new Map(headerEntries);
+  let rawCookie = headerMap.get('set-cookie');
+  let cookies = [];
+  if(rawCookie){
+    const list = Array.isArray(rawCookie) ? rawCookie : [rawCookie];
+    cookies = list.flatMap(c => c.split(/,(?=\s*[^;,]+?=)/)).map(c => c.trim().split(';')[0]).filter(Boolean);
+  }
+  return { status: data.status, html: data.body || '', cookies };
+}
+
+function extractHiddenFieldsClientSide(html){
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const fields = {};
+  doc.querySelectorAll('input[type="hidden"]').forEach(inp => {
+    if(inp.name) fields[inp.name] = inp.value || '';
+  });
+  return fields;
+}
+
+function buildPostbackBodyClientSide(hiddenFields, control, argument){
+  const params = new URLSearchParams();
+  Object.entries(hiddenFields).forEach(([k,v]) => params.set(k, v));
+  params.set('__EVENTTARGET', control);
+  params.set('__EVENTARGUMENT', argument);
+  return params.toString();
+}
+
 (function restoreServiceKey(){
   const saved = sessionStorage.getItem('rz_admin_secret');
   if(saved){
@@ -2953,14 +3008,25 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const url = $('tblUrl').value.trim();
     if(!url){ alert('Pehle website URL daalein.'); return; }
     if(!getAdminSecret()) return;
-    log(`Detect requested for: ${url}`);
+    const useBrowserRelay = $('tblBrowserRelay').checked;
+    log(`Detect requested for: ${url}${useBrowserRelay ? ' [browser relay]' : ''}`);
     $('tblDetectBtn').disabled = true;
     $('tblDetectBtn').textContent = 'Detecting…';
     try {
-      const result = await callAdminApi(`table-downloader?operation=detect`, {
-        method: 'POST',
-        body: JSON.stringify({ url, overrideRobots: $('tblIgnoreRobots').checked })
-      });
+      let result;
+      if(useBrowserRelay){
+        log('Browser se relay ko call kar raha hoon (ye 30-60+ second le sakta hai, sabar karein)…');
+        const relayResult = await relayFetchClientSide(url, { method: 'GET' });
+        result = await callAdminApi(`table-downloader?operation=detect-from-html`, {
+          method: 'POST',
+          body: JSON.stringify({ html: relayResult.html, sourceLabel: url })
+        });
+      } else {
+        result = await callAdminApi(`table-downloader?operation=detect`, {
+          method: 'POST',
+          body: JSON.stringify({ url, overrideRobots: $('tblIgnoreRobots').checked })
+        });
+      }
       tblLastDetection = result;
 
       if(!result.ok){
@@ -3077,6 +3143,59 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     $('tblProgBar').style.width = pct + '%';
   }
 
+  // Fetches one page entirely through the browser relay (client-side Google
+  // Apps Script call), then sends the HTML to the lightweight backend
+  // extraction endpoint. Mirrors the shape of the server-side fetch-page
+  // result so the rest of runDownload() doesn't need to know which path ran.
+  async function fetchPageViaBrowserRelay(pagination, targetUrl, pageNum, priorPostbackState){
+    let relayResult;
+    try {
+      if(pagination && pagination.type === 'postback' && pageNum > 1 && priorPostbackState){
+        const body = buildPostbackBodyClientSide(priorPostbackState.hiddenFields || {}, pagination.control, `Page$${pageNum}`);
+        const cookieHeader = (priorPostbackState.cookies || []).join('; ');
+        relayResult = await relayFetchClientSide(targetUrl, {
+          method: 'POST',
+          body,
+          contentType: 'application/x-www-form-urlencoded',
+          headers: cookieHeader ? { Cookie: cookieHeader } : {}
+        });
+      } else {
+        relayResult = await relayFetchClientSide(targetUrl, { method: 'GET' });
+      }
+    } catch(e) {
+      return { ok: false, reason: 'relay_error', message: e.message };
+    }
+
+    if(relayResult.status >= 400){
+      return { ok: false, reason: 'http_error', message: `Website returned HTTP ${relayResult.status}.` };
+    }
+
+    let extracted;
+    try {
+      extracted = await callAdminApi(`table-downloader?operation=extract-from-html`, {
+        method: 'POST',
+        body: JSON.stringify({ html: relayResult.html, tableIndex: tblSelectedTableIndex, sourceLabel: targetUrl })
+      });
+    } catch(e) {
+      return { ok: false, reason: 'extract_error', message: e.message };
+    }
+    if(!extracted.ok) return extracted;
+
+    extracted.usedRelay = true;
+    if(pagination && pagination.type === 'next_link' && extracted.pagination){
+      extracted.nextUrl = extracted.pagination.nextUrl || null;
+    }
+    if(pagination && pagination.type === 'postback'){
+      const newHidden = extractHiddenFieldsClientSide(relayResult.html);
+      const newCookies = relayResult.cookies || [];
+      const priorCookies = (priorPostbackState && priorPostbackState.cookies) || [];
+      const newNames = new Set(newCookies.map(c => c.split('=')[0]));
+      const mergedCookies = [...priorCookies.filter(c => !newNames.has(c.split('=')[0])), ...newCookies];
+      extracted.postbackState = { hiddenFields: newHidden, cookies: mergedCookies };
+    }
+    return extracted;
+  }
+
   async function runDownload(isResume){
     if(!tblLastDetection || !tblLastDetection.ok){ alert('Pehle Detect Table chalayein.'); return; }
     const pagination = tblLastDetection.pagination;
@@ -3142,17 +3261,22 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       }
 
       let result;
+      const useBrowserRelay = $('tblBrowserRelay').checked;
       try {
-        const reqBody = { targetUrl, tableIndex: tblSelectedTableIndex, paginationType: pagination ? pagination.type : null };
-        if(pagination && pagination.type === 'postback'){
-          reqBody.control = pagination.control;
-          reqBody.pageNumber = pageNum;
-          reqBody.postbackState = postbackState;
+        if(useBrowserRelay){
+          result = await fetchPageViaBrowserRelay(pagination, targetUrl, pageNum, postbackState);
+        } else {
+          const reqBody = { targetUrl, tableIndex: tblSelectedTableIndex, paginationType: pagination ? pagination.type : null };
+          if(pagination && pagination.type === 'postback'){
+            reqBody.control = pagination.control;
+            reqBody.pageNumber = pageNum;
+            reqBody.postbackState = postbackState;
+          }
+          result = await callAdminApi(`table-downloader?operation=fetch-page`, {
+            method: 'POST',
+            body: JSON.stringify(reqBody)
+          });
         }
-        result = await callAdminApi(`table-downloader?operation=fetch-page`, {
-          method: 'POST',
-          body: JSON.stringify(reqBody)
-        });
       } catch(e) {
         pagesFailed++;
         log(`Page ${pageNum}: error — ${e.message}`);

@@ -8,7 +8,7 @@ import { hecData } from './_lib/hec-data.js';
 import { hecUniversitiesData } from './_lib/hec-universities-data.js';
 import { hecIllegalData } from './_lib/hec-illegal-data.js';
 import { ppraBlacklistData } from './_lib/ppra-blacklist-data.js';
-import { detectTableAndPagination, fetchSinglePage, fetchPostbackPage } from './_lib/table-downloader.js';
+import { detectTableAndPagination, fetchSinglePage, fetchPostbackPage, detectTableFromHtml, extractRowsFromHtml } from './_lib/table-downloader.js';
 
 const VALID_CATEGORIES = [
   'property','jobs','vehicles','matrimonial','visa','auctions',
@@ -601,9 +601,39 @@ export default async function handler(req, res) {
       case 'table-downloader': {
         const operationParam = req.query.operation;
         const operation = Array.isArray(operationParam) ? operationParam[0] : operationParam;
-        const READ_ONLY_OPERATIONS = ['history-list', 'list-sources'];
+        const READ_ONLY_OPERATIONS = ['history-list', 'list-sources', 'relay-config'];
         if (!READ_ONLY_OPERATIONS.includes(operation) && req.method !== 'POST') {
           return res.status(405).json({ error: 'Method not allowed' });
+        }
+
+        if (operation === 'relay-config') {
+          if (!process.env.RELAY_URL || !process.env.RELAY_SECRET) {
+            return res.status(404).json({ ok: false, message: 'Relay configure nahi hai (RELAY_URL / RELAY_SECRET Vercel env vars missing).' });
+          }
+          return res.status(200).json({ ok: true, relayUrl: process.env.RELAY_URL, relaySecret: process.env.RELAY_SECRET });
+        }
+
+        if (operation === 'detect-from-html') {
+          const { html, sourceLabel } = req.body || {};
+          if (!html || typeof html !== 'string') return res.status(400).json({ error: 'html required' });
+          try {
+            const result = detectTableFromHtml(html, sourceLabel || null);
+            return res.status(result.ok ? 200 : 422).json(result);
+          } catch (execErr) {
+            return res.status(500).json({ error: 'table-downloader error: ' + execErr.message });
+          }
+        }
+
+        if (operation === 'extract-from-html') {
+          const { html, tableIndex, sourceLabel } = req.body || {};
+          if (!html || typeof html !== 'string') return res.status(400).json({ error: 'html required' });
+          const idx = Number.isInteger(tableIndex) ? tableIndex : 0;
+          try {
+            const result = extractRowsFromHtml(html, idx, sourceLabel || null);
+            return res.status(result.ok ? 200 : 422).json(result);
+          } catch (execErr) {
+            return res.status(500).json({ error: 'table-downloader error: ' + execErr.message });
+          }
         }
 
         if (operation === 'detect') {

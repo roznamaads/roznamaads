@@ -675,6 +675,74 @@ export async function detectTableAndPagination(inputUrl, overrideRobots) {
 }
 
 // ---------------------------------------------------------------------------
+// 7B. PUBLIC ENTRY: detect/extract from admin-supplied HTML
+//
+// Used by the "Browser Relay" mode: the admin's own phone browser fetches the
+// page (directly via the Google Apps Script relay, no Vercel time limit
+// involved) and sends the already-fetched HTML here for the exact same
+// table/pagination detection logic as the direct-fetch path. Also usable for
+// manually pasted HTML on sites that even the relay can't reach.
+// ---------------------------------------------------------------------------
+
+function safeHostnameFromLabel(label) {
+  try { return new URL(label).hostname; } catch { return null; }
+}
+
+export function detectTableFromHtml(html, sourceLabel) {
+  if (!html || typeof html !== 'string' || !html.trim()) {
+    return { ok: false, reason: 'empty_html', message: 'Koi HTML content nahi mila.' };
+  }
+  const tables = extractTables(html);
+  if (tables.length === 0) {
+    return { ok: false, reason: 'no_table', message: 'HTML mein koi table/list detect nahi hui.' };
+  }
+  let pagination = null;
+  if (sourceLabel) {
+    try { pagination = detectPagination(html, sourceLabel); } catch { pagination = null; }
+  }
+  return {
+    ok: true,
+    website: sourceLabel ? (safeHostnameFromLabel(sourceLabel) || 'browser-relay') : 'browser-relay',
+    finalUrl: sourceLabel || null,
+    sourceType: tables[0].sourceType === 'list' ? 'html_list' : 'html_table',
+    tables: tables.map((t, i) => ({ ...t, recommended: i === 0 })),
+    recommendedIndex: 0,
+    pagination: pagination || null,
+    paginationConfidenceNote: pagination ? null : 'Pagination detect nahi ho saki.',
+    insecureTLS: false,
+    usedRelay: true,
+    robotsOverridden: false,
+    fromBrowserRelay: true
+  };
+}
+
+export function extractRowsFromHtml(html, tableIndex, sourceLabel) {
+  if (!html || typeof html !== 'string' || !html.trim()) {
+    return { ok: false, reason: 'empty_html', message: 'Koi HTML content nahi mila.' };
+  }
+  const idx = Number.isInteger(tableIndex) ? tableIndex : 0;
+  const { headers, rows, linkCells, tableFound, junkRowsSkipped } = extractSpecificTableRows(html, idx);
+  const contentHash = crypto.createHash('sha1').update(JSON.stringify(rows)).digest('hex').slice(0, 16);
+  let pagination = null;
+  if (sourceLabel) {
+    try { pagination = detectPagination(html, sourceLabel); } catch { pagination = null; }
+  }
+  return {
+    ok: true,
+    headers,
+    rows,
+    linkCells,
+    rowCount: rows.length,
+    isEmpty: rows.length === 0,
+    tableFound,
+    contentHash,
+    junkRowsSkipped,
+    pagination,
+    fromBrowserRelay: true
+  };
+}
+
+// ---------------------------------------------------------------------------
 // 8. MULTI-PAGE FETCH ENGINE (Batch 3): retry/backoff + per-page extraction
 // ---------------------------------------------------------------------------
 
