@@ -453,7 +453,13 @@
         <select id="tblVerifType" autocomplete="off">
           <option value="society">Society</option>
           <option value="visa_agency">Visa Agency (OEP)</option>
+          <option value="institute">Institute</option>
+          <option value="company">Company</option>
+          <option value="tender">Tender/Supplier</option>
+          <option value="job">Job</option>
+          <option value="other">Other (khud likhein)</option>
         </select>
+        <input type="text" id="tblVerifTypeOther" autocomplete="off" placeholder="Type yahan likhein (jaise: contractor)" style="display:none;margin-top:6px">
       </div>
       <div class="field"><label>Authority (sab rows ke liye same)</label><input type="text" id="tblVerifAuthority" autocomplete="off" placeholder="jaise: BEOE, CDA, RDA"></div>
       <div class="field"><label>Name Column *</label><select id="tblVerifNameCol" autocomplete="off"></select></div>
@@ -3848,7 +3854,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const fixedStatus = $('tblVerifFixedStatus').value.trim();
     const notesColRaw = $('tblVerifNotesCol').value;
     const authority = $('tblVerifAuthority').value.trim() || '(khali)';
-    const type = $('tblVerifType').value;
+    const type = getVerifType();
     const trustedGov = $('tblVerifTrustedGov').checked;
     const box = $('tblVerifPreview');
     if(!tblJobState.dedupedRows || !tblJobState.dedupedRows.length){ box.innerHTML = ''; return; }
@@ -3871,10 +3877,21 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     box.innerHTML = `⚠️ Bhejne se pehle check karein (pehli ${sample.length} rows ka preview):${rowsHtml}${publishNote}${refWarning}`;
   }
 
-  ['tblVerifNameCol','tblVerifRefCol','tblVerifCityCol','tblVerifStatusCol','tblVerifFixedStatus','tblVerifNotesCol','tblVerifAuthority','tblVerifType','tblVerifTrustedGov'].forEach(id => {
+  ['tblVerifNameCol','tblVerifRefCol','tblVerifCityCol','tblVerifStatusCol','tblVerifFixedStatus','tblVerifNotesCol','tblVerifAuthority','tblVerifType','tblVerifTypeOther','tblVerifTrustedGov'].forEach(id => {
     $(id).addEventListener('change', updateVerifPreview);
     $(id).addEventListener('input', updateVerifPreview);
   });
+
+  $('tblVerifType').addEventListener('change', () => {
+    $('tblVerifTypeOther').style.display = $('tblVerifType').value === 'other' ? 'block' : 'none';
+  });
+
+  function getVerifType(){
+    if($('tblVerifType').value === 'other'){
+      return $('tblVerifTypeOther').value.trim().toLowerCase().replace(/\s+/g, '_') || 'other';
+    }
+    return $('tblVerifType').value;
+  }
 
   let tblVerifCancelled = false;
 
@@ -3889,9 +3906,9 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const statusCol = $('tblVerifStatusCol').value === '' ? null : parseInt($('tblVerifStatusCol').value, 10);
     const fixedStatus = $('tblVerifFixedStatus').value.trim();
     const notesCol = $('tblVerifNotesCol').value === '' ? null : parseInt($('tblVerifNotesCol').value, 10);
-    const type = $('tblVerifType').value;
-    const baseUrl = $('tblUrl').value.trim();
+    const type = getVerifType();
     const trustedGov = $('tblVerifTrustedGov').checked;
+    const baseUrl = $('tblUrl').value.trim();
 
     if(trustedGov && refCol === null){
       if(!confirm('⚠️ Reference No column select nahi ki. Bina isके "Trusted Government Source" upsert kaam nahi karega — agli baar dobara bhejne pe duplicate records ban jayenge. Phir bhi aage badhein?')) return;
@@ -3971,7 +3988,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       fixed_status: $('tblVerifFixedStatus').value.trim() || null,
       notes_header: idx($('tblVerifNotesCol').value) !== -1 ? headers[idx($('tblVerifNotesCol').value)] : null,
       authority,
-      type: $('tblVerifType').value,
+      type: getVerifType(),
       trusted_gov: $('tblVerifTrustedGov').checked
     };
 
