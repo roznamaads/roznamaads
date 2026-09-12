@@ -1962,6 +1962,31 @@ function findNextPostbackTargetClientSide(linkMap, afterPage){
   return bestNum ? { pageNumber: bestNum, control: bestLink.control, argument: bestLink.argument } : null;
 }
 
+// Telerik's "..." pager control doesn't advance the page — it just WIDENS
+// the visible number window on the SAME current page (confirmed by
+// inspecting the actual link). So reaching page N sometimes needs: click
+// "...", re-read the now-wider pager for the real target number, click that.
+// Bounded to a few hops so a weird page can never loop forever.
+async function resolvePostbackTarget(doPostbackCall, hiddenFields, cookies, linkMap, afterPage){
+  let curHidden = hiddenFields, curCookies = cookies || [], curMap = linkMap;
+  for(let hop = 0; hop < 4; hop++){
+    const direct = findNextPostbackTargetClientSide(curMap, afterPage);
+    if(direct) return { ...direct, hiddenFields: curHidden, cookies: curCookies };
+    const expand = curMap['...'];
+    if(!expand) return null;
+    const body = buildPostbackBodyClientSide(curHidden, expand.control, expand.argument);
+    const cookieHeader = curCookies.join('; ');
+    const resp = await doPostbackCall(body, cookieHeader);
+    if(!resp || resp.status >= 400) return null;
+    curHidden = extractHiddenFieldsClientSide(resp.html);
+    curMap = extractPostbackLinkMapClientSide(resp.html);
+    const newCookies = resp.cookies || [];
+    const newNames = new Set(newCookies.map(c => c.split('=')[0]));
+    curCookies = [...curCookies.filter(c => !newNames.has(c.split('=')[0])), ...newCookies];
+  }
+  return null;
+}
+
 // DIRECT PHONE FETCH — bypasses the Google relay entirely too. For the rare
 // case where even Google's IPs are blocked. Requires a CORS-unblocking
 // browser extension (e.g. "Allow CORS: Access-Control-Allow-Origin") since
@@ -3220,20 +3245,27 @@ document.getElementById('loadStats').addEventListener('click', async () => {
   async function fetchPageViaBrowserRelay(pagination, targetUrl, pageNum, priorPostbackState){
     let relayResult;
     let actualPageNumber = pageNum;
+    let cookiesUsedForFetch = (priorPostbackState && priorPostbackState.cookies) || [];
     try {
       const isPostback = pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic');
       if(isPostback && pageNum > 1 && priorPostbackState){
-        let ctrl, arg;
+        let ctrl, arg, hiddenForRealFetch = priorPostbackState.hiddenFields || {}, cookiesForRealFetch = priorPostbackState.cookies || [];
         if(pagination.type === 'postback_dynamic'){
           const lastPage = priorPostbackState.lastPageNumber != null ? priorPostbackState.lastPageNumber : (pageNum - 1);
-          const target = findNextPostbackTargetClientSide(priorPostbackState.linkMap || {}, lastPage);
-          if(!target) return { ok: false, reason: 'no_next_link', message: `Page ${lastPage} ke baad koi aur page link nahi mila — shayad ye aakhri page hai.` };
+          const relayPostbackCall = async (body, cookieHeader) => {
+            const r = await relayFetchClientSide(targetUrl, { method: 'POST', body, contentType: 'application/x-www-form-urlencoded', headers: cookieHeader ? { Cookie: cookieHeader } : {} });
+            return { status: r.status, html: r.html, cookies: r.cookies };
+          };
+          const target = await resolvePostbackTarget(relayPostbackCall, priorPostbackState.hiddenFields || {}, priorPostbackState.cookies || [], priorPostbackState.linkMap || {}, lastPage);
+          if(!target) return { ok: false, reason: 'no_next_link', message: `Page ${lastPage} ke baad koi aur page link nahi mila (window expand ke baad bhi) — shayad ye aakhri page hai.` };
           ctrl = target.control; arg = target.argument; actualPageNumber = target.pageNumber;
+          hiddenForRealFetch = target.hiddenFields; cookiesForRealFetch = target.cookies;
         } else {
           ctrl = pagination.control; arg = `Page$${pageNum}`;
         }
-        const body = buildPostbackBodyClientSide(priorPostbackState.hiddenFields || {}, ctrl, arg);
-        const cookieHeader = (priorPostbackState.cookies || []).join('; ');
+        cookiesUsedForFetch = cookiesForRealFetch;
+        const body = buildPostbackBodyClientSide(hiddenForRealFetch, ctrl, arg);
+        const cookieHeader = cookiesForRealFetch.join('; ');
         relayResult = await relayFetchClientSide(targetUrl, {
           method: 'POST',
           body,
@@ -3270,7 +3302,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     if(pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic')){
       const newHidden = extractHiddenFieldsClientSide(relayResult.html);
       const newCookies = relayResult.cookies || [];
-      const priorCookies = (priorPostbackState && priorPostbackState.cookies) || [];
+      const priorCookies = cookiesUsedForFetch || [];
       const newNames = new Set(newCookies.map(c => c.split('=')[0]));
       const mergedCookies = [...priorCookies.filter(c => !newNames.has(c.split('=')[0])), ...newCookies];
       extracted.postbackState = { hiddenFields: newHidden, cookies: mergedCookies, linkMap: extractPostbackLinkMapClientSide(relayResult.html), lastPageNumber: actualPageNumber };
@@ -3286,16 +3318,21 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     try {
       const isPostback = pagination && (pagination.type === 'postback' || pagination.type === 'postback_dynamic');
       if(isPostback && pageNum > 1 && priorPostbackState){
-        let ctrl, arg;
+        let ctrl, arg, hiddenForRealFetch = priorPostbackState.hiddenFields || {};
         if(pagination.type === 'postback_dynamic'){
           const lastPage = priorPostbackState.lastPageNumber != null ? priorPostbackState.lastPageNumber : (pageNum - 1);
-          const target = findNextPostbackTargetClientSide(priorPostbackState.linkMap || {}, lastPage);
-          if(!target) return { ok: false, reason: 'no_next_link', message: `Page ${lastPage} ke baad koi aur page link nahi mila — shayad ye aakhri page hai.` };
+          const directPostbackCall = async (body) => {
+            const r = await directFetchClientSide(targetUrl, { method: 'POST', body, contentType: 'application/x-www-form-urlencoded' });
+            return { status: r.status, html: r.html, cookies: [] };
+          };
+          const target = await resolvePostbackTarget(directPostbackCall, priorPostbackState.hiddenFields || {}, [], priorPostbackState.linkMap || {}, lastPage);
+          if(!target) return { ok: false, reason: 'no_next_link', message: `Page ${lastPage} ke baad koi aur page link nahi mila (window expand ke baad bhi) — shayad ye aakhri page hai.` };
           ctrl = target.control; arg = target.argument; actualPageNumber = target.pageNumber;
+          hiddenForRealFetch = target.hiddenFields;
         } else {
           ctrl = pagination.control; arg = `Page$${pageNum}`;
         }
-        const body = buildPostbackBodyClientSide(priorPostbackState.hiddenFields || {}, ctrl, arg);
+        const body = buildPostbackBodyClientSide(hiddenForRealFetch, ctrl, arg);
         fetched = await directFetchClientSide(targetUrl, { method: 'POST', body, contentType: 'application/x-www-form-urlencoded' });
       } else {
         fetched = await directFetchClientSide(targetUrl, { method: 'GET' });

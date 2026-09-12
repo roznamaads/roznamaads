@@ -608,6 +608,31 @@ function findNextPostbackTarget(linkMap, afterPage) {
   return bestNum ? { pageNumber: bestNum, control: bestLink.control, argument: bestLink.argument } : null;
 }
 
+// Telerik's "..." pager control doesn't advance the page — it just WIDENS
+// the visible number window on the SAME current page (confirmed by
+// inspecting a real captured link). So reaching page N sometimes needs an
+// intermediate "..." postback to reveal a wider window, THEN the real
+// target number becomes clickable. Bounded to a few hops.
+async function resolvePostbackTargetServer(doPostbackCall, hiddenFields, cookies, linkMap, afterPage) {
+  let curHidden = hiddenFields, curCookies = cookies || [], curMap = linkMap;
+  for (let hop = 0; hop < 4; hop++) {
+    const direct = findNextPostbackTarget(curMap, afterPage);
+    if (direct) return { ...direct, hiddenFields: curHidden, cookies: curCookies };
+    const expand = curMap['...'];
+    if (!expand) return null;
+    const body = buildPostbackFormBody(curHidden, expand.control, expand.argument);
+    const cookieHeader = curCookies.join('; ');
+    const resp = await doPostbackCall(body, cookieHeader);
+    if (!resp || resp.status >= 400) return null;
+    curHidden = extractHiddenFields(resp.html);
+    curMap = extractPostbackLinkMap(resp.html);
+    const newCookies = resp.cookies || [];
+    const newNames = new Set(newCookies.map(c => c.split('=')[0]));
+    curCookies = [...curCookies.filter(c => !newNames.has(c.split('=')[0])), ...newCookies];
+  }
+  return null;
+}
+
 function detectPostbackDynamicPagination(html) {
   const linkMap = extractPostbackLinkMap(html);
   // Require a "2" link to confirm this is really a numbered pager (and that
@@ -994,23 +1019,45 @@ export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumbe
     } else {
       let targetControl = control;
       let targetArgument = `Page$${pageNumber}`;
+      let hiddenForRealFetch = priorState.hiddenFields || {};
+      let cookiesForRealFetch = priorState.cookies || [];
       if (paginationType === 'postback_dynamic') {
         // Telerik RadGrid style: each page number is its own control, only
         // discoverable by reading the PRIOR page's own rendered pager links.
-        // The pager window may not contain the exact next number (it only
-        // shows a window) — jump to whatever the smallest available number
-        // greater than the last page fetched is.
+        // The pager window may not contain the exact next number directly —
+        // may need an intermediate "..." postback to widen the window first.
         const lastPage = (priorState.lastPageNumber != null) ? priorState.lastPageNumber : (pageNumber - 1);
-        const target = findNextPostbackTarget(priorState.linkMap || {}, lastPage);
+        const doPostbackCall = async (body, cookieHeader) => {
+          if (RELAY_URL && RELAY_SECRET) {
+            const r = await relayRequest(targetUrl.toString(), {
+              method: 'POST', body, contentType: 'application/x-www-form-urlencoded',
+              headers: cookieHeader ? { Cookie: cookieHeader } : {}
+            });
+            return { status: r.status, html: r.html, cookies: r.cookies };
+          }
+          const ctrl2 = new AbortController();
+          const timer2 = setTimeout(() => ctrl2.abort(), FETCH_TIMEOUT_MS);
+          const r2 = await fetch(targetUrl.toString(), {
+            method: 'POST',
+            headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/x-www-form-urlencoded', ...(cookieHeader ? { Cookie: cookieHeader } : {}) },
+            body, signal: ctrl2.signal
+          });
+          clearTimeout(timer2);
+          const html2 = await r2.text();
+          return { status: r2.status, html: html2, cookies: extractCookiesFromFetchHeaders(r2.headers) };
+        };
+        const target = await resolvePostbackTargetServer(doPostbackCall, priorState.hiddenFields || {}, priorState.cookies || [], priorState.linkMap || {}, lastPage);
         if (!target) {
-          return { ok: false, reason: 'no_next_link', message: `Page ${lastPage} ke baad koi aur page link nahi mila — shayad ye aakhri page hai.` };
+          return { ok: false, reason: 'no_next_link', message: `Page ${lastPage} ke baad koi aur page link nahi mila (window expand ke baad bhi) — shayad ye aakhri page hai.` };
         }
         targetControl = target.control;
         targetArgument = target.argument;
         actualPageNumber = target.pageNumber;
+        hiddenForRealFetch = target.hiddenFields;
+        cookiesForRealFetch = target.cookies;
       }
-      const body = buildPostbackFormBody(priorState.hiddenFields || {}, targetControl, targetArgument);
-      const cookieHeader = (priorState.cookies || []).join('; ');
+      const body = buildPostbackFormBody(hiddenForRealFetch, targetControl, targetArgument);
+      const cookieHeader = cookiesForRealFetch.join('; ');
       if (RELAY_URL && RELAY_SECRET) {
         // Postback almost always happens on sites we already had to relay
         // for (that's how we got here), so POST via relay directly.
@@ -1027,7 +1074,7 @@ export async function fetchPostbackPage(inputUrl, tableIndex, control, pageNumbe
           html: relayResult.html,
           insecureTLS: false,
           usedRelay: true,
-          cookies: relayResult.cookies.length ? relayResult.cookies : (priorState.cookies || [])
+          cookies: relayResult.cookies.length ? relayResult.cookies : cookiesForRealFetch
         };
       } else {
         // No relay configured — try a direct POST (works for postback grids
