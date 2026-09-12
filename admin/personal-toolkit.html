@@ -3460,7 +3460,13 @@ document.getElementById('loadStats').addEventListener('click', async () => {
 
       if(!pagination){ stopReason = 'SINGLE_PAGE_COMPLETE'; break; } // single-page site: one fetch is the whole dataset, we're done
       if(pagination.type === 'next_link' && !cursorUrl){ stopReason = 'END_OF_PAGINATION'; break; }
-      if((pagination.type === 'postback' || pagination.type === 'postback_dynamic') && pagination.estimatedPages && pageNum >= pagination.estimatedPages){ stopReason = 'END_OF_PAGINATION'; break; }
+      // For postback_dynamic, estimatedPages is only reliable when it came from
+      // an on-page "X items in Y pages" summary (confidence >= 0.8). Otherwise
+      // it's just a guess from the visible pager window (often truncated,
+      // e.g. "1 2 3 ... 10" when the real last page is 12) — trust the
+      // natural no_next_link signal instead of stopping early on a guess.
+      const trustEstimatedPages = pagination.type === 'postback' || (pagination.confidence || 0) >= 0.8;
+      if((pagination.type === 'postback' || pagination.type === 'postback_dynamic') && pagination.estimatedPages && trustEstimatedPages && pageNum >= pagination.estimatedPages){ stopReason = 'END_OF_PAGINATION'; break; }
       if(pageNum >= (startPage + maxPages - 1)){ stopReason = 'MAX_PAGES_REACHED'; break; }
 
       await new Promise(r => setTimeout(r, delayMs));
