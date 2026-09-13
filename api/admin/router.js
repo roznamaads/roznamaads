@@ -923,7 +923,7 @@ export default async function handler(req, res) {
          chal sake. ---------- */
       case 'verif-sources-dashboard': {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-        const cols = 'type,authority,name,official_source_url,last_verified,published';
+        const cols = 'type,authority,name,city,reference_no,official_source_url,last_verified,published';
         let allRows = [];
         let from = 0;
         const pageSize = 1000;
@@ -959,8 +959,8 @@ export default async function handler(req, res) {
           const g = groups.get(key);
           g.total++;
           if (row.published) g.published++;
-          const normName = (row.name || '').trim().toLowerCase();
-          if (normName) g.nameCounts.set(normName, (g.nameCounts.get(normName) || 0) + 1);
+          const normName = `${(row.name || '').trim().toLowerCase()}|${(row.city || '').trim().toLowerCase()}`;
+          if ((row.name || '').trim()) g.nameCounts.set(normName, (g.nameCounts.get(normName) || 0) + 1);
           const url = row.official_source_url || '';
           if (url) g.urlCounts.set(url, (g.urlCounts.get(url) || 0) + 1);
           if (row.last_verified && (!g.lastVerified || row.last_verified > g.lastVerified)) {
