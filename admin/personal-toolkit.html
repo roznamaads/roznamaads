@@ -237,7 +237,7 @@
     <div id="verifRecordsList" style="margin-top:14px"></div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
     <p class="desc">BEOE ki poori OEP (visa agency) list ek click mein import/refresh karein. Records draft (unpublished) mein aate hain — verify karke publish karein.</p>
-    <button class="btn alt" id="beoeImportBtn">📦 Import BEOE Data (5271 records)</button>
+    <button class="btn alt" id="beoeImportBtn">📦 Import / Refresh BEOE Data</button>
     <div id="beoeImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     <button class="btn alt" id="beoePublishAllBtn" style="margin-top:8px">✅ Publish ALL BEOE Records</button>
     <div id="beoePublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
@@ -2414,22 +2414,23 @@ document.getElementById('beoeImportBtn').addEventListener('click', async () => {
   const statusBox = document.getElementById('beoeImportStatus');
   const secret = getAdminSecret();
   if(!secret){ statusBox.textContent = '❌ Pehle Admin API Secret bharein.'; return; }
-  if(!confirm('BEOE ki 5271 records import/refresh karni hain? Ye kuch minute le sakta hai.')) return;
+  if(!confirm('BEOE data (beoe-data.js file mein jitni bhi records hain) import/refresh karni hain? Ye kuch minute le sakta hai.')) return;
 
   let offset = 0;
   let total = 0;
-  statusBox.textContent = 'Shuru ho raha hai...';
+  statusBox.innerHTML = '⏳ Shuru ho raha hai...';
   try{
     while(true){
       const data = await callAdminApi(`beoe-import?offset=${offset}&limit=500`, { method:'POST' });
       if(data.done){
         total = data.total || total;
-        statusBox.textContent = `✅ Mukammal! Total ${total} records import/refresh ho gayi.`;
+        statusBox.innerHTML = `✅ Mukammal! Total <b>${total}</b> records import/refresh ho gayi.`;
         break;
       }
       offset = data.offset;
       total = data.total;
-      statusBox.textContent = `Ho raha hai... ${offset} / ${total} records`;
+      const pct = total ? Math.round((offset/total)*100) : 0;
+      statusBox.innerHTML = `⏳ Ho raha hai... <b>${offset} / ${total}</b> records (${pct}%)<br><div style="background:#ddd;border-radius:4px;height:8px;margin-top:4px;overflow:hidden"><div style="background:#2e7d32;height:100%;width:${pct}%"></div></div>`;
     }
   }catch(e){
     statusBox.textContent = `❌ Error (offset ${offset} tak ho chuka tha): ${e.message}. Dobara button dabayein — yahin se continue nahi hota, isliye offset se dobara shuru hoga.`;
