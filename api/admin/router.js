@@ -921,6 +921,56 @@ export default async function handler(req, res) {
          duplicates (same normalized name repeated), last update, source URL —
          taake dobara URL na dhoondna paray aur duplicate ban jaane ka pata
          chal sake. ---------- */
+      case 'verif-dedupe': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const authority = req.query.authority;
+        if (!authority) return res.status(400).json({ error: 'authority query param required' });
+        const cols = 'id,name,city,published,last_verified';
+        const r = await fetch(
+          `${SB()}/rest/v1/verifications?authority=eq.${encodeURIComponent(authority)}&select=${cols}`,
+          { headers: sbHeaders() }
+        );
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        const allRows = await r.json();
+        const groups = new Map();
+        for (const row of allRows) {
+          const key = `${(row.name || '').trim().toLowerCase()}|${(row.city || '').trim().toLowerCase()}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(row);
+        }
+        const idsToDelete = [];
+        for (const rows of groups.values()) {
+          if (rows.length < 2) continue;
+          // Keep: published first, phir sabse naya last_verified.
+          rows.sort((a, b) => {
+            if (!!b.published !== !!a.published) return (b.published ? 1 : 0) - (a.published ? 1 : 0);
+            return (b.last_verified || '').localeCompare(a.last_verified || '');
+          });
+          for (let i = 1; i < rows.length; i++) idsToDelete.push(rows[i].id);
+        }
+        if (idsToDelete.length === 0) {
+          return res.status(200).json({ ok: true, deleted: 0, message: 'Koi duplicate nahi mila.' });
+        }
+        // Chunks mein delete karo (URL length safe rakhne ke liye).
+        const chunkSize = 100;
+        for (let i = 0; i < idsToDelete.length; i += chunkSize) {
+          const chunk = idsToDelete.slice(i, i + chunkSize);
+          const idList = chunk.map(id => `"${id}"`).join(',');
+          const delRes = await fetch(
+            `${SB()}/rest/v1/verifications?id=in.(${idList})`,
+            { method: 'DELETE', headers: { ...sbHeaders(), Prefer: 'return=minimal' } }
+          );
+          if (!delRes.ok) {
+            const errText = await delRes.text();
+            return res.status(delRes.status).json({ error: errText, deletedSoFar: i });
+          }
+        }
+        return res.status(200).json({ ok: true, deleted: idsToDelete.length });
+      }
+
       /* ---------- Kisi authority ke andar naam+city duplicate groups dikhao,
          taake delete se pehle pata chale ye asal duplicate hain ya legit
          alag records (jaise BEOE mein same company naam alag branches). ---------- */

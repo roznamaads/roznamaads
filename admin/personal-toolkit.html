@@ -249,6 +249,7 @@
     <button class="btn alt" id="genPublishBtn">✅ Publish by Authority</button>
     <button class="btn" style="background:#c0392b;margin-top:8px" id="genDeleteBtn">🗑️ Delete ALL by Authority</button>
     <button class="btn alt" style="margin-top:8px" id="genInspectDupBtn">🔍 Inspect Duplicates</button>
+    <button class="btn" style="background:#8e5a2f;margin-top:8px" id="genDedupeBtn">🧹 Auto-Dedupe (Keep Newest/Published, Purane Delete)</button>
     <div id="genPublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
     <div id="genDupInspectBox" style="margin-top:10px"></div>
     <hr style="margin:14px 0;border:none;border-top:1px dashed var(--line)">
@@ -2411,6 +2412,20 @@ document.getElementById('loadVerifRecords').addEventListener('click', async () =
     verifRecordsData = Array.isArray(data) ? data : [];
     renderVerifRecords();
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('genDedupeBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('genPublishStatus');
+  const authority = document.getElementById('genPublishAuthority').value.trim();
+  if(!authority){ statusBox.textContent = '❌ Pehle authority ka naam likhein.'; return; }
+  if(!confirm(`"${authority}" mein har naam+city group ka SIRF sabse behtar record (published ho ya sabse naya) rakha jayega, baaki DELETE. Pakka?`)) return;
+  statusBox.textContent = '⏳ Dedupe ho raha hai...';
+  try{
+    const data = await callAdminApi(`verif-dedupe?authority=${encodeURIComponent(authority)}`, { method:'POST' });
+    statusBox.textContent = `✅ ${data.deleted} purani duplicate records delete ho gayin.`;
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
 });
 
 document.getElementById('genInspectDupBtn').addEventListener('click', async () => {
