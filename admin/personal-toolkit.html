@@ -236,6 +236,13 @@
     <button class="btn alt" id="addVerifRecordBtn">+ Add Record</button>
     <div id="verifRecordsList" style="margin-top:14px"></div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
+    <p class="desc">Kisi bhi authority ki sab draft records ek sath publish karein (BEOE/HEC ke sath-sath naye sources jaise PPRA-Sindh, PPRA-KPK ke liye bhi — koi naya button banane ki zaroorat nahi).</p>
+    <div class="field"><label>Authority (jaisa ke exactly records mein likha hai)</label>
+      <input type="text" id="genPublishAuthority" placeholder="e.g. PPRA-Sindh">
+    </div>
+    <button class="btn alt" id="genPublishBtn">✅ Publish by Authority</button>
+    <div id="genPublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
     <p class="desc">BEOE ki poori OEP (visa agency) list ek click mein import/refresh karein. Records draft (unpublished) mein aate hain — verify karke publish karein.</p>
     <button class="btn alt" id="beoeImportBtn">📦 Import / Refresh BEOE Data</button>
     <div id="beoeImportStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
@@ -2394,6 +2401,20 @@ document.getElementById('loadVerifRecords').addEventListener('click', async () =
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
 });
 
+document.getElementById('genPublishBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('genPublishStatus');
+  const authority = document.getElementById('genPublishAuthority').value.trim();
+  if(!authority){ statusBox.textContent = '❌ Pehle authority ka naam likhein (jaisa records mein hai, e.g. PPRA-Sindh).'; return; }
+  if(!confirm(`"${authority}" authority ki sab draft records ek sath PUBLISH karni hain?`)) return;
+  statusBox.textContent = '⏳ Publish ho raha hai...';
+  try{
+    await callAdminApi(`verif-publish-by-authority?authority=${encodeURIComponent(authority)}`, { method:'POST' });
+    statusBox.textContent = `✅ "${authority}" ki sab records publish ho gayin.`;
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
 document.getElementById('addVerifRecordBtn').addEventListener('click', () => {
   verifRecordsData.unshift({ type:'society', name:'', aliases:[], city:'', authority:'', reference_no:'', status:'', blacklist_status:'', official_source_url:'', notes:'', published:false });
   renderVerifRecords();
@@ -3927,7 +3948,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       ? '<div style="color:#2a7a2a;font-weight:bold;margin-top:4px">✅ Ye records TURANT PUBLISH ho jayenge (published: true)</div>'
       : '<div style="color:var(--muted);margin-top:4px">🔒 Ye records unpublished jayenge — manual review chahiye hoga</div>';
     const refWarning = (trustedGov && refColRaw === '')
-      ? '<div style="color:#c0392b;font-weight:bold;margin-top:4px">⚠️ Reference No column select nahi ki — bina isके agli baar dobara bhejne pe DUPLICATE records banenge (update nahi honge)!</div>'
+      ? '<div style="color:#2a7a2a;margin-top:4px">ℹ️ Reference No column select nahi ki — koi masla nahi: naam+city se stable auto-ID ban jayega, agli baar dobara bhejne par wahi record UPDATE hoga (duplicate nahi banega).</div>'
       : '';
     box.innerHTML = `⚠️ Bhejne se pehle check karein (pehli ${sample.length} rows ka preview):${rowsHtml}${publishNote}${refWarning}`;
   }
@@ -3965,9 +3986,9 @@ document.getElementById('loadStats').addEventListener('click', async () => {
     const trustedGov = $('tblVerifTrustedGov').checked;
     const baseUrl = $('tblUrl').value.trim();
 
-    if(trustedGov && refCol === null){
-      if(!confirm('⚠️ Reference No column select nahi ki. Bina isके "Trusted Government Source" upsert kaam nahi karega — agli baar dobara bhejne pe duplicate records ban jayenge. Phir bhi aage badhein?')) return;
-    }
+    // Reference No column optional hai — blank chhorne par bhi safe hai,
+    // kyun ke neeche naam+city se stable synthetic ID ban jata hai jo
+    // re-import par sahi UPDATE karta hai, duplicate nahi banata.
 
     const rows = tblJobState.dedupedRows.filter(r => (r.cells[nameCol] || '').trim());
     const publishMsg = trustedGov
