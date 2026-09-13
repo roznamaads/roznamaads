@@ -241,7 +241,11 @@
       <input type="text" id="genPublishAuthority" placeholder="e.g. PPRA-Sindh">
     </div>
     <button class="btn alt" id="genPublishBtn">✅ Publish by Authority</button>
+    <button class="btn" style="background:#c0392b;margin-top:8px" id="genDeleteBtn">🗑️ Delete ALL by Authority</button>
     <div id="genPublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
+    <hr style="margin:14px 0;border:none;border-top:1px dashed var(--line)">
+    <button class="btn" id="genPublishAllBtn">✅ Publish ALL Records (Har Authority — jo bhi pending hai)</button>
+    <div id="genPublishAllStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)">
     <p class="desc">BEOE ki poori OEP (visa agency) list ek click mein import/refresh karein. Records draft (unpublished) mein aate hain — verify karke publish karein.</p>
     <button class="btn alt" id="beoeImportBtn">📦 Import / Refresh BEOE Data</button>
@@ -2410,6 +2414,33 @@ document.getElementById('genPublishBtn').addEventListener('click', async () => {
   try{
     await callAdminApi(`verif-publish-by-authority?authority=${encodeURIComponent(authority)}`, { method:'POST' });
     statusBox.textContent = `✅ "${authority}" ki sab records publish ho gayin.`;
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+document.getElementById('genDeleteBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('genPublishStatus');
+  const authority = document.getElementById('genPublishAuthority').value.trim();
+  if(!authority){ statusBox.textContent = '❌ Pehle authority ka naam likhein.'; return; }
+  if(!confirm(`⚠️ "${authority}" ki SAB records HAMESHA ke liye DELETE ho jayengi (published + draft dono). Ye undo nahi ho sakta. Pakka?`)) return;
+  if(!confirm(`Aakhri confirmation: "${authority}" delete kar rahe hain — theek hai?`)) return;
+  statusBox.textContent = '⏳ Delete ho raha hai...';
+  try{
+    await callAdminApi(`verif-delete-by-authority?authority=${encodeURIComponent(authority)}`, { method:'POST' });
+    statusBox.textContent = `✅ "${authority}" ki sab records delete ho gayin — ab dobara clean import/send kar sakte hain.`;
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+document.getElementById('genPublishAllBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('genPublishAllStatus');
+  if(!confirm('⚠️ Har authority ki SAB pending/draft records ek sath PUBLISH ho jayengi (review skip). Pakka?')) return;
+  statusBox.textContent = '⏳ Publish ho raha hai...';
+  try{
+    await callAdminApi('verif-publish-all', { method:'POST' });
+    statusBox.textContent = '✅ Sab pending records publish ho gayin.';
   }catch(e){
     statusBox.textContent = `❌ Error: ${e.message}`;
   }
