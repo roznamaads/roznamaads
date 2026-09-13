@@ -26,7 +26,9 @@ const TLS_CHAIN_ERROR_CODES = new Set([
   'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
   'CERT_UNTRUSTED',
   'SELF_SIGNED_CERT_IN_CHAIN',
-  'DEPTH_ZERO_SELF_SIGNED_CERT'
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'CERT_HAS_EXPIRED',
+  'CERT_NOT_YET_VALID'
 ]);
 const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
 // Direct-connection attempts to a blocked/unreachable host otherwise waste ~10s
