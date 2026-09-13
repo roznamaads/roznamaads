@@ -921,6 +921,36 @@ export default async function handler(req, res) {
          duplicates (same normalized name repeated), last update, source URL —
          taake dobara URL na dhoondna paray aur duplicate ban jaane ka pata
          chal sake. ---------- */
+      /* ---------- Kisi authority ke andar naam+city duplicate groups dikhao,
+         taake delete se pehle pata chale ye asal duplicate hain ya legit
+         alag records (jaise BEOE mein same company naam alag branches). ---------- */
+      case 'verif-duplicates': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const authority = req.query.authority;
+        if (!authority) return res.status(400).json({ error: 'authority query param required' });
+        const cols = 'id,name,city,reference_no,status,published,last_verified,notes';
+        const r = await fetch(
+          `${SB()}/rest/v1/verifications?authority=eq.${encodeURIComponent(authority)}&select=${cols}&order=name.asc`,
+          { headers: sbHeaders() }
+        );
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        const allRows = await r.json();
+        const groups = new Map();
+        for (const row of allRows) {
+          const key = `${(row.name || '').trim().toLowerCase()}|${(row.city || '').trim().toLowerCase()}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(row);
+        }
+        const dupGroups = Array.from(groups.entries())
+          .filter(([, rows]) => rows.length > 1)
+          .map(([key, rows]) => ({ key, count: rows.length, rows }))
+          .sort((a, b) => b.count - a.count);
+        return res.status(200).json({ ok: true, authority, total: allRows.length, duplicateGroups: dupGroups });
+      }
+
       case 'verif-sources-dashboard': {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
         const cols = 'type,authority,name,city,reference_no,official_source_url,last_verified,published';

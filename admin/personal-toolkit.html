@@ -248,7 +248,9 @@
     </div>
     <button class="btn alt" id="genPublishBtn">✅ Publish by Authority</button>
     <button class="btn" style="background:#c0392b;margin-top:8px" id="genDeleteBtn">🗑️ Delete ALL by Authority</button>
+    <button class="btn alt" style="margin-top:8px" id="genInspectDupBtn">🔍 Inspect Duplicates</button>
     <div id="genPublishStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
+    <div id="genDupInspectBox" style="margin-top:10px"></div>
     <hr style="margin:14px 0;border:none;border-top:1px dashed var(--line)">
     <button class="btn" id="genPublishAllBtn">✅ Publish ALL Records (Har Authority — jo bhi pending hai)</button>
     <div id="genPublishAllStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
@@ -2409,6 +2411,35 @@ document.getElementById('loadVerifRecords').addEventListener('click', async () =
     verifRecordsData = Array.isArray(data) ? data : [];
     renderVerifRecords();
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('genInspectDupBtn').addEventListener('click', async () => {
+  const box = document.getElementById('genDupInspectBox');
+  const authority = document.getElementById('genPublishAuthority').value.trim();
+  if(!authority){ box.innerHTML = '❌ Pehle authority ka naam likhein.'; return; }
+  box.innerHTML = '⏳ Load ho raha hai...';
+  try{
+    const data = await callAdminApi(`verif-duplicates?authority=${encodeURIComponent(authority)}`);
+    if(!data.duplicateGroups || !data.duplicateGroups.length){
+      box.innerHTML = `✅ "${authority}" mein koi naam+city duplicate nahi mila (total ${data.total} records).`;
+      return;
+    }
+    const groupsHtml = data.duplicateGroups.map(g => {
+      const rowsHtml = g.rows.map(r => `
+        <div style="padding:6px;border-top:1px solid var(--line);font-size:.85rem">
+          Ref: <b>${r.reference_no || '—'}</b> · Status: ${r.status || '—'} · Published: ${r.published ? '✅' : '❌'} · Last: ${r.last_verified ? new Date(r.last_verified).toLocaleDateString('en-GB') : '—'}
+          ${r.notes ? `<br><span style="color:var(--muted)">Notes: ${r.notes}</span>` : ''}
+          <button class="btn" style="background:#c0392b;padding:2px 8px;font-size:.75rem;margin-top:4px" onclick="if(confirm('Ye ek record delete karein?')){callAdminApi('verif-delete',{method:'POST',body:JSON.stringify({id:'${r.id}'})}).then(()=>this.closest('div').style.opacity=0.3).catch(e=>alert(e.message))}">🗑️ Delete ye ek</button>
+        </div>`).join('');
+      return `<details style="margin-top:8px;border:1px solid var(--line);border-radius:6px;padding:6px">
+        <summary style="cursor:pointer;font-weight:bold">${g.key.split('|')[0] || '(no name)'} — ${g.count} records</summary>
+        ${rowsHtml}
+      </details>`;
+    }).join('');
+    box.innerHTML = `<p class="desc">"${authority}" mein <b>${data.duplicateGroups.length}</b> naam+city groups mein duplicates mile (total ${data.total} records). Har group kholo, jo record extra/purana lage usko individually delete karein.</p>${groupsHtml}`;
+  }catch(e){
+    box.innerHTML = `❌ Error: ${e.message}`;
+  }
 });
 
 document.getElementById('genPublishBtn').addEventListener('click', async () => {
