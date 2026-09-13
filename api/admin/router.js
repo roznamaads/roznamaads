@@ -917,6 +917,77 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      /* ---------- Har authority ka ek-nazar dashboard: total records, possible
+         duplicates (same normalized name repeated), last update, source URL —
+         taake dobara URL na dhoondna paray aur duplicate ban jaane ka pata
+         chal sake. ---------- */
+      case 'verif-sources-dashboard': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const cols = 'type,authority,name,official_source_url,last_verified,published';
+        let allRows = [];
+        let from = 0;
+        const pageSize = 1000;
+        while (true) {
+          const r = await fetch(
+            `${SB()}/rest/v1/verifications?select=${cols}&order=authority.asc`,
+            { headers: { ...sbHeaders(), Range: `${from}-${from + pageSize - 1}` } }
+          );
+          if (!r.ok) {
+            const errText = await r.text();
+            return res.status(r.status).json({ error: errText });
+          }
+          const chunk = await r.json();
+          allRows = allRows.concat(chunk);
+          if (chunk.length < pageSize) break;
+          from += pageSize;
+        }
+
+        const groups = new Map(); // key: type|authority
+        for (const row of allRows) {
+          const key = `${row.type || ''}|${row.authority || ''}`;
+          if (!groups.has(key)) {
+            groups.set(key, {
+              type: row.type || '',
+              authority: row.authority || '',
+              total: 0,
+              published: 0,
+              nameCounts: new Map(),
+              urlCounts: new Map(),
+              lastVerified: null
+            });
+          }
+          const g = groups.get(key);
+          g.total++;
+          if (row.published) g.published++;
+          const normName = (row.name || '').trim().toLowerCase();
+          if (normName) g.nameCounts.set(normName, (g.nameCounts.get(normName) || 0) + 1);
+          const url = row.official_source_url || '';
+          if (url) g.urlCounts.set(url, (g.urlCounts.get(url) || 0) + 1);
+          if (row.last_verified && (!g.lastVerified || row.last_verified > g.lastVerified)) {
+            g.lastVerified = row.last_verified;
+          }
+        }
+
+        const summary = Array.from(groups.values()).map(g => {
+          let duplicateCount = 0;
+          for (const c of g.nameCounts.values()) if (c > 1) duplicateCount += (c - 1);
+          let topUrl = '';
+          let topUrlCount = 0;
+          for (const [url, c] of g.urlCounts.entries()) if (c > topUrlCount) { topUrl = url; topUrlCount = c; }
+          return {
+            type: g.type,
+            authority: g.authority,
+            total: g.total,
+            published: g.published,
+            duplicateCount,
+            lastVerified: g.lastVerified,
+            sourceUrl: topUrl
+          };
+        }).sort((a, b) => (a.authority || '').localeCompare(b.authority || ''));
+
+        return res.status(200).json({ ok: true, summary, grandTotal: allRows.length });
+      }
+
       /* ---------- HEC Recognized Universities (base list) bulk import ---------- */
       case 'hec-universities-import': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

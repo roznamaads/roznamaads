@@ -210,6 +210,12 @@
     <button class="btn" id="loadVerifSources">📥 Load Sources</button>
     <button class="btn alt" id="addVerifSourceBtn">+ Add Source</button>
     <div id="verifSourcesList" style="margin-top:14px"></div>
+
+    <hr style="margin:20px 0;border:none;border-top:1px solid var(--line)">
+    <h2>📊 Sources Dashboard</h2>
+    <p class="desc">Har authority ka ek-nazar summary — total records, possible duplicates, last update, aur source URL (copy button se) — dobara URL dhoondhne ki zaroorat nahi.</p>
+    <button class="btn" id="loadSourcesDashboard">🔄 Refresh Dashboard</button>
+    <div id="sourcesDashboardBox" style="margin-top:14px;overflow-x:auto"></div>
   </section>
 
   <section class="panel" data-panel="verif-records">
@@ -2431,6 +2437,46 @@ document.getElementById('genDeleteBtn').addEventListener('click', async () => {
     statusBox.textContent = `✅ "${authority}" ki sab records delete ho gayin — ab dobara clean import/send kar sakte hain.`;
   }catch(e){
     statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+document.getElementById('loadSourcesDashboard').addEventListener('click', async () => {
+  const box = document.getElementById('sourcesDashboardBox');
+  box.innerHTML = '⏳ Load ho raha hai...';
+  try{
+    const data = await callAdminApi('verif-sources-dashboard');
+    if(!data.summary || !data.summary.length){ box.innerHTML = 'Koi records nahi milin.'; return; }
+    const rows = data.summary.map(s => {
+      const lastUpd = s.lastVerified ? new Date(s.lastVerified).toLocaleDateString('en-GB') : '—';
+      const dupBadge = s.duplicateCount > 0
+        ? `<span style="color:#c0392b;font-weight:bold">${s.duplicateCount} ⚠️</span>`
+        : `<span style="color:#2a7a2a">0</span>`;
+      const urlCell = s.sourceUrl
+        ? `<span style="word-break:break-all;font-size:.8rem">${s.sourceUrl}</span>
+           <button class="btn alt" style="padding:2px 8px;font-size:.75rem;margin-top:2px" onclick="navigator.clipboard.writeText('${s.sourceUrl.replace(/'/g,"\\'")}');this.textContent='✅ Copied';setTimeout(()=>this.textContent='📋 Copy',1500)">📋 Copy</button>`
+        : '—';
+      return `<tr>
+        <td style="padding:6px;border-bottom:1px solid var(--line)">${s.type}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--line);font-weight:bold">${s.authority}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--line);text-align:center">${s.total}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--line);text-align:center">${s.published}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--line);text-align:center">${dupBadge}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--line);white-space:nowrap">${lastUpd}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--line)">${urlCell}</td>
+      </tr>`;
+    }).join('');
+    box.innerHTML = `<p class="desc">Grand total: <b>${data.grandTotal}</b> records (sab authorities milakar)</p>
+    <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+      <thead><tr style="background:var(--panel-alt,#f0ede4);text-align:left">
+        <th style="padding:6px">Type</th><th style="padding:6px">Authority</th>
+        <th style="padding:6px;text-align:center">Total</th><th style="padding:6px;text-align:center">Published</th>
+        <th style="padding:6px;text-align:center">Duplicates</th><th style="padding:6px">Last Updated</th>
+        <th style="padding:6px">Source URL</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }catch(e){
+    box.innerHTML = `❌ Error: ${e.message}`;
   }
 });
 
