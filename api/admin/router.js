@@ -12,7 +12,7 @@ import { detectTableAndPagination, fetchSinglePage, fetchPostbackPage, detectTab
 
 const VALID_CATEGORIES = [
   'property','jobs','vehicles','matrimonial','visa','auctions',
-  'admissions','tenders','notices','services','electronics'
+  'admissions','tenders','notices','services','electronics','obituary'
 ];
 
 function sbHeaders(){

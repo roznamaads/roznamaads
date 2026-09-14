@@ -138,12 +138,24 @@
     <p class="desc">Newspaper page ki <strong>photo upload karein</strong> (ek ya zyada tukdon mein — page ko chotay hisson mein crop karke sab ek sath select kar sakte hain, har hissa alag se saaf tarah process hoga) — Gemini khud padh kar sab ads/tenders nikal degi (OCR ki zaroorat nahi),
     neeche text bhi paste kar sakte hain agar image na ho to.</p>
     <div class="field"><label>Newspaper Page Image(s)</label><input type="file" id="ocrImage" accept="image/*" multiple></div>
+    <div class="field"><label>Bara page ho to khud tukdon mein kaato (crop karne ki zaroorat nahi)</label>
+      <select id="splitMode">
+        <option value="none">Nahi — jaisi image hai waisi bhejo</option>
+        <option value="2">2 tukde (upar/neeche)</option>
+        <option value="4" selected>4 tukde (2x2) — bara newspaper page ke liye recommended</option>
+        <option value="6">6 tukde (2x3) — bohat bara/dense page ke liye</option>
+      </select>
+    </div>
     <div class="field"><label>Ya Raw Text (optional, image na ho to)</label><textarea id="ocrText" rows="4" placeholder="Agar image nahi hai to text yahan paste karein..."></textarea></div>
     <div class="field"><label>Admin API Secret</label><input type="password" id="genSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
     <button class="btn" id="genDraft">🧠 Generate Draft(s)</button>
     <p class="desc" id="genMsg" style="margin-top:8px"></p>
 
     <div id="draftCards" style="margin-top:16px"></div>
+    <div id="saveAllBox" style="margin-top:10px">
+      <button class="btn" id="saveAllDraftsBtn">📝 Save ALL Drafts (ek sath)</button>
+      <p class="desc" id="saveAllStatus" style="margin-top:6px"></p>
+    </div>
   </section>
 
   <!-- Ad Draft Queue -->
@@ -976,8 +988,8 @@ document.getElementById('pgGenerate').addEventListener('click', async () => {
   }
 });
 
-const VALID_CATEGORIES = ['property','jobs','vehicles','matrimonial','visa','auctions','admissions','tenders','notices','services','electronics'];
-const CAT_LABELS = {property:'Property',jobs:'Jobs',vehicles:'Vehicles',matrimonial:'Matrimonial / Rishta',visa:'Visa & Immigration',auctions:'Auctions',admissions:'Admissions',tenders:'Tenders',notices:'Government / Public Notices',services:'Services',electronics:'Electronics'};
+const VALID_CATEGORIES = ['property','jobs','vehicles','matrimonial','visa','auctions','admissions','tenders','notices','services','electronics','obituary'];
+const CAT_LABELS = {property:'Property',jobs:'Jobs',vehicles:'Vehicles',matrimonial:'Matrimonial / Rishta',visa:'Visa & Immigration',auctions:'Auctions',admissions:'Admissions',tenders:'Tenders',notices:'Government / Public Notices',services:'Services',electronics:'Electronics',obituary:'Wafiyat / Obituary'};
 
 function fileToBase64(file){
   return new Promise((resolve, reject) => {
@@ -1002,16 +1014,57 @@ Sirf valid JSON ARRAY return karo, koi aur text/markdown nahi, is exact shape me
 
 Agar koi structured table/list nahi mili to extra_fields.table field bilkul chhod do (mat likho). Agar sirf ek hi ad mile to bhi ek-item wala array return karo.`;
 
+async function splitImageIntoTiles(file, rows, cols){
+  const img = await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = URL.createObjectURL(file);
+  });
+  const tileW = Math.ceil(img.width / cols);
+  const tileH = Math.ceil(img.height / rows);
+  const tiles = [];
+  for(let r = 0; r < rows; r++){
+    for(let c = 0; c < cols; c++){
+      const canvas = document.createElement('canvas');
+      canvas.width = tileW;
+      canvas.height = tileH;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, c*tileW, r*tileH, tileW, tileH, 0, 0, tileW, tileH);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+      const baseName = (file.name || 'page').replace(/\.[^.]+$/, '');
+      const tileFile = new File([blob], `${baseName}_tile_r${r}c${c}.jpg`, { type: 'image/jpeg' });
+      tiles.push(tileFile);
+    }
+  }
+  URL.revokeObjectURL(img.src);
+  return tiles;
+}
+
 document.getElementById('genDraft').addEventListener('click', async () => {
-  const files = Array.from(document.getElementById('ocrImage').files || []);
+  const rawFiles = Array.from(document.getElementById('ocrImage').files || []);
+  const splitMode = document.getElementById('splitMode').value;
   const text = document.getElementById('ocrText').value.trim();
   const msg = document.getElementById('genMsg');
   const cardsBox = document.getElementById('draftCards');
-  if(!files.length && !text){ alert('Image(s) upload karein ya text paste karein.'); return; }
+  if(!rawFiles.length && !text){ alert('Image(s) upload karein ya text paste karein.'); return; }
+
+  let files = rawFiles;
+  if(rawFiles.length && splitMode !== 'none'){
+    const splitConfigs = { '2': [2,1], '4': [2,2], '6': [2,3] };
+    const [rows, cols] = splitConfigs[splitMode] || [1,1];
+    msg.textContent = `⏳ ${rawFiles.length} image(s) ko ${rows*cols} tukdon mein kaata ja raha hai...`;
+    files = [];
+    for(const f of rawFiles){
+      const tiles = await splitImageIntoTiles(f, rows, cols);
+      files = files.concat(tiles);
+    }
+  }
 
   window._rzSourceImageFiles = files;
   window._rzSourceImageUrls = {};
   cardsBox.innerHTML = '';
+  document.getElementById('saveAllStatus').textContent = '';
 
   let allDrafts = [];
 
@@ -1093,41 +1146,57 @@ document.getElementById('genDraft').addEventListener('click', async () => {
   log(`🧠 AI se ${allDrafts.length} draft(s) generate hue${files.length > 1 ? ` (${files.length} images)` : ''}.`);
 });
 
-document.getElementById('draftCards').addEventListener('click', async (e) => {
-  if(e.target.classList.contains('checkDupCardBtn')){
-    const card = e.target.closest('.draft-card');
-    const secret = document.getElementById('genSecret').value.trim();
-    const resultBox = card.querySelector('.dup-result');
-    if(!secret){ alert('Admin API Secret daalein.'); return; }
-    resultBox.innerHTML = 'Checking...';
-    try{
-      const r = await fetch('/api/admin/check-duplicate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify({
-          title: card.querySelector('.d-title').value.trim(),
-          contact_phone: card.querySelector('.d-phone').value.trim(),
-          category: card.querySelector('.d-category').value
-        })
-      });
-      const data = await r.json();
-      if(!r.ok){ resultBox.innerHTML = `<p class="desc">❌ ${data.error||'Error'}</p>`; return; }
-      const matches = data.matches || [];
-      resultBox.innerHTML = matches.length
-        ? `<p class="desc" style="color:#a86b00">⚠️ ${matches.length} possible duplicate(s) mile:</p>` + matches.map(m => `<div class="cat-row" style="flex-direction:column;align-items:stretch"><b>${m.title}</b><span style="font-size:.75rem;color:var(--muted)">${m.city||''} · ${m.contact_phone||''} · status: ${m.status} · matched by: ${m.matchedBy}</span></div>`).join('')
-        : '<p class="desc">✅ Koi duplicate nahi mila.</p>';
-    }catch(err){ resultBox.innerHTML = `<p class="desc">❌ ${err.message}</p>`; }
-    return;
+async function checkDuplicateForCard(card, secret){
+  const resultBox = card.querySelector('.dup-result');
+  try{
+    const r = await fetch('/api/admin/check-duplicate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+      body: JSON.stringify({
+        title: card.querySelector('.d-title').value.trim(),
+        contact_phone: card.querySelector('.d-phone').value.trim(),
+        category: card.querySelector('.d-category').value
+      })
+    });
+    const data = await r.json();
+    if(!r.ok) return { error: data.error || 'Duplicate check fail hua' };
+    const matches = data.matches || [];
+    resultBox.innerHTML = matches.length
+      ? `<p class="desc" style="color:#a86b00">⚠️ ${matches.length} possible duplicate(s) mile:</p>` + matches.map(m => `<div class="cat-row" style="flex-direction:column;align-items:stretch"><b>${m.title}</b><span style="font-size:.75rem;color:var(--muted)">${m.city||''} · ${m.contact_phone||''} · status: ${m.status} · matched by: ${m.matchedBy}</span></div>`).join('')
+      : '<p class="desc">✅ Koi duplicate nahi mila.</p>';
+    return { matches };
+  }catch(err){
+    resultBox.innerHTML = `<p class="desc">❌ ${err.message}</p>`;
+    return { error: err.message };
   }
-  if(!e.target.classList.contains('saveDraftBtn')) return;
-  const card = e.target.closest('.draft-card');
-  const secret = document.getElementById('genSecret').value.trim();
+}
+
+async function saveDraftCard(card, secret, btn, opts){
+  opts = opts || {};
+  const bulk = !!opts.bulk;
   const saveMsg = card.querySelector('.save-msg');
-  if(!secret){ alert('Admin API Secret daalein (database mein save karne ke liye).'); return; }
+  btn.disabled = true;
+
+  // Har save se pehle khud-ba-khud duplicate check — bhoolne ka masla khatam.
+  saveMsg.textContent = '🔍 Duplicate check ho raha hai...';
+  const dupResult = await checkDuplicateForCard(card, secret);
+  if(dupResult.matches && dupResult.matches.length > 0){
+    if(bulk){
+      saveMsg.textContent = `⏭️ SKIP kiya — ${dupResult.matches.length} possible duplicate(s) mile (upar detail dekhein). Manually review karke khud save karein.`;
+      btn.disabled = false;
+      return 'duplicate';
+    } else {
+      const proceed = confirm(`⚠️ ${dupResult.matches.length} possible duplicate(s) mile (neeche detail hai). Phir bhi save karein?`);
+      if(!proceed){
+        saveMsg.textContent = '❌ Save cancel kiya (duplicate lagne ki wajah se).';
+        btn.disabled = false;
+        return false;
+      }
+    }
+  }
 
   const attachImg = card.querySelector('.d-attach-img');
   let images = [];
-  e.target.disabled = true;
 
   const srcIdx = card.dataset.sourceFileIndex;
   if(attachImg && attachImg.checked && srcIdx !== undefined && srcIdx !== '' && window._rzSourceImageFiles && window._rzSourceImageFiles[srcIdx]){
@@ -1152,9 +1221,9 @@ document.getElementById('draftCards').addEventListener('click', async (e) => {
   try{
     extraFieldsParsed = JSON.parse(card.querySelector('.d-extra-fields').value || '{}');
   }catch(jsonErr){
-    alert('Extra Fields JSON mein ghalti hai — check kar ke theek karein.');
-    e.target.disabled = false;
-    return;
+    saveMsg.textContent = '❌ Extra Fields JSON mein ghalti hai — check kar ke theek karein.';
+    btn.disabled = false;
+    return false;
   }
 
   const payload = {
@@ -1167,7 +1236,11 @@ document.getElementById('draftCards').addEventListener('click', async (e) => {
     extra_fields: extraFieldsParsed,
     images
   };
-  if(!payload.title || !payload.description){ alert('Title aur Description zaroori hain.'); e.target.disabled = false; return; }
+  if(!payload.title || !payload.description){
+    saveMsg.textContent = '❌ Title aur Description zaroori hain.';
+    btn.disabled = false;
+    return false;
+  }
 
   saveMsg.textContent = '⏳ Save ho raha hai...';
   try{
@@ -1177,13 +1250,52 @@ document.getElementById('draftCards').addEventListener('click', async (e) => {
       body: JSON.stringify(payload)
     });
     const data = await r.json();
-    if(!r.ok){ saveMsg.textContent = '❌ ' + (data.error || 'Save fail hua.'); e.target.disabled = false; return; }
+    if(!r.ok){ saveMsg.textContent = '❌ ' + (data.error || 'Save fail hua.'); btn.disabled = false; return false; }
     saveMsg.textContent = '✅ Draft Queue mein save ho gaya.';
+    card.dataset.saved = '1';
     log('📝 Naya AI draft "Draft Queue" mein save hua.');
+    return true;
   }catch(e2){
     saveMsg.textContent = '❌ Network error: ' + e2.message;
-    e.target.disabled = false;
+    btn.disabled = false;
+    return false;
   }
+}
+
+document.getElementById('draftCards').addEventListener('click', async (e) => {
+  if(e.target.classList.contains('checkDupCardBtn')){
+    const card = e.target.closest('.draft-card');
+    const secret = document.getElementById('genSecret').value.trim();
+    if(!secret){ alert('Admin API Secret daalein.'); return; }
+    card.querySelector('.dup-result').innerHTML = 'Checking...';
+    await checkDuplicateForCard(card, secret);
+    return;
+  }
+  if(!e.target.classList.contains('saveDraftBtn')) return;
+  const card = e.target.closest('.draft-card');
+  const secret = document.getElementById('genSecret').value.trim();
+  if(!secret){ alert('Admin API Secret daalein (database mein save karne ke liye).'); return; }
+  await saveDraftCard(card, secret, e.target, { bulk: false });
+});
+
+document.getElementById('saveAllDraftsBtn').addEventListener('click', async () => {
+  const secret = document.getElementById('genSecret').value.trim();
+  const statusBox = document.getElementById('saveAllStatus');
+  if(!secret){ alert('Admin API Secret daalein (database mein save karne ke liye).'); return; }
+  const cards = Array.from(document.querySelectorAll('#draftCards .draft-card')).filter(c => c.dataset.saved !== '1');
+  if(cards.length === 0){ statusBox.textContent = 'Sab drafts pehle se saved hain.'; return; }
+  if(!confirm(`${cards.length} draft(s) ek sath Draft Queue mein save karein? (Har ek ke liye khud-ba-khud duplicate check hoga, duplicate lagne wale khud skip ho jayenge)`)) return;
+  let savedCount = 0, failCount = 0, dupSkipCount = 0;
+  for(let i = 0; i < cards.length; i++){
+    statusBox.textContent = `⏳ Process ho raha hai... ${i+1}/${cards.length} (Saved: ${savedCount}, Duplicate-skip: ${dupSkipCount}, Fail: ${failCount})`;
+    const card = cards[i];
+    const btn = card.querySelector('.saveDraftBtn');
+    const result = await saveDraftCard(card, secret, btn, { bulk: true });
+    if(result === true) savedCount++;
+    else if(result === 'duplicate') dupSkipCount++;
+    else failCount++;
+  }
+  statusBox.textContent = `✅ ${savedCount} save ho gaye. ⏭️ ${dupSkipCount} duplicate lagne ki wajah se skip hue (unhe manually dekh kar khud save karein agar sahi hain). ❌ ${failCount} fail hue.`;
 });
 
 /* ---------- Website Health Monitor (functional) ---------- */

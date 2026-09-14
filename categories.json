@@ -75,5 +75,12 @@
     "subtitle": "Buy / Sell",
     "tag": "",
     "active": true
+  },
+  {
+    "id": "obituary",
+    "label": "Wafiyat / Obituary",
+    "subtitle": "Death Notices, Namaz-e-Janaza",
+    "tag": "",
+    "active": true
   }
 ]
