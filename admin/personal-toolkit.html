@@ -1019,6 +1019,7 @@ const EXTRACT_INSTRUCTIONS = `Kaam:
 5. Newspaper ka original text hu-ba-hu copy mat karo — apne alfaaz mein likho, sirf facts/numbers same rakho.
 6. Har ad ke liye category inhi values mein se choose karo: ${VALID_CATEGORIES.join(', ')}
 7. Agar visa/auction/tender/notice category ho to relevant extra_fields nikalo (jaise auctionDate, deadline, visaType, destination, refNo).
+8. Agar matrimonial/rishta category ho to extra_fields mein ye zaroor nikalo: "gender" ("male" ya "female" — jis ke liye rishta chahiye us insaan ki gender, na ke jo ad likh raha hai), "age" (number, agar mile), "maritalStatus" (never-married/divorced/widowed, agar mile). Naam kabhi extract mat karo (privacy) — sirf "Larki"/"Larka" jaisa generic title rakho, jaise "Architect Larki ke liye Rishta, Lahore".
 
 Sirf valid JSON ARRAY return karo, koi aur text/markdown nahi, is exact shape mein:
 [{"category":"...","title":"short catchy title (max 80 chars)","city":"city name or empty string","price":"price/amount as plain text or empty string","description":"short English summary --- short Roman Urdu khulasa","contact_phone":"phone number if found, else empty string","extra_fields":{"table":{"headers":["col1","col2"],"rows":[["val1","val2"]]}}}]

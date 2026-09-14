@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rishta Board — Verified se Print, Free — RoznamaAds.pk</title>
+<meta name="description" content="Pakistani newspapers ke matrimonial classifieds se verified rishta profiles — free, private, ek click mein interest bhejein.">
+<link rel="canonical" href="https://roznamaads.pk/rishta.html">
+<meta property="og:title" content="Rishta Board — RoznamaAds.pk">
+<meta property="og:description" content="Newspaper se verified rishta profiles, bilkul free.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://roznamaads.pk/rishta.html">
+<link rel="stylesheet" href="styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<style>
+  :root{
+    --rose:#96354C; --rose-deep:#6E2438; --blush:#FBF0EF; --blush-edge:#F0D9D6;
+    --gold:#A9791E; --gold-pale:#FBF4E4;
+  }
+  body{ background:var(--bg); }
+  .rishta-hero{
+    background:linear-gradient(155deg,var(--rose-deep),var(--rose) 60%,#7d2c40);
+    color:#fbf1ee; padding:36px 18px 30px; text-align:center;
+  }
+  .rishta-hero h1{
+    font-family:'Fraunces',Georgia,serif; font-weight:600; font-style:italic;
+    font-size:1.8rem; margin:0 0 8px; letter-spacing:.01em;
+  }
+  .rishta-hero p{ margin:0; font-size:.92rem; opacity:.92; max-width:440px; margin:0 auto }
+  .privacy-note{
+    max-width:480px; margin:14px auto 0; background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.28); border-radius:10px; padding:10px 14px;
+    font-size:.78rem; line-height:1.5;
+  }
+
+  .gender-tabs{
+    display:flex; max-width:420px; margin:-18px auto 0; position:relative; z-index:2;
+    background:var(--card); border-radius:12px; box-shadow:0 6px 18px rgba(110,36,56,.18);
+    padding:5px; gap:4px;
+  }
+  .gender-tabs button{
+    flex:1; border:none; background:transparent; padding:12px 8px; border-radius:9px;
+    font-size:.88rem; font-weight:700; color:var(--muted); cursor:pointer;
+  }
+  .gender-tabs button.active{ background:var(--rose); color:#fff }
+
+  .filter-row{
+    max-width:420px; margin:14px auto 0; display:flex; gap:8px; padding:0 18px;
+  }
+  .filter-row select{
+    flex:1; padding:9px 10px; border:1px solid var(--line); border-radius:8px;
+    background:var(--card); font-size:.82rem; color:var(--ink);
+  }
+
+  .swipe-wrap{
+    max-width:420px; margin:22px auto 8px; padding:0 18px;
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .progress-note{ font-size:.78rem; color:var(--muted); margin-bottom:10px }
+
+  .r-card{
+    width:100%; background:var(--blush); border:1px solid var(--blush-edge);
+    border-radius:18px; padding:26px 22px 22px; box-shadow:0 10px 30px rgba(110,36,56,.12);
+    position:relative; touch-action:pan-y; user-select:none; min-height:340px;
+  }
+  .r-verified{
+    display:inline-flex; align-items:center; gap:5px; background:var(--gold-pale);
+    color:var(--gold); border-radius:999px; padding:4px 11px; font-size:.7rem; font-weight:700;
+  }
+  .r-title{
+    font-family:'Fraunces',Georgia,serif; font-size:1.4rem; font-weight:600;
+    color:var(--rose-deep); margin:14px 0 4px;
+  }
+  .r-meta{ font-size:.85rem; color:var(--muted); margin-bottom:14px }
+  .r-facts{ display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px }
+  .r-facts span{
+    background:#fff; border:1px solid var(--blush-edge); border-radius:999px;
+    padding:5px 11px; font-size:.76rem; color:var(--ink);
+  }
+  .r-desc{ font-size:.87rem; line-height:1.55; color:var(--ink) }
+
+  .r-actions{ display:flex; gap:12px; margin-top:22px; width:100%; max-width:420px }
+  .r-pass, .r-interest{
+    flex:1; border:none; border-radius:12px; padding:14px 10px; font-size:.92rem;
+    font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .r-pass{ background:#fff; border:1px solid var(--line); color:var(--muted) }
+  .r-interest{ background:var(--rose); color:#fff }
+  .r-interest:hover{ background:var(--rose-deep) }
+
+  .r-empty{ text-align:center; padding:50px 18px; color:var(--muted) }
+  .r-empty .icon{ font-size:2.4rem; margin-bottom:10px }
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="hero" style="padding:20px 18px">
+  <div class="site-header-bar">
+    <a href="index.html" class="brand-row"><img src="logo.svg" alt="RoznamaAds.pk logo" class="logo-img">RoznamaAds<span style="opacity:.7">.pk</span></a>
+  </div>
+  <nav class="site-top-nav" aria-label="Main navigation">
+    <a href="index.html">Home</a>
+    <a href="verify.html" class="nav-verify">🛡️ Verify</a>
+    <a href="scam-checker.html" class="nav-verify">🔎 Scam Checker</a>
+    <a href="tenders.html">Tenders</a>
+    <a href="rishta.html" class="active">💘 Rishta</a>
+    <a href="submit-ad.html">Submit Ad</a>
+  </nav>
+</header>
+
+<section class="rishta-hero">
+  <h1>Rishta, seedha akhbar se — verified.</h1>
+  <p>Pakistan ke newspapers ke matrimonial classifieds se, bilkul free. Koi fake profile nahi — har ad print mein chhap chuki hai.</p>
+  <div class="privacy-note">🔒 Aapka number kabhi public nahi hota. Interest bhejein, hum WhatsApp par aapko connect karate hain — dono taraf ki razamandi se.</div>
+</section>
+
+<main id="main-content" style="margin-top:0">
+  <div class="gender-tabs">
+    <button id="tabMale" data-gender="male">Larkon ke Rishtay</button>
+    <button id="tabFemale" data-gender="female">Larkiyon ke Rishtay</button>
+  </div>
+
+  <div class="filter-row">
+    <select id="fCity" aria-label="Filter by city">
+      <option value="">Har Shehar</option>
+      <option>Lahore</option>
+      <option>Karachi</option>
+      <option>Islamabad</option>
+      <option>Rawalpindi</option>
+      <option>Faisalabad</option>
+      <option>Multan</option>
+      <option>Peshawar</option>
+      <option>Quetta</option>
+    </select>
+  </div>
+
+  <div class="swipe-wrap">
+    <p class="progress-note" id="progressNote">Load ho raha hai...</p>
+    <div id="cardStage"></div>
+    <div class="r-actions" id="actionRow" style="display:none">
+      <button class="r-pass" id="passBtn">✕ Agla</button>
+      <button class="r-interest" id="interestBtn">♥ Interest Bhejo</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-brand"><img src="logo.svg" alt="RoznamaAds.pk logo" class="foot-logo-img">RoznamaAds.pk</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="submit-ad.html">Submit Ad</a>
+      <a href="verify.html">Society/Visa Verify</a>
+      <a href="scam-checker.html">Scam Checker</a>
+      <a href="tenders.html">Tenders</a>
+      <a href="blog.html">Blog</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+    <p class="copy">© 2026 RoznamaAds.pk — Pakistani Newspaper Classifieds, Digital.<br><a href="mailto:roznamaads@gmail.com" class="foot-email">roznamaads@gmail.com</a></p>
+  </div>
+</footer>
+
+<script>
+const WHATSAPP_NUMBER = '923006003236';
+
+let state = { gender: 'female', city: '', profiles: [], index: 0, loaded: false };
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadProfiles(){
+  document.getElementById('progressNote').textContent = 'Load ho raha hai...';
+  document.getElementById('cardStage').innerHTML = '';
+  document.getElementById('actionRow').style.display = 'none';
+
+  let q = rzDb.from('ads')
+    .select('id, title, city, description, extra_fields, images, created_at')
+    .eq('status', 'live')
+    .eq('category', 'matrimonial');
+  if(state.city) q = q.eq('city', state.city);
+  q = q.order('created_at', { ascending: false }).limit(100);
+
+  const { data, error } = await q;
+  if(error){
+    document.getElementById('progressNote').textContent = '';
+    document.getElementById('cardStage').innerHTML = `<div class="r-empty"><div class="icon">⚠️</div>Profiles load nahi ho sakin. Dobara try karein.</div>`;
+    return;
+  }
+
+  const filtered = (data || []).filter(ad => {
+    const g = ad.extra_fields && ad.extra_fields.gender;
+    return !g || g === state.gender; // gender missing ho to dono tabs mein dikha do (kuch miss na ho)
+  });
+
+  state.profiles = filtered;
+  state.index = 0;
+  state.loaded = true;
+  renderCard();
+}
+
+function renderCard(){
+  const stage = document.getElementById('cardStage');
+  const progress = document.getElementById('progressNote');
+  const actionRow = document.getElementById('actionRow');
+
+  if(state.profiles.length === 0){
+    progress.textContent = '';
+    actionRow.style.display = 'none';
+    stage.innerHTML = `<div class="r-empty"><div class="icon">💌</div>Is filter mein abhi koi rishta profile nahi hai.<br><a href="submit-ad.html">Apni rishta ad submit karein</a> ya doosra shehar try karein.</div>`;
+    return;
+  }
+
+  if(state.index >= state.profiles.length){
+    progress.textContent = '';
+    actionRow.style.display = 'none';
+    stage.innerHTML = `<div class="r-empty"><div class="icon">✅</div>Sab profiles dekh li aapne!<br><a href="javascript:void(0)" onclick="state.index=0;renderCard()">Dobara se shuru karein</a></div>`;
+    return;
+  }
+
+  const ad = state.profiles[state.index];
+  const ef = ad.extra_fields || {};
+  progress.textContent = `${state.index + 1} / ${state.profiles.length} profiles`;
+  actionRow.style.display = 'flex';
+
+  const facts = [];
+  if(ef.age) facts.push(`${ef.age} saal`);
+  if(ad.city) facts.push(ad.city);
+  if(ef.maritalStatus) facts.push(ef.maritalStatus);
+
+  stage.innerHTML = `
+    <div class="r-card" id="activeCard">
+      <span class="r-verified">✅ Verified from Print · ${new Date(ad.created_at).toLocaleDateString('en-GB')}</span>
+      <div class="r-title">${escapeHtml(ad.title)}</div>
+      <div class="r-facts">${facts.map(f => `<span>${escapeHtml(f)}</span>`).join('')}</div>
+      <div class="r-desc">${escapeHtml((ad.description||'').split('---')[0].trim())}</div>
+    </div>
+  `;
+  attachSwipe(document.getElementById('activeCard'));
+}
+
+function nextCard(){
+  state.index += 1;
+  renderCard();
+}
+
+function sendInterest(){
+  const ad = state.profiles[state.index];
+  if(!ad) return;
+  const msg = `Assalam o Alaikum, mujhe is Rishta profile mein interest hai:\n\n"${ad.title}" (ID: ${ad.id})\n${ad.city || ''}\n\nMera number: ___`;
+  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+document.getElementById('passBtn').addEventListener('click', nextCard);
+document.getElementById('interestBtn').addEventListener('click', sendInterest);
+
+document.querySelectorAll('.gender-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.gender-tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.gender = btn.dataset.gender;
+    loadProfiles();
+  });
+});
+
+document.getElementById('fCity').addEventListener('change', (e) => {
+  state.city = e.target.value;
+  loadProfiles();
+});
+
+function attachSwipe(el){
+  if(!el) return;
+  let startX = 0, currentX = 0, dragging = false;
+  el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; dragging = true; }, {passive:true});
+  el.addEventListener('touchmove', e => {
+    if(!dragging) return;
+    currentX = e.touches[0].clientX - startX;
+    el.style.transform = `translateX(${currentX}px) rotate(${currentX/20}deg)`;
+  }, {passive:true});
+  el.addEventListener('touchend', () => {
+    dragging = false;
+    if(currentX > 80){ sendInterest(); el.style.transform=''; }
+    else if(currentX < -80){ nextCard(); }
+    else { el.style.transform = ''; }
+    currentX = 0;
+  });
+}
+
+// Default tab: Larkiyon ke Rishtay (female) select karke shuru karo
+document.getElementById('tabFemale').classList.add('active');
+loadProfiles();
+</script>
+</body>
+</html>

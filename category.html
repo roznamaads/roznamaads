@@ -125,6 +125,12 @@ function initPage(){
     document.getElementById('canonicalLink').setAttribute('href', 'https://roznamaads.pk/category.html?cat=' + catKey);
   }
 
+  if(catKey === 'matrimonial'){
+    document.querySelector('.subheader .wrap').insertAdjacentHTML('beforeend',
+      `<div style="margin-top:10px"><a href="rishta.html" style="display:inline-block;background:#96354C;color:#fff;padding:9px 16px;border-radius:8px;font-size:.85rem;font-weight:700;text-decoration:none">💘 Naya Rishta Board try karein — swipe karke dekho →</a></div>`
+    );
+  }
+
   const catNav = document.getElementById('catNav');
   catNav.innerHTML = catNavList.map(c =>
     `<a href="category.html?cat=${c.id}" class="${c.id === catKey ? 'active' : ''}">${c.label}</a>`
