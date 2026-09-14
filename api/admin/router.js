@@ -84,6 +84,60 @@ export default async function handler(req, res) {
         return res.status(r.status).json({ ok: r.ok });
       }
 
+      case 'publish-all-pending': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const r = await fetch(`${SB()}/rest/v1/ads?status=eq.pending`, {
+          method: 'PATCH',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify({ status: 'live', approved_at: new Date().toISOString() })
+        });
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        const data = await r.json();
+        return res.status(200).json({ ok: true, published: Array.isArray(data) ? data.length : 0 });
+      }
+
+      case 'ads-category-counts': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const status = req.query.status || 'live';
+        const r = await fetch(
+          `${SB()}/rest/v1/ads?status=eq.${encodeURIComponent(status)}&select=category`,
+          { headers: sbHeaders() }
+        );
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        const rows = await r.json();
+        const counts = {};
+        for (const row of rows) counts[row.category || 'unknown'] = (counts[row.category || 'unknown'] || 0) + 1;
+        return res.status(200).json({ ok: true, counts, total: rows.length });
+      }
+
+      case 'delete-ads-bulk': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { ids, category, status } = req.body || {};
+        let url;
+        if (Array.isArray(ids) && ids.length) {
+          const idList = ids.map(id => `"${id}"`).join(',');
+          url = `${SB()}/rest/v1/ads?id=in.(${idList})`;
+        } else if (category) {
+          url = `${SB()}/rest/v1/ads?category=eq.${encodeURIComponent(category)}`;
+          if (status) url += `&status=eq.${encodeURIComponent(status)}`;
+        } else {
+          return res.status(400).json({ error: 'ids array ya category required' });
+        }
+        const r = await fetch(url, { method: 'DELETE', headers: { ...sbHeaders(), Prefer: 'return=representation' } });
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        const data = await r.json();
+        return res.status(200).json({ ok: true, deleted: Array.isArray(data) ? data.length : 0 });
+      }
+
       case 'reports': {
         const r = await fetch(
           `${SB()}/rest/v1/ad_reports?select=*,ads(title,status)&order=reported_at.desc`,

@@ -165,6 +165,8 @@
     <div class="field"><label>Admin API Secret</label><input type="password" id="serviceKey" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
     <p class="desc" style="color:#a86b00">⚠️ Ye ek chhota secret hai jo aap khud Vercel Environment Variables mein set karte hain — asal Supabase key kabhi browser mein nahi aati, wo sirf server (Vercel Function) par hoti hai.</p>
     <button class="btn" id="loadPending">📥 Load Pending Ads</button>
+    <button class="btn alt" id="publishAllPendingBtn">✅ Publish ALL Pending (1 click)</button>
+    <div id="publishAllStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
     <div id="pendingList" style="margin-top:14px"></div>
   </section>
 
@@ -172,7 +174,16 @@
   <section class="panel" data-panel="ad-manager">
     <h2>Ad Manager</h2>
     <p class="desc">Sab live ads — delete karein agar zaroorat ho.</p>
+
+    <h3 style="margin-top:0">📊 Category Dashboard</h3>
+    <p class="desc">Har category mein kitni live ads hain — ek click mein poori category delete kar sakte hain.</p>
+    <button class="btn" id="loadCategoryDashboard">🔄 Refresh Dashboard</button>
+    <div id="categoryDashboardBox" style="margin-top:12px"></div>
+
+    <hr style="margin:18px 0;border:none;border-top:1px solid var(--line)">
     <button class="btn" id="loadLive">📥 Load Live Ads</button>
+    <button class="btn" style="background:#c0392b;margin-left:8px" id="deleteSelectedBtn">🗑️ Delete Selected</button>
+    <div id="deleteSelectedStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
     <div id="liveList" style="margin-top:14px"></div>
   </section>
 
@@ -2276,6 +2287,53 @@ document.getElementById('loadPending').addEventListener('click', async () => {
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
 });
 
+document.getElementById('publishAllPendingBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('publishAllStatus');
+  if(!confirm('⚠️ Draft Queue ki SAB pending ads ek sath PUBLISH (live) ho jayengi. Pakka?')) return;
+  statusBox.textContent = '⏳ Publish ho raha hai...';
+  try{
+    const data = await callAdminApi('publish-all-pending', { method:'POST' });
+    statusBox.textContent = `✅ ${data.published} ad(s) publish ho gayin.`;
+    log(`✅ ${data.published} pending ads ek sath publish hui.`);
+    document.getElementById('loadPending').click();
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
+});
+
+/* Ad Manager — Category Dashboard */
+document.getElementById('loadCategoryDashboard').addEventListener('click', async () => {
+  const box = document.getElementById('categoryDashboardBox');
+  box.innerHTML = '⏳ Load ho raha hai...';
+  try{
+    const data = await callAdminApi('ads-category-counts?status=live');
+    const cats = Object.keys(data.counts).sort((a,b) => data.counts[b]-data.counts[a]);
+    if(!cats.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
+    box.innerHTML = `<p class="desc">Grand total: <b>${data.total}</b> live ads</p>
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <thead><tr style="background:var(--panel-alt,#f0ede4);text-align:left">
+          <th style="padding:6px">Category</th><th style="padding:6px;text-align:center">Count</th><th style="padding:6px"></th>
+        </tr></thead>
+        <tbody>${cats.map(c => `<tr>
+          <td style="padding:6px;border-bottom:1px solid var(--line)">${escapeHtml(categoryLabelsAdmin[c]||c)}</td>
+          <td style="padding:6px;border-bottom:1px solid var(--line);text-align:center">${data.counts[c]}</td>
+          <td style="padding:6px;border-bottom:1px solid var(--line)"><button class="mini-btn" style="color:#c0392b" onclick="deleteCategoryBulk('${c}', ${data.counts[c]})">🗑️ Delete ALL (${data.counts[c]})</button></td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+async function deleteCategoryBulk(category, count){
+  if(!confirm(`⚠️ "${categoryLabelsAdmin[category]||category}" category ki SAB ${count} live ads DELETE ho jayengi. Ye undo nahi ho sakta. Pakka?`)) return;
+  if(!confirm('Aakhri confirmation: pakka delete karna hai?')) return;
+  try{
+    const data = await callAdminApi('delete-ads-bulk', { method:'POST', body: JSON.stringify({ category, status: 'live' }) });
+    log(`🗑️ "${category}" category ki ${data.deleted} ads bulk-delete hui.`);
+    document.getElementById('loadCategoryDashboard').click();
+    document.getElementById('loadLive').click();
+  }catch(e){ alert('Error: ' + e.message); }
+}
+
 async function approveAd(id){
   try{
     await callAdminApi('update-status', {method:'POST', body: JSON.stringify({id, status:'live'})});
@@ -2303,9 +2361,12 @@ document.getElementById('loadLive').addEventListener('click', async () => {
     data.forEach(ad => liveAdsCache[ad.id] = ad);
     box.innerHTML = data.map(ad => `
       <div class="cat-row" style="flex-direction:column;align-items:stretch" id="adRow_${ad.id}">
-        <b>${escapeHtml(ad.title)}</b>
-        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)}</span>
-        <div style="display:flex;gap:8px;margin-top:6px">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" class="ad-select-checkbox" value="${ad.id}">
+          <b>${escapeHtml(ad.title)}</b>
+        </label>
+        <span style="font-size:.78rem;color:var(--muted);margin-left:26px">${escapeHtml(categoryLabelsAdmin[ad.category]||ad.category)} · ${escapeHtml(ad.city)}</span>
+        <div style="display:flex;gap:8px;margin-top:6px;margin-left:26px">
           <a class="mini-btn" href="../ad.html?id=${ad.id}" target="_blank" style="text-decoration:none;display:inline-block">👁️ View</a>
           <button class="mini-btn" onclick="startEditAd('${ad.id}')">✏️ Edit</button>
           <button class="mini-btn" style="color:#c0392b" onclick="deleteAd('${ad.id}')">🗑️ Delete</button>
@@ -2313,6 +2374,22 @@ document.getElementById('loadLive').addEventListener('click', async () => {
       </div>
     `).join('');
   }catch(e){ box.innerHTML = `<div class="stub">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('deleteSelectedBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('deleteSelectedStatus');
+  const checked = Array.from(document.querySelectorAll('.ad-select-checkbox:checked')).map(cb => cb.value);
+  if(checked.length === 0){ statusBox.textContent = '❌ Pehle kam az kam ek ad select karein (checkbox se).'; return; }
+  if(!confirm(`⚠️ ${checked.length} selected ad(s) DELETE ho jayengi. Pakka?`)) return;
+  statusBox.textContent = '⏳ Delete ho raha hai...';
+  try{
+    const data = await callAdminApi('delete-ads-bulk', { method:'POST', body: JSON.stringify({ ids: checked }) });
+    statusBox.textContent = `✅ ${data.deleted} ad(s) delete ho gayin.`;
+    log(`🗑️ ${data.deleted} selected ads bulk-delete hui.`);
+    document.getElementById('loadLive').click();
+  }catch(e){
+    statusBox.textContent = `❌ Error: ${e.message}`;
+  }
 });
 
 function startEditAd(id){
