@@ -135,8 +135,9 @@
   <!-- Ad Post Generator (Newspaper Manager + OCR/AI Processing) -->
   <section class="panel" data-panel="ad-generator">
     <h2>Ad Post Generator</h2>
-    <p class="desc">Newspaper page ki <b>photo upload</b> karein — Gemini khud padh kar sab ads/tenders nikal degi (OCR ki zaroorat nahi). Ya neeche text bhi paste kar sakte hain agar text mila ho.</p>
-    <div class="field"><label>Newspaper Page Image</label><input type="file" id="ocrImage" accept="image/*"></div>
+    <p class="desc">Newspaper page ki <strong>photo upload karein</strong> (ek ya zyada tukdon mein — page ko chotay hisson mein crop karke sab ek sath select kar sakte hain, har hissa alag se saaf tarah process hoga) — Gemini khud padh kar sab ads/tenders nikal degi (OCR ki zaroorat nahi),
+    neeche text bhi paste kar sakte hain agar image na ho to.</p>
+    <div class="field"><label>Newspaper Page Image(s)</label><input type="file" id="ocrImage" accept="image/*" multiple></div>
     <div class="field"><label>Ya Raw Text (optional, image na ho to)</label><textarea id="ocrText" rows="4" placeholder="Agar image nahi hai to text yahan paste karein..."></textarea></div>
     <div class="field"><label>Admin API Secret</label><input type="password" id="genSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
     <button class="btn" id="genDraft">🧠 Generate Draft(s)</button>
@@ -1002,76 +1003,94 @@ Sirf valid JSON ARRAY return karo, koi aur text/markdown nahi, is exact shape me
 Agar koi structured table/list nahi mili to extra_fields.table field bilkul chhod do (mat likho). Agar sirf ek hi ad mile to bhi ek-item wala array return karo.`;
 
 document.getElementById('genDraft').addEventListener('click', async () => {
-  const file = document.getElementById('ocrImage').files[0];
+  const files = Array.from(document.getElementById('ocrImage').files || []);
   const text = document.getElementById('ocrText').value.trim();
   const msg = document.getElementById('genMsg');
   const cardsBox = document.getElementById('draftCards');
-  if(!file && !text){ alert('Image upload karein ya text paste karein.'); return; }
+  if(!files.length && !text){ alert('Image(s) upload karein ya text paste karein.'); return; }
 
-  window._rzSourceImageFile = file || null;
-  window._rzSourceImageUrl = null;
-
-  msg.textContent = '⏳ Gemini se draft(s) generate ho rahe hain... (image ho to thoda time lagega)';
+  window._rzSourceImageFiles = files;
+  window._rzSourceImageUrls = {};
   cardsBox.innerHTML = '';
 
+  let allDrafts = [];
+
   try{
-    let raw, imagePart = null;
-    if(file){
-      const base64 = await fileToBase64(file);
-      imagePart = { mimeType: file.type || 'image/jpeg', data: base64 };
-      raw = await rzCallGemini(`Ye ek Pakistani newspaper page ki photo hai jisme classified ads/tenders/notices hain.\n\n${EXTRACT_INSTRUCTIONS}`, imagePart);
-    } else {
-      raw = await rzCallGemini(`Tum ek Pakistani newspaper classified ad ko process kar rahe ho. Neeche raw OCR/text diya gaya hai (messy ho sakta hai).\n\n${EXTRACT_INSTRUCTIONS}\n\nRaw text:\n"""\n${text}\n"""`);
-    }
-
-    raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
-    let arr;
-    try{ arr = JSON.parse(raw); }
-    catch(e){ msg.textContent = '❌ AI ne valid JSON nahi diya. Raw output console mein hai.'; console.log(raw); return; }
-    if(!Array.isArray(arr)) arr = [arr];
-    if(arr.length === 0){ msg.textContent = '⚠️ Koi ad detect nahi hui.'; return; }
-
-    arr.forEach((d, i) => {
-      if(!VALID_CATEGORIES.includes(d.category)) d.category = 'services';
-      const opts = VALID_CATEGORIES.map(c => `<option value="${c}" ${c===d.category?'selected':''}>${CAT_LABELS[c]}</option>`).join('');
-      const extraFields = d.extra_fields && typeof d.extra_fields === 'object' ? d.extra_fields : {};
-      const tbl = extraFields.table;
-      let tablePreview = '';
-      if(tbl && Array.isArray(tbl.headers) && Array.isArray(tbl.rows) && tbl.rows.length){
-        tablePreview = `<div class="field"><label>Table Preview (website par asal table ki tarah dikhegi)</label>
-          <div style="overflow-x:auto"><table class="ad-table" style="font-size:.75rem">
-            <thead><tr>${tbl.headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
-            <tbody>${tbl.rows.map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody>
-          </table></div></div>`;
+    if(files.length){
+      for(let i = 0; i < files.length; i++){
+        msg.textContent = `⏳ Image ${i+1}/${files.length} process ho rahi hai...`;
+        const file = files[i];
+        const base64 = await fileToBase64(file);
+        const imagePart = { mimeType: file.type || 'image/jpeg', data: base64 };
+        let raw;
+        try{
+          raw = await rzCallGemini(`Ye ek Pakistani newspaper page ki photo hai (ya poore page ka ek hissa) jisme classified ads/tenders/notices hain.\n\n${EXTRACT_INSTRUCTIONS}`, imagePart);
+        }catch(imgErr){
+          msg.textContent = `⚠️ Image ${i+1} process karte waqt error: ${imgErr.message} — agli image try kar raha hoon.`;
+          continue;
+        }
+        raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+        let arr;
+        try{ arr = JSON.parse(raw); }
+        catch(e){ console.log(`Image ${i+1} raw AI output (invalid JSON):`, raw); continue; }
+        if(!Array.isArray(arr)) arr = [arr];
+        arr.forEach(d => { d._sourceFileIndex = i; });
+        allDrafts = allDrafts.concat(arr);
       }
-      const card = document.createElement('div');
-      card.className = 'draft-card';
-      card.innerHTML = `
-        <h4>Draft ${i+1}</h4>
-        <div class="field"><label>Category</label><select class="d-category">${opts}</select></div>
-        <div class="field"><label>Title</label><input type="text" class="d-title" value="${escapeHtml(d.title||'')}"></div>
-        <div class="field"><label>City</label><input type="text" class="d-city" value="${escapeHtml(d.city||'')}"></div>
-        <div class="field"><label>Price</label><input type="text" class="d-price" value="${escapeHtml(d.price||'')}"></div>
-        <div class="field"><label>Description (chota English + chota Roman Urdu khulasa)</label><textarea class="d-description" rows="5">${escapeHtml(d.description||'')}</textarea></div>
-        <div class="field"><label>Contact Phone</label><input type="text" class="d-phone" value="${escapeHtml(d.contact_phone||'')}"></div>
-        ${tablePreview}
-        <details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:.8rem;color:var(--muted)">Advanced: Extra Fields (JSON) — table/deadline data yahan edit kar sakte hain</summary>
-          <textarea class="d-extra-fields" rows="5" style="font-family:monospace;font-size:.75rem;width:100%;margin-top:6px">${escapeHtml(JSON.stringify(extraFields, null, 2))}</textarea>
-        </details>
-        ${file ? `<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);margin-bottom:10px"><input type="checkbox" class="d-attach-img" checked> Newspaper page ki original photo is ad ke saath attach karein (accuracy ke liye)</label>` : ''}
-        <button class="btn alt checkDupCardBtn" style="margin-right:8px">🔍 Check Duplicate</button>
-        <button class="btn saveDraftBtn">📝 Save as Draft (Pending)</button>
-        <div class="dup-result" style="margin-top:8px"></div>
-        <p class="desc save-msg" style="margin-top:8px"></p>
-      `;
-      cardsBox.appendChild(card);
-    });
-
-    msg.textContent = `✅ ${arr.length} draft(s) ban gaye — neeche check/edit kar ke save karein. Publish se pehle "Draft Queue" tab se approve karna hoga.`;
-    log(`🧠 AI se ${arr.length} draft(s) generate hue.`);
+    } else {
+      let raw = await rzCallGemini(`Tum ek Pakistani newspaper classified ad ko process kar rahe ho. Neeche raw OCR/text diya gaya hai (messy ho sakta hai).\n\n${EXTRACT_INSTRUCTIONS}\n\nRaw text:\n"""\n${text}\n"""`);
+      raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+      try{ allDrafts = JSON.parse(raw); }
+      catch(e){ msg.textContent = '❌ AI ne valid JSON nahi diya. Raw output console mein hai.'; console.log(raw); return; }
+      if(!Array.isArray(allDrafts)) allDrafts = [allDrafts];
+    }
   }catch(e){
     msg.textContent = '❌ ' + e.message;
+    return;
   }
+
+  if(allDrafts.length === 0){ msg.textContent = '⚠️ Koi ad detect nahi hui.'; return; }
+
+  allDrafts.forEach((d, i) => {
+    if(!VALID_CATEGORIES.includes(d.category)) d.category = 'services';
+    const opts = VALID_CATEGORIES.map(c => `<option value="${c}" ${c===d.category?'selected':''}>${CAT_LABELS[c]}</option>`).join('');
+    const extraFields = d.extra_fields && typeof d.extra_fields === 'object' ? d.extra_fields : {};
+    const tbl = extraFields.table;
+    let tablePreview = '';
+    if(tbl && Array.isArray(tbl.headers) && Array.isArray(tbl.rows) && tbl.rows.length){
+      tablePreview = `<div class="field"><label>Table Preview (website par asal table ki tarah dikhegi)</label>
+        <div style="overflow-x:auto"><table class="ad-table" style="font-size:.75rem">
+          <thead><tr>${tbl.headers.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+          <tbody>${tbl.rows.map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table></div></div>`;
+    }
+    const hasSourceImg = d._sourceFileIndex !== undefined;
+    const card = document.createElement('div');
+    card.className = 'draft-card';
+    if(hasSourceImg) card.dataset.sourceFileIndex = d._sourceFileIndex;
+    card.innerHTML = `
+      <h4>Draft ${i+1}${hasSourceImg ? ` <span style="font-weight:normal;font-size:.75rem;color:var(--muted)">(Image ${d._sourceFileIndex+1})</span>` : ''}</h4>
+      <div class="field"><label>Category</label><select class="d-category">${opts}</select></div>
+      <div class="field"><label>Title</label><input type="text" class="d-title" value="${escapeHtml(d.title||'')}"></div>
+      <div class="field"><label>City</label><input type="text" class="d-city" value="${escapeHtml(d.city||'')}"></div>
+      <div class="field"><label>Price</label><input type="text" class="d-price" value="${escapeHtml(d.price||'')}"></div>
+      <div class="field"><label>Description (chota English + chota Roman Urdu khulasa)</label><textarea class="d-description" rows="5">${escapeHtml(d.description||'')}</textarea></div>
+      <div class="field"><label>Contact Phone</label><input type="text" class="d-phone" value="${escapeHtml(d.contact_phone||'')}"></div>
+      ${tablePreview}
+      <details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:.8rem;color:var(--muted)">Advanced: Extra Fields (JSON) — table/deadline data yahan edit kar sakte hain</summary>
+        <textarea class="d-extra-fields" rows="5" style="font-family:monospace;font-size:.75rem;width:100%;margin-top:6px">${escapeHtml(JSON.stringify(extraFields, null, 2))}</textarea>
+      </details>
+      ${hasSourceImg ? `<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);margin-bottom:10px"><input type="checkbox" class="d-attach-img" checked> Newspaper page ki original photo is ad ke saath attach karein (accuracy ke liye)</label>` : ''}
+      <button class="btn alt checkDupCardBtn" style="margin-right:8px">🔍 Check Duplicate</button>
+      <button class="btn saveDraftBtn">📝 Save as Draft (Pending)</button>
+      <div class="dup-result" style="margin-top:8px"></div>
+      <p class="desc save-msg" style="margin-top:8px"></p>
+    `;
+    cardsBox.appendChild(card);
+  });
+
+  msg.textContent = `✅ ${allDrafts.length} draft(s) ban gaye${files.length > 1 ? ` (${files.length} images se)` : ''} — neeche check/edit kar ke save karein. Publish se pehle "Draft Queue" tab se approve karna hoga.`;
+  log(`🧠 AI se ${allDrafts.length} draft(s) generate hue${files.length > 1 ? ` (${files.length} images)` : ''}.`);
 });
 
 document.getElementById('draftCards').addEventListener('click', async (e) => {
@@ -1110,19 +1129,20 @@ document.getElementById('draftCards').addEventListener('click', async (e) => {
   let images = [];
   e.target.disabled = true;
 
-  if(attachImg && attachImg.checked && window._rzSourceImageFile){
+  const srcIdx = card.dataset.sourceFileIndex;
+  if(attachImg && attachImg.checked && srcIdx !== undefined && srcIdx !== '' && window._rzSourceImageFiles && window._rzSourceImageFiles[srcIdx]){
     try{
-      if(!window._rzSourceImageUrl){
+      if(!window._rzSourceImageUrls[srcIdx]){
         saveMsg.textContent = '⏳ Image upload ho rahi hai...';
-        const file = window._rzSourceImageFile;
+        const file = window._rzSourceImageFiles[srcIdx];
         const ext = (file.name.split('.').pop() || 'jpg');
         const path = `${crypto.randomUUID()}.${ext}`;
         const { error: upErr } = await rzDb.storage.from('ad-images').upload(path, file);
         if(upErr) throw new Error(upErr.message);
         const { data: urlData } = rzDb.storage.from('ad-images').getPublicUrl(path);
-        window._rzSourceImageUrl = urlData.publicUrl;
+        window._rzSourceImageUrls[srcIdx] = urlData.publicUrl;
       }
-      images = [window._rzSourceImageUrl];
+      images = [window._rzSourceImageUrls[srcIdx]];
     }catch(imgErr){
       saveMsg.textContent = '⚠️ Image upload fail hui, ad text ke sath hi save ho rahi hai: ' + imgErr.message;
     }
