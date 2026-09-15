@@ -13,17 +13,19 @@
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script type="application/ld+json" id="articleSchema"></script>
 <style>
-  .article-body{ max-width:720px; margin:0 auto; font-size:1rem; line-height:1.75; color:var(--ink) }
-  .article-body h2{ font-size:1.3rem; margin-top:32px; color:var(--green-deep,#166638) }
-  .article-body h3{ font-size:1.1rem; margin-top:24px }
+  .article-body{ max-width:720px; margin:0 auto; font-size:1.15rem; line-height:2.1; color:var(--ink); font-family:'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif; text-align:right }
+  .article-body h2{ font-size:1.5rem; margin-top:32px; color:var(--green-deep,#166638) }
+  .article-body h3{ font-size:1.25rem; margin-top:24px }
   .article-body p{ margin:12px 0 }
   .article-body ul,.article-body ol{ margin:12px 0; padding-left:22px }
-  .article-body table{ width:100%; border-collapse:collapse; margin:20px 0; font-size:.9rem }
-  .article-body th{ background:#166638; color:#fff; text-align:left; padding:9px 12px }
-  .article-body td{ padding:8px 12px; border-bottom:1px solid var(--line) }
+  .article-body table{ width:100%; border-collapse:collapse; margin:20px 0; font-size:1rem }
+  .article-body th{ background:#166638; color:#fff; text-align:right; padding:9px 12px }
+  .article-body td{ padding:8px 12px; border-bottom:1px solid var(--line); text-align:right }
   .article-body tr:nth-child(even) td{ background:#f7f4ec }
   .article-meta{ max-width:720px; margin:0 auto 18px; font-size:.85rem; color:var(--muted) }
   .article-source{ max-width:720px; margin:24px auto 0; padding:12px 16px; background:var(--card-alt,#f5f2ea); border-radius:10px; font-size:.82rem; color:var(--muted) }
@@ -126,14 +128,12 @@ async function loadArticle(){
   });
 
   const chartHtml = article.chart_data ? `<div class="article-chart-wrap"><canvas id="artChart"></canvas></div>` : '';
-  const sourceHtml = article.source_label ? `<div class="article-source">📊 Data Source: ${escapeHtml(article.source_label)}${article.source_url ? ` — <a href="${escapeHtml(article.source_url)}" target="_blank" rel="noopener">Original dataset dekhein</a>` : ''}</div>` : '';
 
   stage.innerHTML = `
-    <h1 style="max-width:720px;margin:0 auto 8px;font-size:1.7rem;color:var(--green-deep,#166638)">${escapeHtml(article.title)}</h1>
-    <p class="article-meta">${new Date(article.published_at || article.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})} · ${article.word_count || ''} words</p>
-    <div class="article-body">${article.body_html}</div>
+    <h1 dir="rtl" style="max-width:720px;margin:0 auto 8px;font-size:1.9rem;color:var(--green-deep,#166638);font-family:'Noto Nastaliq Urdu',serif;text-align:right">${escapeHtml(article.title)}</h1>
+    <p class="article-meta" style="text-align:center">${new Date(article.published_at || article.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}</p>
+    <div class="article-body" dir="rtl">${article.body_html}</div>
     ${chartHtml}
-    ${sourceHtml}
   `;
 
   if(article.chart_data){

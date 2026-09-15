@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="../styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../supabase-config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   body{background:var(--bg)}
@@ -163,6 +165,8 @@
   <section class="panel" data-panel="article-generator">
     <h2>Article Generator</h2>
     <p class="desc">Files upload karein (multiple ho sakti hain) — Gemini pehle unse mumkin topics nikalega, aap ek select karein, phir poora colorful article (headings, tables, graphs) ban jayega. Weekly 1-2 article ke liye kaafi hai.</p>
+
+    <div class="field"><label>Admin API Secret</label><input type="password" id="articleSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
 
     <div class="field"><label>Files Upload Karein (PDF, CSV, TXT, Excel, Images — ek ya zyada)</label>
       <input type="file" id="artDataFiles" accept=".pdf,.csv,.txt,.xlsx,.xls,image/*" multiple>
@@ -2242,21 +2246,21 @@ ${artFileDataForPrompt ? `Neeche diya gaya asal data istemal karo article mein �
 
 Requirements:
 1. Kam az kam 4,000 words ka article, proper H2/H3 headings ke saath.
-2. Zaban: English + Roman Urdu ka mix, jaisa RoznamaAds.pk ki style hai — friendly, samajhne mein aasan.
-3. Jahan data ka comparison/breakdown ho, wahan HTML <table> banao (thead ke sath, readable).
+2. Zaban: **Poora article Urdu rasm-ul-khat (Urdu script, جیسے اردو اخبار میں لکھا جاتا ہے) mein likho** — Roman Urdu ya English mein nahi. TITLE aur SUMMARY bhi Urdu script mein hon. Sirf SLUG field English mein rakho (URL ke liye zaroori hai, us mein sirf lowercase English letters aur hyphens).
+3. Jahan data ka comparison/breakdown ho, wahan HTML <table> banao (thead ke sath, readable) — table ke andar labels/headings bhi Urdu mein likho, sirf numbers English digits mein rakho.
 4. Poora article "colorful"/visually rich ho — headings, tables, bullet lists sab istemal karo jahan munasib ho, sirf plain paragraphs ka dher na ho.
 
 Jawab bilkul is format mein do — koi JSON nahi, koi markdown code-fence nahi, sirf plain text is exact structure ke saath (har label apni line par, colon ke baad value):
 
-TITLE: [SEO-friendly title, ek line]
-SLUG: [url-friendly-slug-in-english, ek line]
-SUMMARY: [1-2 line excerpt, ek line]
+TITLE: [Urdu script mein SEO-friendly title, ek line]
+SLUG: [sirf is field ke liye English — url-friendly-slug-in-english-only, ek line]
+SUMMARY: [Urdu script mein 1-2 line excerpt, ek line]
 CHART_TYPE: [bar ya line ya NONE]
-CHART_LABELS: [comma-separated labels, ya NONE]
+CHART_LABELS: [comma-separated labels — Urdu mein likh sakte hain, ya NONE]
 CHART_VALUES: [comma-separated numbers, ya NONE]
-CHART_DATASET_LABEL: [is dataset ka naam, ya NONE]
+CHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]
 ===BODY===
-[Yahan se poora article HTML mein shuru hota hai — h2, h3, p, ul, li, table, thead, tbody, tr, th, td tags istemal karo. Koi h1 mat lagana (title upar se ban jayega). Ye sab kuch text ka aakhri hissa hai.]`;
+[Yahan se poora article Urdu script mein shuru hota hai, HTML tags ke sath — h2, h3, p, ul, li, table, thead, tbody, tr, th, td tags istemal karo. Koi h1 mat lagana (title upar se ban jayega). Ye sab kuch text ka aakhri hissa hai.]`;
 
   try{
     let raw = await rzCallGemini(prompt, imageParts[0]?.imagePart, 32000);
@@ -2298,7 +2302,7 @@ CHART_DATASET_LABEL: [is dataset ka naam, ya NONE]
         <div class="field"><label>Slug</label><input type="text" id="artDSlug" value="${escapeHtml(slug)}"></div>
         <div class="field"><label>Summary</label><textarea id="artDSummary" rows="2">${escapeHtml(summary)}</textarea></div>
         <div class="field"><label>Body (HTML — preview neeche)</label><textarea id="artDBody" rows="14" style="font-family:monospace;font-size:.78rem">${escapeHtml(bodyHtml)}</textarea></div>
-        <div class="field"><label>Preview</label><div style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff">${bodyHtml}</div></div>
+        <div class="field"><label>Preview</label><div dir="rtl" style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff;font-family:'Noto Nastaliq Urdu',serif;font-size:1.05rem;line-height:2;text-align:right">${bodyHtml}</div></div>
         <button class="btn" id="saveArticleBtn">📝 Draft Save Karein</button>
         <div id="artSaveStatus" style="margin-top:8px;font-size:.85rem;color:var(--muted)"></div>
       </div>
