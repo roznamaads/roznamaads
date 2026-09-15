@@ -136,6 +136,30 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: r.ok });
       }
 
+      case 'list-article-categories': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const r = await fetch(`${SB()}/rest/v1/article_categories?order=label.asc&select=*`, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'create-article-category': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { slug, label } = req.body || {};
+        if (!slug || !label) return res.status(400).json({ error: 'slug and label required' });
+        const r = await fetch(`${SB()}/rest/v1/article_categories`, {
+          method: 'POST',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation,resolution=ignore-duplicates' },
+          body: JSON.stringify({ slug, label })
+        });
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        const data = await r.json();
+        return res.status(200).json({ ok: true, category: Array.isArray(data) ? data[0] : data });
+      }
+
       case 'publish-all-pending': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
         const r = await fetch(`${SB()}/rest/v1/ads?status=eq.pending`, {

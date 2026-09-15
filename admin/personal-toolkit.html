@@ -2148,6 +2148,21 @@ document.getElementById('beoeConvertBtn').addEventListener('click', async () => 
 /* ---------- Article Generator — simplified: files -> topics -> article ---------- */
 let artFilesCache = [];       // { file, kind: 'text'|'image', textContent?, imagePart? }
 let artFileDataForPrompt = ''; // combined text summary of all files, for prompt
+let artCategoriesCache = [];  // { id, slug, label } loaded from article_categories table
+
+async function loadArtCategories(){
+  try{ artCategoriesCache = await callAdminApi('list-article-categories') || []; }
+  catch(e){ artCategoriesCache = []; }
+  return artCategoriesCache;
+}
+
+function slugifyCategoryLabel(label){
+  return String(label||'').trim().toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
 
 async function readFileForArticle(file){
   const ext = (file.name.split('.').pop() || '').toLowerCase();
@@ -2296,11 +2311,25 @@ CHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]
 
     const wordCount = bodyHtml.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).length;
     statusBox.textContent = `✅ Article ban gaya (~${wordCount} words) — neeche review kar ke save karein.`;
+
+    await loadArtCategories();
+    const categoryOptionsHtml = artCategoriesCache.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.label)}</option>`).join('');
+
     draftBox.innerHTML = `
       <div class="draft-card">
         <div class="field"><label>Title</label><input type="text" id="artDTitle" value="${escapeHtml(title)}"></div>
         <div class="field"><label>Slug</label><input type="text" id="artDSlug" value="${escapeHtml(slug)}"></div>
         <div class="field"><label>Summary</label><textarea id="artDSummary" rows="2">${escapeHtml(summary)}</textarea></div>
+        <div class="field">
+          <label>Category</label>
+          <select id="artDCategory">${categoryOptionsHtml || '<option value="">— koi category nahi mili —</option>'}</select>
+          <button type="button" class="mini-btn" id="artNewCatToggle" style="margin-top:6px">+ Naya Category Add Karein</button>
+          <div id="artNewCatRow" style="display:none;margin-top:8px;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" id="artNewCatLabel" placeholder="Naya category ka naam" style="max-width:260px">
+            <button type="button" class="mini-btn" id="artNewCatSaveBtn">Save Karein</button>
+            <span id="artNewCatStatus" style="font-size:.78rem;color:var(--muted)"></span>
+          </div>
+        </div>
         <div class="field"><label>Body (HTML — preview neeche)</label><textarea id="artDBody" rows="14" style="font-family:monospace;font-size:.78rem">${escapeHtml(bodyHtml)}</textarea></div>
         <div class="field"><label>Preview</label><div dir="rtl" style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff;font-family:'Noto Nastaliq Urdu',serif;font-size:1.05rem;line-height:2;text-align:right">${bodyHtml}</div></div>
         <button class="btn" id="saveArticleBtn">📝 Draft Save Karein</button>
@@ -2308,6 +2337,32 @@ CHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]
       </div>
     `;
     window._artChartData = chartData;
+
+    document.getElementById('artNewCatToggle').addEventListener('click', () => {
+      const row = document.getElementById('artNewCatRow');
+      row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+    });
+
+    document.getElementById('artNewCatSaveBtn').addEventListener('click', async () => {
+      const label = document.getElementById('artNewCatLabel').value.trim();
+      const statusEl = document.getElementById('artNewCatStatus');
+      if(!label){ statusEl.textContent = '❌ Naam likhein.'; return; }
+      const slug = slugifyCategoryLabel(label);
+      if(!slug){ statusEl.textContent = '❌ Valid naam likhein.'; return; }
+      statusEl.textContent = '⏳ Save ho raha hai...';
+      try{
+        await callAdminApi('create-article-category', { method: 'POST', body: JSON.stringify({ slug, label }) });
+        await loadArtCategories();
+        const sel = document.getElementById('artDCategory');
+        sel.innerHTML = artCategoriesCache.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.label)}</option>`).join('');
+        sel.value = slug;
+        document.getElementById('artNewCatLabel').value = '';
+        document.getElementById('artNewCatRow').style.display = 'none';
+        statusEl.textContent = '';
+      }catch(e){
+        statusEl.textContent = '❌ ' + e.message;
+      }
+    });
 
     document.getElementById('saveArticleBtn').addEventListener('click', async () => {
       const saveStatus = document.getElementById('artSaveStatus');
@@ -2322,7 +2377,7 @@ CHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]
             slug: document.getElementById('artDSlug').value.trim(),
             summary: document.getElementById('artDSummary').value.trim(),
             body_html: bodyHtml,
-            category: 'data-insights',
+            category: document.getElementById('artDCategory').value || null,
             source_label: artFilesCache.map(f => f.label).join(', ') || null,
             source_url: null,
             chart_data: window._artChartData,
