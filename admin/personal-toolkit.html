@@ -168,11 +168,45 @@
 
     <div class="field"><label>Admin API Secret</label><input type="password" id="articleSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
 
-    <div class="field"><label>Files Upload Karein (PDF, CSV, TXT, Excel, Images — ek ya zyada)</label>
-      <input type="file" id="artDataFiles" accept=".pdf,.csv,.txt,.xlsx,.xls,image/*" multiple>
+    <div class="field"><label>Data Source</label>
+      <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="file" checked> 📁 File Upload</label>
+        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="website"> 📊 Website Data (Verifications/Tenders)</label>
+      </div>
     </div>
 
-    <button class="btn" id="extractTopicsBtn">🔍 Topics Nikalein</button>
+    <div id="artFileSourceBlock">
+      <div class="field"><label>Files Upload Karein (PDF, CSV, TXT, Excel, Images — ek ya zyada)</label>
+        <input type="file" id="artDataFiles" accept=".pdf,.csv,.txt,.xlsx,.xls,image/*" multiple>
+      </div>
+      <button class="btn" id="extractTopicsBtn">🔍 Topics Nikalein</button>
+    </div>
+
+    <div id="artWebsiteSourceBlock" style="display:none">
+      <div class="field"><label>Data Type</label>
+        <select id="artWebDataType">
+          <option value="verifications">Verifications (BEOE, HEC, PPRA blacklist, etc.)</option>
+          <option value="tenders">Tenders</option>
+        </select>
+      </div>
+      <div class="field"><label>Authority (optional filter)</label>
+        <input type="text" id="artWebAuthority" list="artWebAuthorityList" placeholder="e.g. BEOE, HEC, PPRA, PPRA-Punjab — khali chhod dein to sab shamil">
+        <datalist id="artWebAuthorityList">
+          <option value="BEOE"><option value="HEC"><option value="PPRA"><option value="PPRA-Punjab">
+        </datalist>
+      </div>
+      <div class="field" id="artWebTypeFilterField"><label>Type (optional filter — sirf Verifications ke liye)</label>
+        <select id="artWebTypeFilter">
+          <option value="">— Sab —</option>
+          <option value="visa_agency">Visa Agency</option>
+          <option value="institute">Institute</option>
+          <option value="company">Company</option>
+        </select>
+      </div>
+      <button class="btn" id="fetchWebDataBtn">📊 Data Laayein</button>
+      <div id="artWebDataStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+    </div>
+
     <div id="artTopicsStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     <div id="artTopicsList" style="margin-top:12px"></div>
 
@@ -2147,7 +2181,8 @@ document.getElementById('beoeConvertBtn').addEventListener('click', async () => 
 
 /* ---------- Article Generator — simplified: files -> topics -> article ---------- */
 let artFilesCache = [];       // { file, kind: 'text'|'image', textContent?, imagePart? }
-let artFileDataForPrompt = ''; // combined text summary of all files, for prompt
+let artFileDataForPrompt = ''; // combined text summary of all files or DB rows, for prompt
+let artSourceLabelOverride = null; // set when source = website data, else falls back to file labels
 let artCategoriesCache = [];  // { id, slug, label } loaded from article_categories table
 
 async function loadArtCategories(){
@@ -2184,6 +2219,109 @@ async function readFileForArticle(file){
   throw new Error(`".${ext}" format supported nahi (PDF, CSV, TXT, XLSX, ya image istemal karein)`);
 }
 
+document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const mode = document.querySelector('input[name="artSourceMode"]:checked').value;
+    document.getElementById('artFileSourceBlock').style.display = mode === 'file' ? 'block' : 'none';
+    document.getElementById('artWebsiteSourceBlock').style.display = mode === 'website' ? 'block' : 'none';
+    document.getElementById('artTopicsList').innerHTML = '';
+    document.getElementById('artTopicsStatus').textContent = '';
+    document.getElementById('artWebDataStatus').textContent = '';
+    document.getElementById('artGenerateWrap').style.display = 'none';
+    document.getElementById('artDraftBox').innerHTML = '';
+    artFilesCache = [];
+    artFileDataForPrompt = '';
+    artSourceLabelOverride = null;
+  });
+});
+
+document.getElementById('artWebDataType').addEventListener('change', () => {
+  document.getElementById('artWebTypeFilterField').style.display =
+    document.getElementById('artWebDataType').value === 'verifications' ? 'block' : 'none';
+});
+
+async function runArtTopicExtraction(statusEl, topicsBox){
+  const textParts = artFileDataForPrompt;
+  const imageParts = artFilesCache.filter(f => f.kind === 'image');
+  statusEl.textContent = '⏳ Gemini topics nikal raha hai...';
+  const prompt = `Neeche di gayi file(s) ka data dekho aur is se 5-8 mumkin article/blog topics suggest karo — har topic aisa ho jo is data se ek acha, interesting, data-driven article ban sake.
+
+${textParts ? `File data:\n"""\n${textParts.slice(0, 15000)}\n"""` : '(Files upar attach hain, unhe dekho)'}
+
+Sirf JSON array return karo, koi extra text nahi:
+[{"topic": "short topic title", "angle": "1-line iska kya interesting angle ho sakta hai"}]`;
+
+  const raw = await rzCallGemini(prompt, imageParts[0]?.imagePart);
+  let cleaned = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+  let topics;
+  try{ topics = JSON.parse(cleaned); }
+  catch(e){ statusEl.textContent = '❌ AI ne valid JSON nahi diya.'; console.log(cleaned); return; }
+
+  if(!Array.isArray(topics) || topics.length === 0){ statusEl.textContent = '⚠️ Koi topic nahi mila.'; return; }
+
+  statusEl.textContent = `✅ ${topics.length} topics mile — ek select karein:`;
+  topicsBox.innerHTML = topics.map((t, i) => `
+    <div class="cat-row" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="selectArtTopic(${i})">
+      <b>${escapeHtml(t.topic)}</b>
+      <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(t.angle||'')}</span>
+    </div>
+  `).join('');
+  window._artTopicsCache = topics;
+}
+
+document.getElementById('fetchWebDataBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('artWebDataStatus');
+  const topicsStatusEl = document.getElementById('artTopicsStatus');
+  const topicsBox = document.getElementById('artTopicsList');
+  document.getElementById('artGenerateWrap').style.display = 'none';
+  document.getElementById('artDraftBox').innerHTML = '';
+  topicsBox.innerHTML = '';
+  topicsStatusEl.textContent = '';
+
+  const dataType = document.getElementById('artWebDataType').value;
+  const authority = document.getElementById('artWebAuthority').value.trim();
+  const typeFilter = document.getElementById('artWebTypeFilter').value;
+
+  statusEl.textContent = '⏳ Database se data laaya ja raha hai...';
+  try{
+    artFilesCache = [];
+    let rows = [];
+    let sourceLabelParts = [];
+
+    if(dataType === 'verifications'){
+      let path = `verif-list?limit=200`;
+      if(authority) path += `&authority=${encodeURIComponent(authority)}`;
+      if(typeFilter) path += `&type=${encodeURIComponent(typeFilter)}`;
+      rows = await callAdminApi(path) || [];
+      sourceLabelParts.push('Verifications DB');
+      if(authority) sourceLabelParts.push(authority);
+      if(typeFilter) sourceLabelParts.push(typeFilter);
+      artFileDataForPrompt = rows.length
+        ? `[Verifications Database — Total ${rows.length} records${authority?` (authority: ${authority})`:''}${typeFilter?` (type: ${typeFilter})`:''}]\n` +
+          rows.map(r => `- ${r.name} | city: ${r.city||'-'} | authority: ${r.authority} | status: ${r.status}${r.blacklist_status?` | blacklist: ${r.blacklist_status}`:''} | reference_no: ${r.reference_no||'-'} | last_verified: ${r.last_verified||'-'}`).join('\n')
+        : '';
+    } else {
+      let path = `tenders-list?limit=200`;
+      if(authority) path += `&authority=${encodeURIComponent(authority)}`;
+      rows = await callAdminApi(path) || [];
+      sourceLabelParts.push('Tenders DB');
+      if(authority) sourceLabelParts.push(authority);
+      artFileDataForPrompt = rows.length
+        ? `[Tenders Database — Total ${rows.length} records${authority?` (authority: ${authority})`:''}]\n` +
+          rows.map(r => `- ${r.title||r.tender_no} | org: ${r.organization||'-'} | authority: ${r.authority||'-'} | status: ${r.status||'-'} | tender_no: ${r.tender_no||'-'} | updated: ${r.updated_at||'-'}`).join('\n')
+        : '';
+    }
+
+    if(!rows.length){ statusEl.textContent = '⚠️ Koi record nahi mila — authority/type filter check karein.'; artFileDataForPrompt=''; return; }
+
+    artSourceLabelOverride = sourceLabelParts.join(' — ');
+    statusEl.textContent = `✅ ${rows.length} records mile.`;
+    await runArtTopicExtraction(topicsStatusEl, topicsBox);
+  }catch(e){
+    statusEl.textContent = '❌ ' + e.message;
+  }
+});
+
 document.getElementById('extractTopicsBtn').addEventListener('click', async () => {
   const statusEl = document.getElementById('artTopicsStatus');
   const topicsBox = document.getElementById('artTopicsList');
@@ -2196,6 +2334,7 @@ document.getElementById('extractTopicsBtn').addEventListener('click', async () =
 
   try{
     artFilesCache = [];
+    artSourceLabelOverride = null;
     for(const file of files){
       statusEl.textContent = `⏳ Padh raha hoon: ${file.name}...`;
       const parsed = await readFileForArticle(file);
@@ -2203,34 +2342,9 @@ document.getElementById('extractTopicsBtn').addEventListener('click', async () =
     }
 
     const textParts = artFilesCache.filter(f => f.kind === 'text').map(f => `[File: ${f.label}]\n${f.text}`).join('\n\n');
-    const imageParts = artFilesCache.filter(f => f.kind === 'image');
     artFileDataForPrompt = textParts;
 
-    statusEl.textContent = '⏳ Gemini topics nikal raha hai...';
-    const prompt = `Neeche di gayi file(s) ka data dekho aur is se 5-8 mumkin article/blog topics suggest karo — har topic aisa ho jo is data se ek acha, interesting, data-driven article ban sake.
-
-${textParts ? `File data:\n"""\n${textParts.slice(0, 15000)}\n"""` : '(Files upar attach hain, unhe dekho)'}
-
-Sirf JSON array return karo, koi extra text nahi:
-[{"topic": "short topic title", "angle": "1-line iska kya interesting angle ho sakta hai"}]`;
-
-    // Pehli image ko pass karo (Gemini ek image/PDF context mein lena support karta hai is call ke liye)
-    const raw = await rzCallGemini(prompt, imageParts[0]?.imagePart);
-    let cleaned = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
-    let topics;
-    try{ topics = JSON.parse(cleaned); }
-    catch(e){ statusEl.textContent = '❌ AI ne valid JSON nahi diya.'; console.log(cleaned); return; }
-
-    if(!Array.isArray(topics) || topics.length === 0){ statusEl.textContent = '⚠️ Koi topic nahi mila.'; return; }
-
-    statusEl.textContent = `✅ ${topics.length} topics mile — ek select karein:`;
-    topicsBox.innerHTML = topics.map((t, i) => `
-      <div class="cat-row" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="selectArtTopic(${i})">
-        <b>${escapeHtml(t.topic)}</b>
-        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(t.angle||'')}</span>
-      </div>
-    `).join('');
-    window._artTopicsCache = topics;
+    await runArtTopicExtraction(statusEl, topicsBox);
   }catch(e){
     statusEl.textContent = '❌ ' + e.message;
   }
@@ -2378,7 +2492,7 @@ CHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]
             summary: document.getElementById('artDSummary').value.trim(),
             body_html: bodyHtml,
             category: document.getElementById('artDCategory').value || null,
-            source_label: artFilesCache.map(f => f.label).join(', ') || null,
+            source_label: artSourceLabelOverride || artFilesCache.map(f => f.label).join(', ') || null,
             source_url: null,
             chart_data: window._artChartData,
             word_count: wordCount
