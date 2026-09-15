@@ -36,10 +36,10 @@ export default async function handler(req, res) {
 
       case 'list': {
         const status = req.query.status || 'pending';
-        const r = await fetch(
-          `${SB()}/rest/v1/ads?status=eq.${encodeURIComponent(status)}&order=created_at.desc&select=*`,
-          { headers: sbHeaders() }
-        );
+        const category = req.query.category;
+        let url = `${SB()}/rest/v1/ads?status=eq.${encodeURIComponent(status)}&order=created_at.desc&select=*`;
+        if (category) url += `&category=eq.${encodeURIComponent(category)}`;
+        const r = await fetch(url, { headers: sbHeaders() });
         const data = await r.json();
         return res.status(r.status).json(data);
       }

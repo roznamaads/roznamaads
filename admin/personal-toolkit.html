@@ -164,6 +164,23 @@
     <p class="desc">User-submitted aur AI-generated pending ads — approve ya reject karein.</p>
     <div class="field"><label>Admin API Secret</label><input type="password" id="serviceKey" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value"></div>
     <p class="desc" style="color:#a86b00">⚠️ Ye ek chhota secret hai jo aap khud Vercel Environment Variables mein set karte hain — asal Supabase key kabhi browser mein nahi aati, wo sirf server (Vercel Function) par hoti hai.</p>
+    <div class="field"><label>Category (optional — filter kar ke sirf ek category ki pending ads dekhein)</label>
+      <select id="pendingCatFilter">
+        <option value="">— Sab categories —</option>
+        <option value="property">Property</option>
+        <option value="jobs">Jobs</option>
+        <option value="vehicles">Vehicles</option>
+        <option value="matrimonial">Matrimonial / Rishta</option>
+        <option value="visa">Visa & Immigration</option>
+        <option value="auctions">Auctions</option>
+        <option value="admissions">Admissions</option>
+        <option value="tenders">Tenders</option>
+        <option value="notices">Government / Public Notices</option>
+        <option value="services">Services</option>
+        <option value="electronics">Electronics</option>
+        <option value="obituary">Wafiyat / Obituary</option>
+      </select>
+    </div>
     <button class="btn" id="loadPending">📥 Load Pending Ads</button>
     <button class="btn alt" id="publishAllPendingBtn">✅ Publish ALL Pending (1 click)</button>
     <div id="publishAllStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
@@ -181,6 +198,23 @@
     <div id="categoryDashboardBox" style="margin-top:12px"></div>
 
     <hr style="margin:18px 0;border:none;border-top:1px solid var(--line)">
+    <div class="field"><label>Category (optional — filter kar ke sirf ek category ki live ads dekhein)</label>
+      <select id="liveCatFilter">
+        <option value="">— Sab categories —</option>
+        <option value="property">Property</option>
+        <option value="jobs">Jobs</option>
+        <option value="vehicles">Vehicles</option>
+        <option value="matrimonial">Matrimonial / Rishta</option>
+        <option value="visa">Visa & Immigration</option>
+        <option value="auctions">Auctions</option>
+        <option value="admissions">Admissions</option>
+        <option value="tenders">Tenders</option>
+        <option value="notices">Government / Public Notices</option>
+        <option value="services">Services</option>
+        <option value="electronics">Electronics</option>
+        <option value="obituary">Wafiyat / Obituary</option>
+      </select>
+    </div>
     <button class="btn" id="loadLive">📥 Load Live Ads</button>
     <button class="btn" style="background:#c0392b;margin-left:8px" id="deleteSelectedBtn">🗑️ Delete Selected</button>
     <div id="deleteSelectedStatus" style="margin-top:6px;font-size:.85rem;color:var(--muted)"></div>
@@ -2270,9 +2304,10 @@ document.getElementById('checkDupBtn').addEventListener('click', async () => {
 
 document.getElementById('loadPending').addEventListener('click', async () => {
   const box = document.getElementById('pendingList');
+  const cat = document.getElementById('pendingCatFilter').value;
   box.innerHTML = 'Loading...';
   try{
-    const data = await callAdminApi('list?status=pending');
+    const data = await callAdminApi(`list?status=pending${cat ? '&category='+cat : ''}`);
     if(!data.length){ box.innerHTML = '<div class="stub">Koi pending ad nahi hai.</div>'; return; }
     box.innerHTML = data.map(ad => `
       <div class="cat-row" style="flex-direction:column;align-items:stretch">
@@ -2355,9 +2390,10 @@ async function rejectAd(id){
 let liveAdsCache = {};
 document.getElementById('loadLive').addEventListener('click', async () => {
   const box = document.getElementById('liveList');
+  const cat = document.getElementById('liveCatFilter').value;
   box.innerHTML = 'Loading...';
   try{
-    const data = await callAdminApi('list?status=live');
+    const data = await callAdminApi(`list?status=live${cat ? '&category='+cat : ''}`);
     if(!data.length){ box.innerHTML = '<div class="stub">Koi live ad nahi hai.</div>'; return; }
     data.forEach(ad => liveAdsCache[ad.id] = ad);
     box.innerHTML = data.map(ad => `
