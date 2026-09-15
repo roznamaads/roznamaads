@@ -84,6 +84,58 @@ export default async function handler(req, res) {
         return res.status(r.status).json({ ok: r.ok });
       }
 
+      case 'create-article': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { title, slug, summary, body_html, category, source_label, source_url, chart_data, word_count } = req.body || {};
+        if (!title || !slug || !body_html) return res.status(400).json({ error: 'title, slug, body_html required' });
+        const r = await fetch(`${SB()}/rest/v1/articles`, {
+          method: 'POST',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify({
+            title, slug, summary, body_html, category,
+            source_label: source_label || null, source_url: source_url || null,
+            chart_data: chart_data || null, word_count: word_count || null,
+            published: false
+          })
+        });
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        const data = await r.json();
+        return res.status(200).json({ ok: true, article: Array.isArray(data) ? data[0] : data });
+      }
+
+      case 'list-articles': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const published = req.query.published;
+        let url = `${SB()}/rest/v1/articles?order=created_at.desc&select=*`;
+        if (published !== undefined) url += `&published=eq.${published}`;
+        const r = await fetch(url, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'publish-article': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id } = req.body || {};
+        if (!id) return res.status(400).json({ error: 'id required' });
+        const r = await fetch(`${SB()}/rest/v1/articles?id=eq.${id}`, {
+          method: 'PATCH',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ published: true, published_at: new Date().toISOString() })
+        });
+        return res.status(r.status).json({ ok: r.ok });
+      }
+
+      case 'delete-article': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id } = req.body || {};
+        if (!id) return res.status(400).json({ error: 'id required' });
+        const r = await fetch(`${SB()}/rest/v1/articles?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+        return res.status(r.status).json({ ok: r.ok });
+      }
+
       case 'publish-all-pending': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
         const r = await fetch(`${SB()}/rest/v1/ads?status=eq.pending`, {

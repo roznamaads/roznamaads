@@ -7,6 +7,8 @@
 <meta name="description" content="Pakistani newspaper classified ads guides — property, jobs, vehicles, rishta ads kaise dhoondein. Local aur practical tips RoznamaAds.pk se.">
 <link rel="canonical" href="https://roznamaads.pk/blog.html">
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 <script src="analytics-config.js"></script>
 </head>
 <body>
@@ -47,6 +49,7 @@
 
   <div class="blog-tabs">
     <button class="active" data-filter="all">Sab</button>
+    <button data-filter="insights">📊 Data Insights</button>
     <button data-filter="guides">Ads Guides</button>
     <button data-filter="tips">Category Tips</button>
   </div>
@@ -100,6 +103,30 @@
 </footer>
 
 <script>
+async function loadDataInsights(){
+  const grid = document.getElementById('blogGrid');
+  try{
+    const { data: articles, error } = await rzDb.from('articles')
+      .select('title, slug, summary, category')
+      .eq('published', true)
+      .order('published_at', { ascending: false })
+      .limit(30);
+    if(error || !articles || articles.length === 0) return;
+    const cardsHtml = articles.map(a => `
+      <a class="blog-card" href="article.html?slug=${encodeURIComponent(a.slug)}" data-cat="insights">
+        <span class="blog-tag">📊 Data Insights</span>
+        <h3>${escapeHtml(a.title)}</h3>
+        <p>${escapeHtml(a.summary || '')}</p>
+      </a>
+    `).join('');
+    grid.insertAdjacentHTML('afterbegin', cardsHtml);
+  }catch(e){ /* silently ignore — static guides still show */ }
+}
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+loadDataInsights();
+
 document.querySelectorAll('.blog-tabs button').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.blog-tabs button').forEach(b => b.classList.remove('active'));

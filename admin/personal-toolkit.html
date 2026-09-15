@@ -159,6 +159,60 @@
   </section>
 
   <!-- Ad Draft Queue -->
+  <section class="panel" data-panel="article-generator">
+    <h2>Article Generator</h2>
+    <p class="desc">Data-driven articles/blogs generate karein — open-data sources se ya khud paste kiya hua data se. 4,000+ words, headings ke saath, draft mein save hoga (publish se pehle review).</p>
+
+    <div class="field"><label>Category</label>
+      <select id="artCategory">
+        <option value="data-insights">Data Insights (open-data se)</option>
+        <option value="guide">Guide</option>
+        <option value="analysis">Analysis</option>
+        <option value="other">Other (khud likhein)</option>
+      </select>
+    </div>
+    <div class="field" id="artCategoryOtherWrap" style="display:none">
+      <label>Custom Category Naam</label>
+      <input type="text" id="artCategoryOther" placeholder="e.g. Seasonal, Opinion...">
+    </div>
+
+    <div class="field"><label>Topic (article kis baare mein ho)</label>
+      <input type="text" id="artTopic" placeholder="e.g. KPK mein crime trends 2010-2015 district-wise">
+    </div>
+
+    <div class="field"><label>Data Source</label>
+      <select id="artDataSource">
+        <option value="none">Koi nahi — general knowledge / apna topic hi kaafi hai</option>
+        <option value="nodp">NODP (opendata.com.pk) — dataset search karein</option>
+        <option value="kpod">KP Open Data (opendata.kp.gov.pk) — dataset search karein</option>
+        <option value="paste">Khud data paste karoon (CSV/JSON/text)</option>
+      </select>
+    </div>
+
+    <div id="artSearchWrap" style="display:none">
+      <div class="field"><label>Dataset Search Keyword</label>
+        <input type="text" id="artSearchQuery" placeholder="e.g. crime, education, health">
+      </div>
+      <button class="btn alt" id="artSearchBtn">🔍 Dataset Dhoondein</button>
+      <div id="artSearchResults" style="margin-top:10px"></div>
+      <p class="desc" style="margin-top:8px">⚠️ Kuch sites browser se seedha access block karti hain (CORS) — agar search fail ho to neeche "Khud Data Paste Karein" mein manually daal dein (dataset ke page se CSV copy kar ke).</p>
+    </div>
+
+    <div class="field"><label>Khud Data Paste Karein (optional — CSV/JSON/koi bhi text, jitna detail utna behtar article)</label>
+      <textarea id="artPastedData" rows="6" placeholder="Dataset ka data yahan paste karein (CSV rows, ya JSON, ya table copy-paste)..."></textarea>
+    </div>
+
+    <button class="btn" id="genArticleBtn">🧠 Article Generate Karein</button>
+    <div id="artGenStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+
+    <div id="artDraftBox" style="margin-top:16px"></div>
+
+    <hr style="margin:20px 0;border:none;border-top:1px solid var(--line)">
+    <h3 style="margin-top:0">📚 Manage Articles</h3>
+    <button class="btn alt" id="loadArticlesBtn">📥 Load All Articles</button>
+    <div id="articlesListBox" style="margin-top:12px"></div>
+  </section>
+
   <section class="panel" data-panel="draft-queue">
     <h2>Ad Draft Queue</h2>
     <p class="desc">User-submitted aur AI-generated pending ads — approve ya reject karein.</p>
@@ -924,6 +978,7 @@ const TOOLS = [
   {id:'ai-playground', label:'AI Playground'},
   {id:'newspaper-manager', label:'Newspaper Mgr'},
   {id:'ad-generator', label:'Ad Post Generator'},
+  {id:'article-generator', label:'Article Generator'},
   {id:'draft-queue', label:'Draft Queue'},
   {id:'ad-manager', label:'Ad Manager'},
   {id:'dup-check', label:'Duplicate Check'},
@@ -2106,6 +2161,189 @@ document.getElementById('beoeConvertBtn').addEventListener('click', async () => 
     log('❌ BEOE convert error: ' + e.message);
   }
 });
+
+/* ---------- Article Generator (Phase N3) ---------- */
+const CKAN_PORTALS = { nodp: 'https://opendata.com.pk', kpod: 'https://opendata.kp.gov.pk' };
+
+document.getElementById('artCategory').addEventListener('change', (e) => {
+  document.getElementById('artCategoryOtherWrap').style.display = (e.target.value === 'other') ? 'block' : 'none';
+});
+
+document.getElementById('artDataSource').addEventListener('change', (e) => {
+  document.getElementById('artSearchWrap').style.display = (e.target.value === 'nodp' || e.target.value === 'kpod') ? 'block' : 'none';
+});
+
+document.getElementById('artSearchBtn').addEventListener('click', async () => {
+  const source = document.getElementById('artDataSource').value;
+  const query = document.getElementById('artSearchQuery').value.trim();
+  const resultsBox = document.getElementById('artSearchResults');
+  if(!query){ resultsBox.innerHTML = '❌ Pehle search keyword likhein.'; return; }
+  const baseUrl = CKAN_PORTALS[source];
+  if(!baseUrl){ resultsBox.innerHTML = '❌ Data source select karein.'; return; }
+  resultsBox.innerHTML = '⏳ Search ho raha hai...';
+  try{
+    const r = await fetch(`${baseUrl}/api/3/action/package_search?q=${encodeURIComponent(query)}&rows=8`);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    if(!data.success) throw new Error('API ne success:false diya');
+    const results = data.result.results || [];
+    if(results.length === 0){ resultsBox.innerHTML = 'Koi dataset nahi mila — doosra keyword try karein.'; return; }
+    resultsBox.innerHTML = results.map((pkg, i) => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${escapeHtml(pkg.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml((pkg.notes||'').slice(0,150))}</span>
+        <button class="mini-btn" style="margin-top:6px" onclick="fetchCkanDataset('${source}', '${pkg.name}', ${i})">📥 Ye Dataset Use Karein</button>
+        <span id="ckanFetchStatus_${i}" style="font-size:.78rem;margin-top:4px"></span>
+      </div>
+    `).join('');
+    window._ckanSearchCache = results;
+  }catch(err){
+    resultsBox.innerHTML = `❌ Search fail hui (shayad CORS block ho raha hai): ${err.message}<br>Neeche "Khud Data Paste Karein" istemal karein.`;
+  }
+});
+
+async function fetchCkanDataset(source, pkgName, idx){
+  const statusEl = document.getElementById(`ckanFetchStatus_${idx}`);
+  const baseUrl = CKAN_PORTALS[source];
+  const pkg = window._ckanSearchCache[idx];
+  statusEl.textContent = '⏳ Data fetch ho raha hai...';
+  try{
+    const resources = pkg.resources || [];
+    if(resources.length === 0) throw new Error('Is dataset mein koi resource nahi mila.');
+    const res = resources[0];
+    const r = await fetch(`${baseUrl}/api/3/action/datastore_search?resource_id=${res.id}&limit=80`);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    if(!data.success || !data.result.records || data.result.records.length === 0){
+      throw new Error('Datastore-active nahi. Resource link: ' + (res.url || 'N/A'));
+    }
+    const records = data.result.records;
+    const csvLines = [Object.keys(records[0]).join(',')].concat(records.map(rec => Object.values(rec).join(',')));
+    document.getElementById('artPastedData').value = `Dataset: ${pkg.title}\nSource: ${baseUrl}/dataset/${pkg.name}\n\n` + csvLines.join('\n');
+    window._artSourceLabel = pkg.title;
+    window._artSourceUrl = `${baseUrl}/dataset/${pkg.name}`;
+    statusEl.innerHTML = `✅ ${records.length} rows fetch ho gayin aur neeche "Khud Data Paste Karein" box mein daal di gayin.`;
+  }catch(err){
+    statusEl.innerHTML = `❌ ${err.message}`;
+  }
+}
+
+document.getElementById('genArticleBtn').addEventListener('click', async () => {
+  const statusBox = document.getElementById('artGenStatus');
+  const draftBox = document.getElementById('artDraftBox');
+  const topic = document.getElementById('artTopic').value.trim();
+  if(!topic){ statusBox.textContent = '❌ Topic likhein.'; return; }
+  const categorySel = document.getElementById('artCategory').value;
+  const category = categorySel === 'other' ? (document.getElementById('artCategoryOther').value.trim() || 'other') : categorySel;
+  const pastedData = document.getElementById('artPastedData').value.trim();
+
+  statusBox.textContent = '⏳ Gemini se article likh raha hai... (4,000+ words, thoda time lagega)';
+  draftBox.innerHTML = '';
+
+  const prompt = `Tum RoznamaAds.pk ke liye ek Pakistani-audience data-journalism article likh rahe ho.
+
+Topic: "${topic}"
+Category: ${category}
+${pastedData ? `\nNeeche diya gaya asal data istemal karo article mein — sirf isi data ke numbers/facts quote karo, kuch bhi fabricate mat karo:\n"""\n${pastedData}\n"""\n` : '\nKoi specific dataset nahi diya gaya — apne general knowledge se ek informative, evergreen article likho. Koi specific number/statistic fabricate mat karo jo tumhe pakka pata na ho.'}
+
+Requirements:
+1. Kam az kam 4,000 words ka article, proper H2/H3 headings ke saath.
+2. Zaban: English + Roman Urdu ka mix, jaisa RoznamaAds.pk ki style hai (halka Roman Urdu jabha zyada English ho) — friendly, samajhne mein aasan.
+3. Agar data diya gaya hai, to usse ek ya do simple charts ke liye data bhi suggest karo (chart_data field mein).
+4. Sirf JSON return karo, koi extra text/markdown fences nahi, is exact structure mein:
+
+{
+  "title": "SEO-friendly title",
+  "slug": "url-friendly-slug-in-english",
+  "summary": "1-2 line excerpt for listing card",
+  "body_html": "<h2>...</h2><p>...</p> poora article HTML mein, h2/h3/p/ul/li tags istemal karo",
+  "word_count": <number>,
+  "chart_data": null ya {"type":"bar","labels":[...],"datasets":[{"label":"...","data":[...]}]}
+}`;
+
+  try{
+    let raw = await rzCallGemini(prompt);
+    raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+    let article;
+    try{ article = JSON.parse(raw); }
+    catch(e){ statusBox.textContent = '❌ AI ne valid JSON nahi diya. Console mein raw output hai.'; console.log(raw); return; }
+
+    statusBox.textContent = `✅ Article ban gaya (~${article.word_count || '?'} words) — neeche review kar ke save karein.`;
+    draftBox.innerHTML = `
+      <div class="draft-card">
+        <div class="field"><label>Title</label><input type="text" id="artDTitle" value="${escapeHtml(article.title||'')}"></div>
+        <div class="field"><label>Slug</label><input type="text" id="artDSlug" value="${escapeHtml(article.slug||'')}"></div>
+        <div class="field"><label>Summary</label><textarea id="artDSummary" rows="2">${escapeHtml(article.summary||'')}</textarea></div>
+        <div class="field"><label>Body (HTML — preview neeche)</label><textarea id="artDBody" rows="14" style="font-family:monospace;font-size:.78rem">${escapeHtml(article.body_html||'')}</textarea></div>
+        <div class="field"><label>Preview</label><div style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff">${article.body_html||''}</div></div>
+        <button class="btn" id="saveArticleBtn">📝 Draft Save Karein</button>
+        <div id="artSaveStatus" style="margin-top:8px;font-size:.85rem;color:var(--muted)"></div>
+      </div>
+    `;
+    window._artChartData = article.chart_data || null;
+
+    document.getElementById('saveArticleBtn').addEventListener('click', async () => {
+      const saveStatus = document.getElementById('artSaveStatus');
+      saveStatus.textContent = '⏳ Save ho raha hai...';
+      const bodyHtml = document.getElementById('artDBody').value;
+      const wordCount = bodyHtml.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).length;
+      try{
+        const data = await callAdminApi('create-article', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: document.getElementById('artDTitle').value.trim(),
+            slug: document.getElementById('artDSlug').value.trim(),
+            summary: document.getElementById('artDSummary').value.trim(),
+            body_html: bodyHtml,
+            category,
+            source_label: window._artSourceLabel || null,
+            source_url: window._artSourceUrl || null,
+            chart_data: window._artChartData,
+            word_count: wordCount
+          })
+        });
+        if(!data){ saveStatus.textContent = '❌ Admin secret nahi mila.'; return; }
+        saveStatus.textContent = '✅ Draft save ho gaya (unpublished). Article Manager se publish karein.';
+        log(`📝 Naya article draft save hua: "${document.getElementById('artDTitle').value.trim()}"`);
+      }catch(e){
+        saveStatus.textContent = '❌ ' + e.message;
+      }
+    });
+  }catch(e){
+    statusBox.textContent = '❌ ' + e.message;
+  }
+});
+
+document.getElementById('loadArticlesBtn').addEventListener('click', async () => {
+  const box = document.getElementById('articlesListBox');
+  box.innerHTML = 'Loading...';
+  try{
+    const data = await callAdminApi('list-articles');
+    if(!data) return;
+    if(!data.length){ box.innerHTML = '<div class="stub">Koi article nahi hai.</div>'; return; }
+    box.innerHTML = data.map(a => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch">
+        <b>${escapeHtml(a.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${a.published ? '✅ Published' : '📝 Draft'} · ${a.word_count||'?'} words · ${a.category} · ${new Date(a.created_at).toLocaleDateString('en-GB')}</span>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          ${a.published ? `<a class="mini-btn" href="../article.html?slug=${a.slug}" target="_blank" style="text-decoration:none;display:inline-block">👁️ View Live</a>` : `<button class="mini-btn" onclick="publishArticle('${a.id}')">✅ Publish</button>`}
+          <button class="mini-btn" style="color:#c0392b" onclick="deleteArticleRow('${a.id}')">🗑️ Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = `❌ ${e.message}`; }
+});
+
+async function publishArticle(id){
+  if(!confirm('Ye article publish (live) karna hai?')) return;
+  try{ await callAdminApi('publish-article', {method:'POST', body: JSON.stringify({id})}); document.getElementById('loadArticlesBtn').click(); }
+  catch(e){ alert('Error: ' + e.message); }
+}
+async function deleteArticleRow(id){
+  if(!confirm('Ye article DELETE karna hai? Undo nahi ho sakta.')) return;
+  try{ await callAdminApi('delete-article', {method:'POST', body: JSON.stringify({id})}); document.getElementById('loadArticlesBtn').click(); }
+  catch(e){ alert('Error: ' + e.message); }
+}
 
 /* ---------- Admin DB access via Vercel serverless functions ---------- */
 // The Supabase service_role key now lives ONLY on the server (Vercel env vars).
