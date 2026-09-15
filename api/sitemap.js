@@ -17,6 +17,7 @@ export default async function handler(req, res) {
 
   let categoryUrls = [];
   let adUrls = [];
+  let articleUrls = [];
 
   try {
     const catRes = await fetch('https://roznamaads.pk/categories.json');
@@ -41,7 +42,22 @@ export default async function handler(req, res) {
     }
   } catch (e) { /* ads section stays empty if this fails */ }
 
-  const all = [...staticUrls, ...categoryUrls, ...adUrls];
+  try {
+    const articlesRes = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/articles?published=eq.true&select=slug,published_at,created_at&order=published_at.desc&limit=1000`,
+      { headers: { apikey: 'sb_publishable_BEYsdjr36__gXf9XxrSnlQ_8_df4TWZ', Authorization: 'Bearer sb_publishable_BEYsdjr36__gXf9XxrSnlQ_8_df4TWZ' } }
+    );
+    if (articlesRes.ok) {
+      const articles = await articlesRes.json();
+      articleUrls = articles.map(a => ({
+        loc: `https://roznamaads.pk/article.html?slug=${a.slug}`,
+        lastmod: (a.published_at || a.created_at) ? (a.published_at || a.created_at).split('T')[0] : undefined,
+        freq: 'monthly', priority: '0.7'
+      }));
+    }
+  } catch (e) { /* articles section stays empty if this fails */ }
+
+  const all = [...staticUrls, ...categoryUrls, ...adUrls, ...articleUrls];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     all.map(u => `  <url><loc>${u.loc}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}<changefreq>${u.freq}</changefreq><priority>${u.priority}</priority></url>`).join('\n') +
     `\n</urlset>\n`;
