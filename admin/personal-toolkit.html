@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="../styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   body{background:var(--bg)}
   .gate{position:fixed;inset:0;background:var(--green-dark);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px}
@@ -183,10 +184,27 @@
     <div class="field"><label>Data Source</label>
       <select id="artDataSource">
         <option value="none">Koi nahi — general knowledge / apna topic hi kaafi hai</option>
+        <option value="sbp">SBP EasyData (State Bank) — series key se fetch karein</option>
         <option value="nodp">NODP (opendata.com.pk) — dataset search karein</option>
         <option value="kpod">KP Open Data (opendata.kp.gov.pk) — dataset search karein</option>
-        <option value="paste">Khud data paste karoon (CSV/JSON/text)</option>
+        <option value="paste">Khud data paste ya file upload karoon</option>
       </select>
+    </div>
+
+    <div id="artSbpWrap" style="display:none">
+      <div class="field"><label>SBP API Key</label>
+        <input type="password" id="artSbpApiKey" placeholder="EasyData My Account se generate kiya hua key">
+      </div>
+      <div class="field"><label>Series Key</label>
+        <input type="text" id="artSbpSeriesKey" placeholder="e.g. TS_GP_BOP_WR_M.WR0010 (SBP EasyData site ke 'Key Indicators' ya 'Search' se copy karein)">
+      </div>
+      <div class="field" style="display:flex;gap:8px">
+        <div style="flex:1"><label>Start Date (optional)</label><input type="date" id="artSbpStart"></div>
+        <div style="flex:1"><label>End Date (optional)</label><input type="date" id="artSbpEnd"></div>
+      </div>
+      <button class="btn alt" id="artSbpFetchBtn">📥 SBP se Data Fetch Karein</button>
+      <div id="artSbpStatus" style="margin-top:8px;font-size:.85rem;color:var(--muted)"></div>
+      <p class="desc" style="margin-top:8px">Series key kahan se milega: SBP EasyData site ("easydata.sbp.org.pk") → Key Indicators ya Search mein jo variable chahiye usay dhoondein, uska "Series Key" copy karein (site par har series ke details mein likha hota hai).</p>
     </div>
 
     <div id="artSearchWrap" style="display:none">
@@ -198,7 +216,10 @@
       <p class="desc" style="margin-top:8px">⚠️ Kuch sites browser se seedha access block karti hain (CORS) — agar search fail ho to neeche "Khud Data Paste Karein" mein manually daal dein (dataset ke page se CSV copy kar ke).</p>
     </div>
 
-    <div class="field"><label>Khud Data Paste Karein (optional — CSV/JSON/koi bhi text, jitna detail utna behtar article)</label>
+    <div class="field"><label>Ya Data File Upload Karein (PDF, CSV, TXT, Excel — Gemini seedha padh legi)</label>
+      <input type="file" id="artDataFile" accept=".pdf,.csv,.txt,.xlsx,.xls,image/*">
+    </div>
+    <div class="field"><label>Ya Khud Data Paste Karein (optional — CSV/JSON/koi bhi text, jitna detail utna behtar article)</label>
       <textarea id="artPastedData" rows="6" placeholder="Dataset ka data yahan paste karein (CSV rows, ya JSON, ya table copy-paste)..."></textarea>
     </div>
 
@@ -2171,6 +2192,41 @@ document.getElementById('artCategory').addEventListener('change', (e) => {
 
 document.getElementById('artDataSource').addEventListener('change', (e) => {
   document.getElementById('artSearchWrap').style.display = (e.target.value === 'nodp' || e.target.value === 'kpod') ? 'block' : 'none';
+  document.getElementById('artSbpWrap').style.display = (e.target.value === 'sbp') ? 'block' : 'none';
+});
+
+// SBP API key ek baar save ho jaye to dobara na maangna pade
+(function(){
+  const saved = localStorage.getItem('rz_sbp_api_key');
+  if(saved) document.getElementById('artSbpApiKey').value = saved;
+})();
+
+document.getElementById('artSbpFetchBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('artSbpStatus');
+  const apiKey = document.getElementById('artSbpApiKey').value.trim();
+  const seriesKey = document.getElementById('artSbpSeriesKey').value.trim();
+  const startDate = document.getElementById('artSbpStart').value;
+  const endDate = document.getElementById('artSbpEnd').value;
+  if(!apiKey){ statusEl.textContent = '❌ SBP API Key daalein.'; return; }
+  if(!seriesKey){ statusEl.textContent = '❌ Series Key daalein.'; return; }
+  localStorage.setItem('rz_sbp_api_key', apiKey);
+
+  statusEl.textContent = '⏳ SBP se data fetch ho raha hai...';
+  try{
+    let url = `https://easydata.sbp.org.pk/api/v1/series/${encodeURIComponent(seriesKey)}/data?api_key=${encodeURIComponent(apiKey)}&format=csv`;
+    if(startDate) url += `&start_date=${startDate}`;
+    if(endDate) url += `&end_date=${endDate}`;
+    const r = await fetch(url);
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const csv = await r.text();
+    if(!csv || csv.trim().length === 0) throw new Error('Khali response mila — series key check karein.');
+    document.getElementById('artPastedData').value = `[SBP EasyData Series: ${seriesKey}]\n` + csv;
+    window._artSourceLabel = `SBP EasyData — ${seriesKey}`;
+    window._artSourceUrl = 'https://easydata.sbp.org.pk/';
+    statusEl.textContent = `✅ Data fetch ho gaya aur "Khud Data Paste Karein" box mein daal diya gaya.`;
+  }catch(err){
+    statusEl.textContent = `❌ Fetch fail hui (shayad CORS block ho raha hai): ${err.message}. Neeche file upload ya paste ka tareeqa istemal karein — SBP site se CSV download kar ke upload kar dein.`;
+  }
 });
 
 document.getElementById('artSearchBtn').addEventListener('click', async () => {
@@ -2235,7 +2291,35 @@ document.getElementById('genArticleBtn').addEventListener('click', async () => {
   if(!topic){ statusBox.textContent = '❌ Topic likhein.'; return; }
   const categorySel = document.getElementById('artCategory').value;
   const category = categorySel === 'other' ? (document.getElementById('artCategoryOther').value.trim() || 'other') : categorySel;
-  const pastedData = document.getElementById('artPastedData').value.trim();
+  let pastedData = document.getElementById('artPastedData').value.trim();
+  const dataFile = document.getElementById('artDataFile').files[0];
+  let imagePart = null;
+
+  if(dataFile){
+    statusBox.textContent = '⏳ File padhi ja rahi hai...';
+    const ext = (dataFile.name.split('.').pop() || '').toLowerCase();
+    try{
+      if(ext === 'xlsx' || ext === 'xls'){
+        const buf = await dataFile.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const sheetName = wb.SheetNames[0];
+        const csv = XLSX.utils.sheet_to_csv(wb.Sheets[sheetName]);
+        pastedData = (pastedData ? pastedData + '\n\n' : '') + `[File: ${dataFile.name}, Sheet: ${sheetName}]\n` + csv;
+      } else if(ext === 'csv' || ext === 'txt'){
+        const text = await dataFile.text();
+        pastedData = (pastedData ? pastedData + '\n\n' : '') + `[File: ${dataFile.name}]\n` + text;
+      } else if(ext === 'pdf' || dataFile.type.startsWith('image/')){
+        const base64 = await fileToBase64(dataFile);
+        imagePart = { mimeType: dataFile.type || 'application/pdf', data: base64 };
+      } else {
+        statusBox.textContent = `⚠️ ".${ext}" format supported nahi — PDF, CSV, TXT, XLSX, ya image try karein.`;
+        return;
+      }
+    }catch(fileErr){
+      statusBox.textContent = '❌ File padhne mein error: ' + fileErr.message;
+      return;
+    }
+  }
 
   statusBox.textContent = '⏳ Gemini se article likh raha hai... (4,000+ words, thoda time lagega)';
   draftBox.innerHTML = '';
@@ -2262,7 +2346,7 @@ Requirements:
 }`;
 
   try{
-    let raw = await rzCallGemini(prompt);
+    let raw = await rzCallGemini(prompt, imagePart);
     raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
     let article;
     try{ article = JSON.parse(raw); }
