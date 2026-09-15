@@ -162,69 +162,23 @@
   <!-- Ad Draft Queue -->
   <section class="panel" data-panel="article-generator">
     <h2>Article Generator</h2>
-    <p class="desc">Data-driven articles/blogs generate karein — open-data sources se ya khud paste kiya hua data se. 4,000+ words, headings ke saath, draft mein save hoga (publish se pehle review).</p>
+    <p class="desc">Files upload karein (multiple ho sakti hain) — Gemini pehle unse mumkin topics nikalega, aap ek select karein, phir poora colorful article (headings, tables, graphs) ban jayega. Weekly 1-2 article ke liye kaafi hai.</p>
 
-    <div class="field"><label>Category</label>
-      <select id="artCategory">
-        <option value="data-insights">Data Insights (open-data se)</option>
-        <option value="guide">Guide</option>
-        <option value="analysis">Analysis</option>
-        <option value="other">Other (khud likhein)</option>
-      </select>
-    </div>
-    <div class="field" id="artCategoryOtherWrap" style="display:none">
-      <label>Custom Category Naam</label>
-      <input type="text" id="artCategoryOther" placeholder="e.g. Seasonal, Opinion...">
+    <div class="field"><label>Files Upload Karein (PDF, CSV, TXT, Excel, Images — ek ya zyada)</label>
+      <input type="file" id="artDataFiles" accept=".pdf,.csv,.txt,.xlsx,.xls,image/*" multiple>
     </div>
 
-    <div class="field"><label>Topic (article kis baare mein ho)</label>
-      <input type="text" id="artTopic" placeholder="e.g. KPK mein crime trends 2010-2015 district-wise">
-    </div>
+    <button class="btn" id="extractTopicsBtn">🔍 Topics Nikalein</button>
+    <div id="artTopicsStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+    <div id="artTopicsList" style="margin-top:12px"></div>
 
-    <div class="field"><label>Data Source</label>
-      <select id="artDataSource">
-        <option value="none">Koi nahi — general knowledge / apna topic hi kaafi hai</option>
-        <option value="sbp">SBP EasyData (State Bank) — series key se fetch karein</option>
-        <option value="nodp">NODP (opendata.com.pk) — dataset search karein</option>
-        <option value="kpod">KP Open Data (opendata.kp.gov.pk) — dataset search karein</option>
-        <option value="paste">Khud data paste ya file upload karoon</option>
-      </select>
-    </div>
-
-    <div id="artSbpWrap" style="display:none">
-      <div class="field"><label>SBP API Key</label>
-        <input type="password" id="artSbpApiKey" placeholder="EasyData My Account se generate kiya hua key">
+    <div id="artGenerateWrap" style="display:none;margin-top:16px">
+      <div class="field"><label>Selected Topic (edit bhi kar sakte hain)</label>
+        <input type="text" id="artSelectedTopic">
       </div>
-      <div class="field"><label>Series Key</label>
-        <input type="text" id="artSbpSeriesKey" placeholder="e.g. TS_GP_BOP_WR_M.WR0010 (SBP EasyData site ke 'Key Indicators' ya 'Search' se copy karein)">
-      </div>
-      <div class="field" style="display:flex;gap:8px">
-        <div style="flex:1"><label>Start Date (optional)</label><input type="date" id="artSbpStart"></div>
-        <div style="flex:1"><label>End Date (optional)</label><input type="date" id="artSbpEnd"></div>
-      </div>
-      <button class="btn alt" id="artSbpFetchBtn">📥 SBP se Data Fetch Karein</button>
-      <div id="artSbpStatus" style="margin-top:8px;font-size:.85rem;color:var(--muted)"></div>
-      <p class="desc" style="margin-top:8px">Series key kahan se milega: SBP EasyData site ("easydata.sbp.org.pk") → Key Indicators ya Search mein jo variable chahiye usay dhoondein, uska "Series Key" copy karein (site par har series ke details mein likha hota hai).</p>
+      <button class="btn" id="genArticleBtn">🧠 Is Topic Pe Article Likhein</button>
+      <div id="artGenStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     </div>
-
-    <div id="artSearchWrap" style="display:none">
-      <div class="field"><label>Dataset Search Keyword</label>
-        <input type="text" id="artSearchQuery" placeholder="e.g. crime, education, health">
-      </div>
-      <button class="btn alt" id="artSearchBtn">🔍 Dataset Dhoondein</button>
-      <div id="artSearchResults" style="margin-top:10px"></div>
-      <p class="desc" style="margin-top:8px">⚠️ Kuch sites browser se seedha access block karti hain (CORS) — agar search fail ho to neeche "Khud Data Paste Karein" mein manually daal dein (dataset ke page se CSV copy kar ke).</p>
-    </div>
-
-    <div class="field"><label>Ya Data File Upload Karein (PDF, CSV, TXT, Excel — Gemini seedha padh legi)</label>
-      <input type="file" id="artDataFile" accept=".pdf,.csv,.txt,.xlsx,.xls,image/*">
-    </div>
-    <div class="field"><label>Ya Khud Data Paste Karein (optional — CSV/JSON/koi bhi text, jitna detail utna behtar article)</label>
-      <textarea id="artPastedData" rows="6" placeholder="Dataset ka data yahan paste karein (CSV rows, ya JSON, ya table copy-paste)..."></textarea>
-    </div>
-
-    <button class="btn" id="genArticleBtn">🧠 Article Generate Karein</button>
-    <div id="artGenStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
 
     <div id="artDraftBox" style="margin-top:16px"></div>
 
@@ -2183,170 +2137,124 @@ document.getElementById('beoeConvertBtn').addEventListener('click', async () => 
   }
 });
 
-/* ---------- Article Generator (Phase N3) ---------- */
-const CKAN_PORTALS = { nodp: 'https://opendata.com.pk', kpod: 'https://opendata.kp.gov.pk' };
+/* ---------- Article Generator — simplified: files -> topics -> article ---------- */
+let artFilesCache = [];       // { file, kind: 'text'|'image', textContent?, imagePart? }
+let artFileDataForPrompt = ''; // combined text summary of all files, for prompt
 
-document.getElementById('artCategory').addEventListener('change', (e) => {
-  document.getElementById('artCategoryOtherWrap').style.display = (e.target.value === 'other') ? 'block' : 'none';
-});
-
-document.getElementById('artDataSource').addEventListener('change', (e) => {
-  document.getElementById('artSearchWrap').style.display = (e.target.value === 'nodp' || e.target.value === 'kpod') ? 'block' : 'none';
-  document.getElementById('artSbpWrap').style.display = (e.target.value === 'sbp') ? 'block' : 'none';
-});
-
-// SBP API key ek baar save ho jaye to dobara na maangna pade
-(function(){
-  const saved = localStorage.getItem('rz_sbp_api_key');
-  if(saved) document.getElementById('artSbpApiKey').value = saved;
-})();
-
-document.getElementById('artSbpFetchBtn').addEventListener('click', async () => {
-  const statusEl = document.getElementById('artSbpStatus');
-  const apiKey = document.getElementById('artSbpApiKey').value.trim();
-  const seriesKey = document.getElementById('artSbpSeriesKey').value.trim();
-  const startDate = document.getElementById('artSbpStart').value;
-  const endDate = document.getElementById('artSbpEnd').value;
-  if(!apiKey){ statusEl.textContent = '❌ SBP API Key daalein.'; return; }
-  if(!seriesKey){ statusEl.textContent = '❌ Series Key daalein.'; return; }
-  localStorage.setItem('rz_sbp_api_key', apiKey);
-
-  statusEl.textContent = '⏳ SBP se data fetch ho raha hai...';
-  try{
-    let url = `https://easydata.sbp.org.pk/api/v1/series/${encodeURIComponent(seriesKey)}/data?api_key=${encodeURIComponent(apiKey)}&format=csv`;
-    if(startDate) url += `&start_date=${startDate}`;
-    if(endDate) url += `&end_date=${endDate}`;
-    const r = await fetch(url);
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const csv = await r.text();
-    if(!csv || csv.trim().length === 0) throw new Error('Khali response mila — series key check karein.');
-    document.getElementById('artPastedData').value = `[SBP EasyData Series: ${seriesKey}]\n` + csv;
-    window._artSourceLabel = `SBP EasyData — ${seriesKey}`;
-    window._artSourceUrl = 'https://easydata.sbp.org.pk/';
-    statusEl.textContent = `✅ Data fetch ho gaya aur "Khud Data Paste Karein" box mein daal diya gaya.`;
-  }catch(err){
-    statusEl.textContent = `❌ Fetch fail hui (shayad CORS block ho raha hai): ${err.message}. Neeche file upload ya paste ka tareeqa istemal karein — SBP site se CSV download kar ke upload kar dein.`;
+async function readFileForArticle(file){
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if(ext === 'xlsx' || ext === 'xls'){
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const sheetName = wb.SheetNames[0];
+    const csv = XLSX.utils.sheet_to_csv(wb.Sheets[sheetName]);
+    return { kind: 'text', label: `${file.name} (Sheet: ${sheetName})`, text: csv };
   }
-});
+  if(ext === 'csv' || ext === 'txt'){
+    const text = await file.text();
+    return { kind: 'text', label: file.name, text };
+  }
+  if(ext === 'pdf' || file.type.startsWith('image/')){
+    const base64 = await fileToBase64(file);
+    return { kind: 'image', label: file.name, imagePart: { mimeType: file.type || 'application/pdf', data: base64 } };
+  }
+  throw new Error(`".${ext}" format supported nahi (PDF, CSV, TXT, XLSX, ya image istemal karein)`);
+}
 
-document.getElementById('artSearchBtn').addEventListener('click', async () => {
-  const source = document.getElementById('artDataSource').value;
-  const query = document.getElementById('artSearchQuery').value.trim();
-  const resultsBox = document.getElementById('artSearchResults');
-  if(!query){ resultsBox.innerHTML = '❌ Pehle search keyword likhein.'; return; }
-  const baseUrl = CKAN_PORTALS[source];
-  if(!baseUrl){ resultsBox.innerHTML = '❌ Data source select karein.'; return; }
-  resultsBox.innerHTML = '⏳ Search ho raha hai...';
+document.getElementById('extractTopicsBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('artTopicsStatus');
+  const topicsBox = document.getElementById('artTopicsList');
+  const files = Array.from(document.getElementById('artDataFiles').files || []);
+  if(files.length === 0){ statusEl.textContent = '❌ Pehle ek ya zyada files upload karein.'; return; }
+
+  document.getElementById('artGenerateWrap').style.display = 'none';
+  topicsBox.innerHTML = '';
+  statusEl.textContent = '⏳ Files padhi ja rahi hain...';
+
   try{
-    const r = await fetch(`${baseUrl}/api/3/action/package_search?q=${encodeURIComponent(query)}&rows=8`);
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
-    if(!data.success) throw new Error('API ne success:false diya');
-    const results = data.result.results || [];
-    if(results.length === 0){ resultsBox.innerHTML = 'Koi dataset nahi mila — doosra keyword try karein.'; return; }
-    resultsBox.innerHTML = results.map((pkg, i) => `
-      <div class="cat-row" style="flex-direction:column;align-items:stretch">
-        <b>${escapeHtml(pkg.title)}</b>
-        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml((pkg.notes||'').slice(0,150))}</span>
-        <button class="mini-btn" style="margin-top:6px" onclick="fetchCkanDataset('${source}', '${pkg.name}', ${i})">📥 Ye Dataset Use Karein</button>
-        <span id="ckanFetchStatus_${i}" style="font-size:.78rem;margin-top:4px"></span>
+    artFilesCache = [];
+    for(const file of files){
+      statusEl.textContent = `⏳ Padh raha hoon: ${file.name}...`;
+      const parsed = await readFileForArticle(file);
+      artFilesCache.push(parsed);
+    }
+
+    const textParts = artFilesCache.filter(f => f.kind === 'text').map(f => `[File: ${f.label}]\n${f.text}`).join('\n\n');
+    const imageParts = artFilesCache.filter(f => f.kind === 'image');
+    artFileDataForPrompt = textParts;
+
+    statusEl.textContent = '⏳ Gemini topics nikal raha hai...';
+    const prompt = `Neeche di gayi file(s) ka data dekho aur is se 5-8 mumkin article/blog topics suggest karo — har topic aisa ho jo is data se ek acha, interesting, data-driven article ban sake.
+
+${textParts ? `File data:\n"""\n${textParts.slice(0, 15000)}\n"""` : '(Files upar attach hain, unhe dekho)'}
+
+Sirf JSON array return karo, koi extra text nahi:
+[{"topic": "short topic title", "angle": "1-line iska kya interesting angle ho sakta hai"}]`;
+
+    // Pehli image ko pass karo (Gemini ek image/PDF context mein lena support karta hai is call ke liye)
+    const raw = await rzCallGemini(prompt, imageParts[0]?.imagePart);
+    let cleaned = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+    let topics;
+    try{ topics = JSON.parse(cleaned); }
+    catch(e){ statusEl.textContent = '❌ AI ne valid JSON nahi diya.'; console.log(cleaned); return; }
+
+    if(!Array.isArray(topics) || topics.length === 0){ statusEl.textContent = '⚠️ Koi topic nahi mila.'; return; }
+
+    statusEl.textContent = `✅ ${topics.length} topics mile — ek select karein:`;
+    topicsBox.innerHTML = topics.map((t, i) => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="selectArtTopic(${i})">
+        <b>${escapeHtml(t.topic)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(t.angle||'')}</span>
       </div>
     `).join('');
-    window._ckanSearchCache = results;
-  }catch(err){
-    resultsBox.innerHTML = `❌ Search fail hui (shayad CORS block ho raha hai): ${err.message}<br>Neeche "Khud Data Paste Karein" istemal karein.`;
+    window._artTopicsCache = topics;
+  }catch(e){
+    statusEl.textContent = '❌ ' + e.message;
   }
 });
 
-async function fetchCkanDataset(source, pkgName, idx){
-  const statusEl = document.getElementById(`ckanFetchStatus_${idx}`);
-  const baseUrl = CKAN_PORTALS[source];
-  const pkg = window._ckanSearchCache[idx];
-  statusEl.textContent = '⏳ Data fetch ho raha hai...';
-  try{
-    const resources = pkg.resources || [];
-    if(resources.length === 0) throw new Error('Is dataset mein koi resource nahi mila.');
-    const res = resources[0];
-    const r = await fetch(`${baseUrl}/api/3/action/datastore_search?resource_id=${res.id}&limit=80`);
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
-    if(!data.success || !data.result.records || data.result.records.length === 0){
-      throw new Error('Datastore-active nahi. Resource link: ' + (res.url || 'N/A'));
-    }
-    const records = data.result.records;
-    const csvLines = [Object.keys(records[0]).join(',')].concat(records.map(rec => Object.values(rec).join(',')));
-    document.getElementById('artPastedData').value = `Dataset: ${pkg.title}\nSource: ${baseUrl}/dataset/${pkg.name}\n\n` + csvLines.join('\n');
-    window._artSourceLabel = pkg.title;
-    window._artSourceUrl = `${baseUrl}/dataset/${pkg.name}`;
-    statusEl.innerHTML = `✅ ${records.length} rows fetch ho gayin aur neeche "Khud Data Paste Karein" box mein daal di gayin.`;
-  }catch(err){
-    statusEl.innerHTML = `❌ ${err.message}`;
-  }
+function selectArtTopic(i){
+  const t = window._artTopicsCache[i];
+  document.getElementById('artSelectedTopic').value = t.topic;
+  document.getElementById('artGenerateWrap').style.display = 'block';
+  document.getElementById('artGenerateWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 document.getElementById('genArticleBtn').addEventListener('click', async () => {
   const statusBox = document.getElementById('artGenStatus');
   const draftBox = document.getElementById('artDraftBox');
-  const topic = document.getElementById('artTopic').value.trim();
-  if(!topic){ statusBox.textContent = '❌ Topic likhein.'; return; }
-  const categorySel = document.getElementById('artCategory').value;
-  const category = categorySel === 'other' ? (document.getElementById('artCategoryOther').value.trim() || 'other') : categorySel;
-  let pastedData = document.getElementById('artPastedData').value.trim();
-  const dataFile = document.getElementById('artDataFile').files[0];
-  let imagePart = null;
-
-  if(dataFile){
-    statusBox.textContent = '⏳ File padhi ja rahi hai...';
-    const ext = (dataFile.name.split('.').pop() || '').toLowerCase();
-    try{
-      if(ext === 'xlsx' || ext === 'xls'){
-        const buf = await dataFile.arrayBuffer();
-        const wb = XLSX.read(buf, { type: 'array' });
-        const sheetName = wb.SheetNames[0];
-        const csv = XLSX.utils.sheet_to_csv(wb.Sheets[sheetName]);
-        pastedData = (pastedData ? pastedData + '\n\n' : '') + `[File: ${dataFile.name}, Sheet: ${sheetName}]\n` + csv;
-      } else if(ext === 'csv' || ext === 'txt'){
-        const text = await dataFile.text();
-        pastedData = (pastedData ? pastedData + '\n\n' : '') + `[File: ${dataFile.name}]\n` + text;
-      } else if(ext === 'pdf' || dataFile.type.startsWith('image/')){
-        const base64 = await fileToBase64(dataFile);
-        imagePart = { mimeType: dataFile.type || 'application/pdf', data: base64 };
-      } else {
-        statusBox.textContent = `⚠️ ".${ext}" format supported nahi — PDF, CSV, TXT, XLSX, ya image try karein.`;
-        return;
-      }
-    }catch(fileErr){
-      statusBox.textContent = '❌ File padhne mein error: ' + fileErr.message;
-      return;
-    }
-  }
+  const topic = document.getElementById('artSelectedTopic').value.trim();
+  if(!topic){ statusBox.textContent = '❌ Topic likhein ya select karein.'; return; }
 
   statusBox.textContent = '⏳ Gemini se article likh raha hai... (4,000+ words, thoda time lagega)';
   draftBox.innerHTML = '';
 
+  const imageParts = artFilesCache.filter(f => f.kind === 'image');
   const prompt = `Tum RoznamaAds.pk ke liye ek Pakistani-audience data-journalism article likh rahe ho.
 
 Topic: "${topic}"
-Category: ${category}
-${pastedData ? `\nNeeche diya gaya asal data istemal karo article mein — sirf isi data ke numbers/facts quote karo, kuch bhi fabricate mat karo:\n"""\n${pastedData}\n"""\n` : '\nKoi specific dataset nahi diya gaya — apne general knowledge se ek informative, evergreen article likho. Koi specific number/statistic fabricate mat karo jo tumhe pakka pata na ho.'}
+
+${artFileDataForPrompt ? `Neeche diya gaya asal data istemal karo article mein — sirf isi data ke numbers/facts quote karo, kuch bhi fabricate mat karo:\n"""\n${artFileDataForPrompt.slice(0, 15000)}\n"""\n` : '(Attached file(s) ka data istemal karo — jo bhi image/PDF di gayi hai usse padh kar.)'}
 
 Requirements:
-1. Kam az kam 4,000 words ka article, proper H2/H3 headings ke saath.
-2. Zaban: English + Roman Urdu ka mix, jaisa RoznamaAds.pk ki style hai (halka Roman Urdu jabha zyada English ho) — friendly, samajhne mein aasan.
-3. Agar data diya gaya hai, to usse ek ya do simple charts ke liye data bhi suggest karo (chart_data field mein).
-4. Sirf JSON return karo, koi extra text/markdown fences nahi, is exact structure mein:
+1. Kam az kam 4,000 words ka article, proper H1 (sirf ek, title ke liye)/H2/H3 headings ke saath.
+2. Zaban: English + Roman Urdu ka mix, jaisa RoznamaAds.pk ki style hai — friendly, samajhne mein aasan.
+3. Jahan data ka comparison/breakdown ho, wahan HTML <table> banao (colorful/readable — thead ke sath).
+4. Agar numeric trend/comparison ho, chart_data bhi suggest karo (ek ya do charts).
+5. Poora article "colorful"/visually rich ho — headings, tables, bullet lists sab istemal karo jahan munasib ho, sirf plain paragraphs ka dher na ho.
+6. Sirf JSON return karo, koi extra text/markdown fences nahi, is exact structure mein:
 
 {
   "title": "SEO-friendly title",
   "slug": "url-friendly-slug-in-english",
   "summary": "1-2 line excerpt for listing card",
-  "body_html": "<h2>...</h2><p>...</p> poora article HTML mein, h2/h3/p/ul/li tags istemal karo",
+  "body_html": "<p>...</p><h2>...</h2><p>...</p><table>...</table> poora article HTML mein — h2/h3/p/ul/li/table/thead/tbody/tr/th/td tags istemal karo",
   "word_count": <number>,
   "chart_data": null ya {"type":"bar","labels":[...],"datasets":[{"label":"...","data":[...]}]}
 }`;
 
   try{
-    let raw = await rzCallGemini(prompt, imagePart);
+    let raw = await rzCallGemini(prompt, imageParts[0]?.imagePart);
     raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
     let article;
     try{ article = JSON.parse(raw); }
@@ -2379,9 +2287,9 @@ Requirements:
             slug: document.getElementById('artDSlug').value.trim(),
             summary: document.getElementById('artDSummary').value.trim(),
             body_html: bodyHtml,
-            category,
-            source_label: window._artSourceLabel || null,
-            source_url: window._artSourceUrl || null,
+            category: 'data-insights',
+            source_label: artFilesCache.map(f => f.label).join(', ') || null,
+            source_url: null,
             chart_data: window._artChartData,
             word_count: wordCount
           })
