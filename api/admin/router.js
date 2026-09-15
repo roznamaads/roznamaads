@@ -81,7 +81,7 @@ export default async function handler(req, res) {
         const { id } = req.body || {};
         if (!id) return res.status(400).json({ error: 'id required' });
         const r = await fetch(`${SB()}/rest/v1/ads?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
-        return res.status(r.status).json({ ok: r.ok });
+        return res.status(200).json({ ok: r.ok });
       }
 
       case 'create-article': {
@@ -125,7 +125,7 @@ export default async function handler(req, res) {
           headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
           body: JSON.stringify({ published: true, published_at: new Date().toISOString() })
         });
-        return res.status(r.status).json({ ok: r.ok });
+        return res.status(200).json({ ok: r.ok });
       }
 
       case 'delete-article': {
@@ -133,7 +133,7 @@ export default async function handler(req, res) {
         const { id } = req.body || {};
         if (!id) return res.status(400).json({ error: 'id required' });
         const r = await fetch(`${SB()}/rest/v1/articles?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
-        return res.status(r.status).json({ ok: r.ok });
+        return res.status(200).json({ ok: r.ok });
       }
 
       case 'publish-all-pending': {
@@ -204,7 +204,7 @@ export default async function handler(req, res) {
         const { id } = req.body || {};
         if (!id) return res.status(400).json({ error: 'id required' });
         const r = await fetch(`${SB()}/rest/v1/ad_reports?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
-        return res.status(r.status).json({ ok: r.ok });
+        return res.status(200).json({ ok: r.ok });
       }
 
       case 'expiry-list': {
@@ -381,7 +381,7 @@ export default async function handler(req, res) {
         const { id } = req.body || {};
         if (!id) return res.status(400).json({ error: 'id required' });
         const r = await fetch(`${SB()}/rest/v1/verification_sources?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
-        return res.status(r.status).json({ ok: r.ok });
+        return res.status(200).json({ ok: r.ok });
       }
 
       /* ---------- Part A: verifications records (Import/Review) ---------- */
@@ -490,7 +490,7 @@ export default async function handler(req, res) {
         const { id } = req.body || {};
         if (!id) return res.status(400).json({ error: 'id required' });
         const r = await fetch(`${SB()}/rest/v1/verifications?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
-        return res.status(r.status).json({ ok: r.ok });
+        return res.status(200).json({ ok: r.ok });
       }
 
       /* ---------- Part B: Risk Signals ---------- */
@@ -543,7 +543,7 @@ export default async function handler(req, res) {
         const { id } = req.body || {};
         if (!id) return res.status(400).json({ error: 'id required' });
         const r = await fetch(`${SB()}/rest/v1/risk_signals?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
-        return res.status(r.status).json({ ok: r.ok });
+        return res.status(200).json({ ok: r.ok });
       }
 
       /* ---------- Part B: Risk Reports Queue (reports_risk) ---------- */
@@ -629,7 +629,7 @@ export default async function handler(req, res) {
         const { id } = req.body || {};
         if (!id) return res.status(400).json({ error: 'id required' });
         const r = await fetch(`${SB()}/rest/v1/signals_phone?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
-        return res.status(r.status).json({ ok: r.ok });
+        return res.status(200).json({ ok: r.ok });
       }
 
       /* ---------- URL checks (read-only history — written by public api/url-check) ---------- */
