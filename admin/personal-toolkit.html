@@ -106,7 +106,7 @@
       <select id="aiProvider"><option>Gemini</option><option>OpenAI (future)</option><option>Local Model (future)</option></select>
     </div>
     <div class="field"><label>API Key</label><input type="password" id="aiKey" placeholder="Gemini API key"></div>
-    <div class="field"><label>Model</label><input type="text" id="aiModel" placeholder="e.g. gemini-2.0-flash" value="gemini-2.0-flash"></div>
+    <div class="field"><label>Model</label><input type="text" id="aiModel" placeholder="e.g. gemini-3.6-flash" value="gemini-3.6-flash"></div>
     <button class="btn" id="testConn">Test Connection</button>
     <button class="btn alt" id="saveAiSettings">Save AI Settings</button>
     <p class="desc" id="aiSaveMsg" style="margin-top:8px"></p>
@@ -1004,27 +1004,31 @@ document.querySelector('.panel[data-panel="ai-settings"]').classList.add('active
 })();
 
 function rzGeminiKey(){ try{ return (JSON.parse(localStorage.getItem('rz_ai_settings')||'{}').key) || ''; }catch(e){ return ''; } }
-function rzGeminiModel(){ try{ return (JSON.parse(localStorage.getItem('rz_ai_settings')||'{}').model) || 'gemini-2.0-flash'; }catch(e){ return 'gemini-2.0-flash'; } }
+function rzGeminiModel(){ try{ return (JSON.parse(localStorage.getItem('rz_ai_settings')||'{}').model) || 'gemini-3.6-flash'; }catch(e){ return 'gemini-3.6-flash'; } }
 
-async function rzCallGemini(prompt, imagePart){
+async function rzCallGemini(prompt, imagePart, maxTokens){
   const key = rzGeminiKey();
   if(!key) throw new Error('Gemini API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.');
   const model = rzGeminiModel();
   const parts = [];
   if(imagePart) parts.push({ inlineData: { mimeType: imagePart.mimeType, data: imagePart.data } });
   parts.push({ text: prompt });
+  const generationConfig = { temperature: 0.3 };
+  if(maxTokens) generationConfig.maxOutputTokens = maxTokens;
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3 } })
+    body: JSON.stringify({ contents: [{ parts }], generationConfig })
   });
   if(!r.ok){
     const errText = await r.text();
     throw new Error(`Gemini error (${r.status}): ${errText.slice(0,200)}`);
   }
   const data = await r.json();
+  const finishReason = data.candidates?.[0]?.finishReason;
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if(!text) throw new Error('Gemini ne khali jawab diya — key/model check karein.');
+  if(finishReason === 'MAX_TOKENS') throw new Error('Gemini ka jawab output-limit se pehle kat gaya (MAX_TOKENS) — chota topic/kam data try karein.');
   return text;
 }
 
@@ -2237,42 +2241,69 @@ Topic: "${topic}"
 ${artFileDataForPrompt ? `Neeche diya gaya asal data istemal karo article mein — sirf isi data ke numbers/facts quote karo, kuch bhi fabricate mat karo:\n"""\n${artFileDataForPrompt.slice(0, 15000)}\n"""\n` : '(Attached file(s) ka data istemal karo — jo bhi image/PDF di gayi hai usse padh kar.)'}
 
 Requirements:
-1. Kam az kam 4,000 words ka article, proper H1 (sirf ek, title ke liye)/H2/H3 headings ke saath.
+1. Kam az kam 4,000 words ka article, proper H2/H3 headings ke saath.
 2. Zaban: English + Roman Urdu ka mix, jaisa RoznamaAds.pk ki style hai — friendly, samajhne mein aasan.
-3. Jahan data ka comparison/breakdown ho, wahan HTML <table> banao (colorful/readable — thead ke sath).
-4. Agar numeric trend/comparison ho, chart_data bhi suggest karo (ek ya do charts).
-5. Poora article "colorful"/visually rich ho — headings, tables, bullet lists sab istemal karo jahan munasib ho, sirf plain paragraphs ka dher na ho.
-6. Sirf JSON return karo, koi extra text/markdown fences nahi, is exact structure mein:
+3. Jahan data ka comparison/breakdown ho, wahan HTML <table> banao (thead ke sath, readable).
+4. Poora article "colorful"/visually rich ho — headings, tables, bullet lists sab istemal karo jahan munasib ho, sirf plain paragraphs ka dher na ho.
 
-{
-  "title": "SEO-friendly title",
-  "slug": "url-friendly-slug-in-english",
-  "summary": "1-2 line excerpt for listing card",
-  "body_html": "<p>...</p><h2>...</h2><p>...</p><table>...</table> poora article HTML mein — h2/h3/p/ul/li/table/thead/tbody/tr/th/td tags istemal karo",
-  "word_count": <number>,
-  "chart_data": null ya {"type":"bar","labels":[...],"datasets":[{"label":"...","data":[...]}]}
-}`;
+Jawab bilkul is format mein do — koi JSON nahi, koi markdown code-fence nahi, sirf plain text is exact structure ke saath (har label apni line par, colon ke baad value):
+
+TITLE: [SEO-friendly title, ek line]
+SLUG: [url-friendly-slug-in-english, ek line]
+SUMMARY: [1-2 line excerpt, ek line]
+CHART_TYPE: [bar ya line ya NONE]
+CHART_LABELS: [comma-separated labels, ya NONE]
+CHART_VALUES: [comma-separated numbers, ya NONE]
+CHART_DATASET_LABEL: [is dataset ka naam, ya NONE]
+===BODY===
+[Yahan se poora article HTML mein shuru hota hai — h2, h3, p, ul, li, table, thead, tbody, tr, th, td tags istemal karo. Koi h1 mat lagana (title upar se ban jayega). Ye sab kuch text ka aakhri hissa hai.]`;
 
   try{
-    let raw = await rzCallGemini(prompt, imageParts[0]?.imagePart);
-    raw = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
-    let article;
-    try{ article = JSON.parse(raw); }
-    catch(e){ statusBox.textContent = '❌ AI ne valid JSON nahi diya. Console mein raw output hai.'; console.log(raw); return; }
+    let raw = await rzCallGemini(prompt, imageParts[0]?.imagePart, 32000);
+    const bodyMarker = '===BODY===';
+    const markerIdx = raw.indexOf(bodyMarker);
+    if(markerIdx === -1){ statusBox.textContent = '❌ AI ka jawab expected format mein nahi tha. Console mein raw output hai.'; console.log(raw); return; }
 
-    statusBox.textContent = `✅ Article ban gaya (~${article.word_count || '?'} words) — neeche review kar ke save karein.`;
+    const headerText = raw.slice(0, markerIdx);
+    const bodyHtml = raw.slice(markerIdx + bodyMarker.length).trim();
+
+    function grabField(label){
+      const m = headerText.match(new RegExp(`^${label}:\\s*(.*)$`, 'mi'));
+      return m ? m[1].trim() : '';
+    }
+    const title = grabField('TITLE');
+    const slug = grabField('SLUG') || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const summary = grabField('SUMMARY');
+    const chartType = grabField('CHART_TYPE');
+    const chartLabels = grabField('CHART_LABELS');
+    const chartValues = grabField('CHART_VALUES');
+    const chartDatasetLabel = grabField('CHART_DATASET_LABEL');
+
+    let chartData = null;
+    if(chartType && chartType.toUpperCase() !== 'NONE' && chartLabels && chartValues){
+      chartData = {
+        type: chartType.toLowerCase(),
+        labels: chartLabels.split(',').map(s => s.trim()),
+        datasets: [{ label: chartDatasetLabel || 'Data', data: chartValues.split(',').map(s => parseFloat(s.trim())) }]
+      };
+    }
+
+    if(!title || !bodyHtml){ statusBox.textContent = '❌ Title ya body khali mili — dobara try karein.'; return; }
+
+    const wordCount = bodyHtml.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).length;
+    statusBox.textContent = `✅ Article ban gaya (~${wordCount} words) — neeche review kar ke save karein.`;
     draftBox.innerHTML = `
       <div class="draft-card">
-        <div class="field"><label>Title</label><input type="text" id="artDTitle" value="${escapeHtml(article.title||'')}"></div>
-        <div class="field"><label>Slug</label><input type="text" id="artDSlug" value="${escapeHtml(article.slug||'')}"></div>
-        <div class="field"><label>Summary</label><textarea id="artDSummary" rows="2">${escapeHtml(article.summary||'')}</textarea></div>
-        <div class="field"><label>Body (HTML — preview neeche)</label><textarea id="artDBody" rows="14" style="font-family:monospace;font-size:.78rem">${escapeHtml(article.body_html||'')}</textarea></div>
-        <div class="field"><label>Preview</label><div style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff">${article.body_html||''}</div></div>
+        <div class="field"><label>Title</label><input type="text" id="artDTitle" value="${escapeHtml(title)}"></div>
+        <div class="field"><label>Slug</label><input type="text" id="artDSlug" value="${escapeHtml(slug)}"></div>
+        <div class="field"><label>Summary</label><textarea id="artDSummary" rows="2">${escapeHtml(summary)}</textarea></div>
+        <div class="field"><label>Body (HTML — preview neeche)</label><textarea id="artDBody" rows="14" style="font-family:monospace;font-size:.78rem">${escapeHtml(bodyHtml)}</textarea></div>
+        <div class="field"><label>Preview</label><div style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff">${bodyHtml}</div></div>
         <button class="btn" id="saveArticleBtn">📝 Draft Save Karein</button>
         <div id="artSaveStatus" style="margin-top:8px;font-size:.85rem;color:var(--muted)"></div>
       </div>
     `;
-    window._artChartData = article.chart_data || null;
+    window._artChartData = chartData;
 
     document.getElementById('saveArticleBtn').addEventListener('click', async () => {
       const saveStatus = document.getElementById('artSaveStatus');
