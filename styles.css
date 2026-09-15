@@ -163,6 +163,12 @@ footer .copy .foot-email{display:block;margin-top:6px}
 .site-top-nav a.nav-verify{background:#f5c94f;color:#123b25;opacity:1}
 .site-top-nav a.nav-verify:hover{background:#f8d976}
 .site-top-nav a.nav-verify.active{background:#f8d976;box-shadow:0 0 0 2px #fbf8ef inset}
+.site-top-nav a.nav-rishta{background:#96354C;color:#fff;opacity:1}
+.site-top-nav a.nav-rishta:hover{background:#7d2c40}
+.site-top-nav a.nav-rishta.active{background:#7d2c40;box-shadow:0 0 0 2px #fbf8ef inset}
+.site-top-nav a.nav-submit{background:#1f8a4c;color:#fff;opacity:1}
+.site-top-nav a.nav-submit:hover{background:#186b3a}
+.site-top-nav a.nav-submit.active{background:#186b3a;box-shadow:0 0 0 2px #fbf8ef inset}
 
 .site-ticker{background:#f5c94f;color:#123b25;overflow:hidden;white-space:nowrap;font-size:.8rem;font-weight:700;padding:7px 0}
 .site-ticker-track{display:inline-block;padding-left:100%;animation:ticker-scroll 26s linear infinite}
