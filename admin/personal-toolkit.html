@@ -218,7 +218,8 @@
         <input type="text" id="artSbpStartDate" placeholder="e.g. 2020-01-01"></div>
       <div class="field"><label>End Date (optional, YYYY-MM-DD)</label>
         <input type="text" id="artSbpEndDate" placeholder="khali chhoden = aaj tak"></div>
-      <button class="btn" id="sbpFetchBtn">🏦 Data Laayein</button>
+      <button class="btn" id="sbpFetchBtn">🏦 Data Laayein (Server se)</button>
+      <button class="btn alt" id="sbpDirectFetchBtn" style="margin-top:8px">📱 Phone se Direct Try Karein (agar upar wala fail ho)</button>
       <div id="artSbpStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     </div>
 
@@ -2525,6 +2526,26 @@ async function selectOdResource(dsIdx, resIdx){
 }
 
 
+function buildSbpUrl(series, apiKey, startDate, endDate){
+  let url = `https://easydata.sbp.org.pk/api/v1/series/${encodeURIComponent(series)}/data?api_key=${encodeURIComponent(apiKey)}&format=json`;
+  if(startDate) url += `&start_date=${encodeURIComponent(startDate)}`;
+  if(endDate) url += `&end_date=${encodeURIComponent(endDate)}`;
+  return url;
+}
+
+async function processSbpPayload(payload, series, statusEl){
+  const rows = payload?.rows || [];
+  const columns = payload?.columns || [];
+  if(!rows.length){ statusEl.textContent = '⚠️ Koi observation nahi mila — series key ya date range check karein.'; return; }
+
+  const seriesName = rows[0]?.[2] || series; // "Series Name" column, agar mile
+  artFileDataForPrompt = `[SBP EasyData — Series: ${series} (${seriesName})]\nColumns: ${columns.join(', ')}\n` +
+    rows.map(r => r.join(' | ')).join('\n');
+  artSourceLabelOverride = `SBP EasyData — ${seriesName} (${series})`;
+  statusEl.textContent = `✅ ${rows.length} observations mile.`;
+  await runArtTopicExtraction(document.getElementById('artTopicsStatus'), document.getElementById('artTopicsList'));
+}
+
 document.getElementById('sbpFetchBtn').addEventListener('click', async () => {
   const statusEl = document.getElementById('artSbpStatus');
   document.getElementById('artTopicsList').innerHTML = '';
@@ -2539,26 +2560,43 @@ document.getElementById('sbpFetchBtn').addEventListener('click', async () => {
   const startDate = document.getElementById('artSbpStartDate').value.trim();
   const endDate = document.getElementById('artSbpEndDate').value.trim();
 
-  statusEl.textContent = '⏳ SBP se data laaya ja raha hai...';
+  statusEl.textContent = '⏳ SBP se data laaya ja raha hai (server ke zariye)...';
   try{
     artFilesCache = [];
     let path = `sbp-easydata-fetch?series=${encodeURIComponent(series)}&api_key=${encodeURIComponent(sbpKey)}`;
     if(startDate) path += `&start_date=${encodeURIComponent(startDate)}`;
     if(endDate) path += `&end_date=${encodeURIComponent(endDate)}`;
     const result = await callAdminApi(path);
-    const payload = result?.data;
-    const rows = payload?.rows || [];
-    const columns = payload?.columns || [];
-    if(!rows.length){ statusEl.textContent = '⚠️ Koi observation nahi mila — series key ya date range check karein.'; return; }
-
-    const seriesName = rows[0]?.[2] || series; // "Series Name" column, agar mile
-    artFileDataForPrompt = `[SBP EasyData — Series: ${series} (${seriesName})]\nColumns: ${columns.join(', ')}\n` +
-      rows.map(r => r.join(' | ')).join('\n');
-    artSourceLabelOverride = `SBP EasyData — ${seriesName} (${series})`;
-    statusEl.textContent = `✅ ${rows.length} observations mile.`;
-    await runArtTopicExtraction(document.getElementById('artTopicsStatus'), document.getElementById('artTopicsList'));
+    await processSbpPayload(result?.data, series, statusEl);
   }catch(e){
-    statusEl.textContent = '❌ ' + e.message;
+    statusEl.textContent = '❌ ' + e.message + ' — "📱 Phone se Direct Try Karein" button try karein.';
+  }
+});
+
+document.getElementById('sbpDirectFetchBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('artSbpStatus');
+  document.getElementById('artTopicsList').innerHTML = '';
+  document.getElementById('artTopicsStatus').textContent = '';
+  document.getElementById('artGenerateWrap').style.display = 'none';
+  document.getElementById('artDraftBox').innerHTML = '';
+
+  const sbpKey = rzSbpKey();
+  if(!sbpKey){ statusEl.textContent = '❌ SBP API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.'; return; }
+  const series = document.getElementById('artSbpSeriesKey').value.trim();
+  if(!series){ statusEl.textContent = '❌ Series key likhein (ya upar se select karein).'; return; }
+  const startDate = document.getElementById('artSbpStartDate').value.trim();
+  const endDate = document.getElementById('artSbpEndDate').value.trim();
+
+  statusEl.textContent = '⏳ Phone se direct fetch ho raha hai...';
+  try{
+    artFilesCache = [];
+    const url = buildSbpUrl(series, sbpKey, startDate, endDate);
+    const resp = await fetch(url);
+    if(!resp.ok){ statusEl.textContent = `❌ SBP se error mila (HTTP ${resp.status}) — is browser se bhi block ho raha hai.`; return; }
+    const data = await resp.json();
+    await processSbpPayload(data, series, statusEl);
+  }catch(e){
+    statusEl.textContent = '❌ Direct fetch fail hui (browser CORS block kar raha hai) — Kiwi Browser + "Allow CORS" extension try karein (Table Downloader mein jaisa setup hai), ya Chrome mein hi rehte hue "Data Laayein (Server se)" button dobara try karein.';
   }
 });
 
