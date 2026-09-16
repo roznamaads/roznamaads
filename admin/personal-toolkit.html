@@ -113,13 +113,6 @@
     <button class="btn alt" id="saveAiSettings">Save AI Settings</button>
     <p class="desc" id="aiSaveMsg" style="margin-top:8px"></p>
     <p class="desc" style="color:#a86b00">⚠️ Key is browser (device) ki localStorage mein save hoti hai — jaisa ToolNest mein hota hai. Kisi shared/public device par is panel ko na khulnay dein.</p>
-
-    <hr style="margin:20px 0;border:none;border-top:1px solid var(--line)">
-    <h2 style="font-size:1rem">SBP EasyData (Economic Indicators)</h2>
-    <p class="desc">Article Generator ke "SBP EasyData" data source ke liye — key <a href="https://easydata.sbp.org.pk" target="_blank">easydata.sbp.org.pk</a> → My Account se milti hai, har 90 din mein renew karni padti hai.</p>
-    <div class="field"><label>SBP EasyData API Key</label><input type="password" id="sbpApiKey" placeholder="SBP EasyData se mila API key"></div>
-    <button class="btn alt" id="saveSbpSettings">Save SBP Key</button>
-    <p class="desc" id="sbpSaveMsg" style="margin-top:8px"></p>
   </section>
 
   <!-- AI Playground -->
@@ -175,96 +168,11 @@
 
     <div class="field"><label>Admin API Secret</label><input type="password" id="articleSecret" class="adminSecretField" placeholder="Vercel env var ADMIN_API_SECRET wahi value — sirf database mein save karne ke liye chahiye"></div>
 
-    <div class="field"><label>Data Source</label>
-      <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
-        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="file" checked> 📁 File Upload</label>
-        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="website"> 📊 Website Data (Verifications/Tenders)</label>
-        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="opendata"> 🌐 Open Data API (KP/NODP)</label>
-        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="sbp"> 🏦 SBP EasyData (Economic Indicators)</label>
-      </div>
+    <div class="field"><label>Files Upload Karein (PDF, CSV, TXT, Excel, Images — ek ya zyada)</label>
+      <input type="file" id="artDataFiles" accept=".pdf,.csv,.txt,.xlsx,.xls,image/*" multiple>
     </div>
 
-    <div id="artOpendataBlock" style="display:none">
-      <div class="field"><label>Portal</label>
-        <select id="artOdPortal">
-          <option value="kp">KP Open Data (opendata.kp.gov.pk)</option>
-          <option value="nodp">NODP (opendata.com.pk)</option>
-        </select>
-      </div>
-      <div class="field"><label>Keyword</label>
-        <input type="text" id="artOdKeyword" placeholder="e.g. education, health, agriculture, budget">
-      </div>
-      <button class="btn" id="odSearchBtn">🔍 Datasets Dhoondhein</button>
-      <div id="artOdStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
-      <div id="artOdResults" style="margin-top:12px"></div>
-      <div id="artOdResourcesBox" style="margin-top:12px"></div>
-    </div>
-
-    <div id="artSbpBlock" style="display:none">
-      <div class="field"><label>Common Series (shortcut — sirf confirmed keys)</label>
-        <select id="artSbpCommonSeries">
-          <option value="">— Khud series key likhein neeche —</option>
-          <option value="TS_GP_BOP_WR_M.WR0010">Workers' Remittances — Total Cash Inflow</option>
-          <option value="TS_GP_PF_ZAKATRCT_Y.ZR0100000">Zakat Receipts — Saving Bank Accounts</option>
-          <option value="TS_GP_BAM_GOVTDDL_M.GDDL00010">Govt Domestic Debt — Permanent Debt</option>
-        </select>
-        <span style="font-size:.78rem;color:var(--muted)">Ye 3 confirmed hain. Baaki (inflation, monetary, fiscal wagera) ke liye khud "Datasets" tab se series key copy karein — neeche field mein paste kar dein.</span>
-      </div>
-      <div class="field"><label>Series Key (khud likhein ya upar se select karein)</label>
-        <input type="text" id="artSbpSeriesKey" placeholder="e.g. TS_GP_BOP_WR_M.WR0010">
-        <span style="font-size:.78rem;color:var(--muted)">Naye series key <a href="https://easydata.sbp.org.pk" target="_blank">easydata.sbp.org.pk</a> ke "Datasets" tab se copy karein (har series ki apni "Series Key" likhi hoti hai).</span>
-      </div>
-      <div class="field"><label>🔎 Dataset ke sab series dhoondhein (optional)</label>
-        <input type="text" id="artSbpDatasetCode" placeholder="e.g. TS_GP_PF_ZAKATRCT_Y (series key ka '.' se pehle wala hissa)">
-        <span style="font-size:.78rem;color:var(--muted)">Series Key field bhari ho to yahan khali chhod kar button dabayein — dataset code khud nikal jayega.</span>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button type="button" class="btn" id="sbpMetaServerBtn">🔎 Series Dhoondhein (Server se)</button>
-        <button type="button" class="btn alt" id="sbpMetaPhoneBtn">📱 Phone se Try Karein</button>
-      </div>
-      <div id="artSbpMetaStatus" style="margin-top:8px;font-size:.85rem;color:var(--muted)"></div>
-      <div id="artSbpMetaResults" style="margin-top:10px"></div>
-      <div class="field"><label>Start Date (optional, YYYY-MM-DD)</label>
-        <input type="text" id="artSbpStartDate" placeholder="e.g. 2020-01-01"></div>
-      <div class="field"><label>End Date (optional, YYYY-MM-DD)</label>
-        <input type="text" id="artSbpEndDate" placeholder="khali chhoden = aaj tak"></div>
-      <button class="btn" id="sbpFetchBtn">🏦 Data Laayein (Server se)</button>
-      <button class="btn alt" id="sbpDirectFetchBtn" style="margin-top:8px">📱 Phone se Direct Try Karein (agar upar wala fail ho)</button>
-      <div id="artSbpStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
-    </div>
-
-    <div id="artFileSourceBlock">
-      <div class="field"><label>Files Upload Karein (PDF, CSV, TXT, Excel, Images — ek ya zyada)</label>
-        <input type="file" id="artDataFiles" accept=".pdf,.csv,.txt,.xlsx,.xls,image/*" multiple>
-      </div>
-      <button class="btn" id="extractTopicsBtn">🔍 Topics Nikalein</button>
-    </div>
-
-    <div id="artWebsiteSourceBlock" style="display:none">
-      <div class="field"><label>Data Type</label>
-        <select id="artWebDataType">
-          <option value="verifications">Verifications (BEOE, HEC, PPRA blacklist, etc.)</option>
-          <option value="tenders">Tenders</option>
-        </select>
-      </div>
-      <div class="field"><label>Authority (optional filter)</label>
-        <input type="text" id="artWebAuthority" list="artWebAuthorityList" placeholder="e.g. BEOE, HEC, PPRA, PPRA-Punjab — khali chhod dein to sab shamil">
-        <datalist id="artWebAuthorityList">
-          <option value="BEOE"><option value="HEC"><option value="PPRA"><option value="PPRA-Punjab">
-        </datalist>
-      </div>
-      <div class="field" id="artWebTypeFilterField"><label>Type (optional filter — sirf Verifications ke liye)</label>
-        <select id="artWebTypeFilter">
-          <option value="">— Sab —</option>
-          <option value="visa_agency">Visa Agency</option>
-          <option value="institute">Institute</option>
-          <option value="company">Company</option>
-        </select>
-      </div>
-      <button class="btn" id="fetchWebDataBtn">📊 Data Laayein</button>
-      <div id="artWebDataStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
-    </div>
-
+    <button class="btn" id="extractTopicsBtn">🔍 Topics Nikalein</button>
     <div id="artTopicsStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     <div id="artTopicsList" style="margin-top:12px"></div>
 
@@ -1111,39 +1019,21 @@ async function rzCallGemini(prompt, imagePart, maxTokens){
   parts.push({ text: prompt });
   const generationConfig = { temperature: 0.3 };
   if(maxTokens) generationConfig.maxOutputTokens = maxTokens;
-
-  const maxAttempts = 3;
-  let lastErr;
-  for(let attempt = 1; attempt <= maxAttempts; attempt++){
-    let r;
-    try{
-      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts }], generationConfig })
-      });
-    }catch(networkErr){
-      lastErr = networkErr;
-      if(attempt < maxAttempts){ await new Promise(res => setTimeout(res, attempt * 2000)); continue; }
-      throw networkErr;
-    }
-    if(!r.ok){
-      const errText = await r.text();
-      lastErr = new Error(`Gemini error (${r.status}): ${errText.slice(0,200)}`);
-      if((r.status === 503 || r.status === 429) && attempt < maxAttempts){
-        await new Promise(res => setTimeout(res, attempt * 2000)); // 2s, 4s backoff
-        continue;
-      }
-      throw lastErr;
-    }
-    const data = await r.json();
-    const finishReason = data.candidates?.[0]?.finishReason;
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if(!text) throw new Error('Gemini ne khali jawab diya — key/model check karein.');
-    if(finishReason === 'MAX_TOKENS') throw new Error('Gemini ka jawab output-limit se pehle kat gaya (MAX_TOKENS) — chota topic/kam data try karein.');
-    return text;
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts }], generationConfig })
+  });
+  if(!r.ok){
+    const errText = await r.text();
+    throw new Error(`Gemini error (${r.status}): ${errText.slice(0,200)}`);
   }
-  throw lastErr;
+  const data = await r.json();
+  const finishReason = data.candidates?.[0]?.finishReason;
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(!text) throw new Error('Gemini ne khali jawab diya — key/model check karein.');
+  if(finishReason === 'MAX_TOKENS') throw new Error('Gemini ka jawab output-limit se pehle kat gaya (MAX_TOKENS) — chota topic/kam data try karein.');
+  return text;
 }
 
 document.getElementById('saveAiSettings').addEventListener('click', () => {
@@ -1155,18 +1045,6 @@ document.getElementById('saveAiSettings').addEventListener('click', () => {
   localStorage.setItem('rz_ai_settings', JSON.stringify(settings));
   document.getElementById('aiSaveMsg').textContent = '✅ Saved (is browser mein).';
   document.getElementById('pgModel').value = settings.provider + ' / ' + settings.model;
-});
-
-(function loadSbpSettings(){
-  const saved = JSON.parse(localStorage.getItem('rz_sbp_settings') || '{}');
-  if(saved.apiKey) document.getElementById('sbpApiKey').value = saved.apiKey;
-})();
-
-function rzSbpKey(){ try{ return (JSON.parse(localStorage.getItem('rz_sbp_settings')||'{}').apiKey) || ''; }catch(e){ return ''; } }
-
-document.getElementById('saveSbpSettings').addEventListener('click', () => {
-  localStorage.setItem('rz_sbp_settings', JSON.stringify({ apiKey: document.getElementById('sbpApiKey').value.trim() }));
-  document.getElementById('sbpSaveMsg').textContent = '✅ Saved (is browser mein).';
 });
 
 document.getElementById('testConn').addEventListener('click', async () => {
@@ -2269,23 +2147,7 @@ document.getElementById('beoeConvertBtn').addEventListener('click', async () => 
 
 /* ---------- Article Generator — simplified: files -> topics -> article ---------- */
 let artFilesCache = [];       // { file, kind: 'text'|'image', textContent?, imagePart? }
-let artFileDataForPrompt = ''; // combined text summary of all files or DB rows, for prompt
-let artSourceLabelOverride = null; // set when source = website data, else falls back to file labels
-let artCategoriesCache = [];  // { id, slug, label } loaded from article_categories table
-
-async function loadArtCategories(){
-  try{ artCategoriesCache = await callAdminApi('list-article-categories') || []; }
-  catch(e){ artCategoriesCache = []; }
-  return artCategoriesCache;
-}
-
-function slugifyCategoryLabel(label){
-  return String(label||'').trim().toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
+let artFileDataForPrompt = ''; // combined text summary of all files, for prompt
 
 async function readFileForArticle(file){
   const ext = (file.name.split('.').pop() || '').toLowerCase();
@@ -2307,390 +2169,6 @@ async function readFileForArticle(file){
   throw new Error(`".${ext}" format supported nahi (PDF, CSV, TXT, XLSX, ya image istemal karein)`);
 }
 
-document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
-  r.addEventListener('change', () => {
-    const mode = document.querySelector('input[name="artSourceMode"]:checked').value;
-    document.getElementById('artFileSourceBlock').style.display = mode === 'file' ? 'block' : 'none';
-    document.getElementById('artWebsiteSourceBlock').style.display = mode === 'website' ? 'block' : 'none';
-    document.getElementById('artOpendataBlock').style.display = mode === 'opendata' ? 'block' : 'none';
-    document.getElementById('artSbpBlock').style.display = mode === 'sbp' ? 'block' : 'none';
-    document.getElementById('artTopicsList').innerHTML = '';
-    document.getElementById('artTopicsStatus').textContent = '';
-    document.getElementById('artWebDataStatus').textContent = '';
-    document.getElementById('artOdStatus').textContent = '';
-    document.getElementById('artOdResults').innerHTML = '';
-    document.getElementById('artOdResourcesBox').innerHTML = '';
-    document.getElementById('artSbpStatus').textContent = '';
-    document.getElementById('artGenerateWrap').style.display = 'none';
-    document.getElementById('artDraftBox').innerHTML = '';
-    artFilesCache = [];
-    artFileDataForPrompt = '';
-    artSourceLabelOverride = null;
-  });
-});
-
-document.getElementById('artSbpCommonSeries').addEventListener('change', () => {
-  const v = document.getElementById('artSbpCommonSeries').value;
-  if(v) document.getElementById('artSbpSeriesKey').value = v;
-});
-
-document.getElementById('artWebDataType').addEventListener('change', () => {
-  document.getElementById('artWebTypeFilterField').style.display =
-    document.getElementById('artWebDataType').value === 'verifications' ? 'block' : 'none';
-});
-
-async function runArtTopicExtraction(statusEl, topicsBox){
-  const textParts = artFileDataForPrompt;
-  const imageParts = artFilesCache.filter(f => f.kind === 'image');
-  statusEl.textContent = '⏳ Gemini topics nikal raha hai...';
-  const prompt = `Neeche di gayi file(s) ka data dekho aur is se 10-14 mumkin article/blog topics suggest karo — har topic aisa ho jo is data se ek acha, interesting, data-driven article ban sake. Topics mein variety honi chahiye — agar data mein multiple authorities/categories hain to sab ko cover karo, sirf ek hi cheez pe focus mat karo.
-
-${textParts ? `File data:\n"""\n${textParts.slice(0, 40000)}\n"""` : '(Files upar attach hain, unhe dekho)'}
-
-Sirf JSON array return karo, koi extra text nahi:
-[{"topic": "short topic title", "angle": "1-line iska kya interesting angle ho sakta hai"}]`;
-
-  const raw = await rzCallGemini(prompt, imageParts[0]?.imagePart);
-  let cleaned = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
-  let topics;
-  try{ topics = JSON.parse(cleaned); }
-  catch(e){ statusEl.textContent = '❌ AI ne valid JSON nahi diya.'; console.log(cleaned); return; }
-
-  if(!Array.isArray(topics) || topics.length === 0){ statusEl.textContent = '⚠️ Koi topic nahi mila.'; return; }
-
-  statusEl.textContent = `✅ ${topics.length} topics mile — ek select karein:`;
-  topicsBox.innerHTML = topics.map((t, i) => `
-    <div class="cat-row" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="selectArtTopic(${i})">
-      <b>${escapeHtml(t.topic)}</b>
-      <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(t.angle||'')}</span>
-    </div>
-  `).join('');
-  window._artTopicsCache = topics;
-}
-
-function roundRobinByAuthority(rows, targetCount){
-  const groups = {};
-  for(const r of rows){
-    const key = r.authority || '—';
-    if(!groups[key]) groups[key] = [];
-    groups[key].push(r);
-  }
-  const keys = Object.keys(groups);
-  const result = [];
-  let i = 0;
-  while(result.length < targetCount && result.length < rows.length){
-    let addedThisRound = false;
-    for(const key of keys){
-      if(groups[key][i]){ result.push(groups[key][i]); addedThisRound = true; }
-      if(result.length >= targetCount) break;
-    }
-    if(!addedThisRound) break;
-    i++;
-  }
-  return result;
-}
-
-document.getElementById('fetchWebDataBtn').addEventListener('click', async () => {
-  const statusEl = document.getElementById('artWebDataStatus');
-  const topicsStatusEl = document.getElementById('artTopicsStatus');
-  const topicsBox = document.getElementById('artTopicsList');
-  document.getElementById('artGenerateWrap').style.display = 'none';
-  document.getElementById('artDraftBox').innerHTML = '';
-  topicsBox.innerHTML = '';
-  topicsStatusEl.textContent = '';
-
-  const dataType = document.getElementById('artWebDataType').value;
-  const authority = document.getElementById('artWebAuthority').value.trim();
-  const typeFilter = document.getElementById('artWebTypeFilter').value;
-  const FINAL_COUNT = 200; // kitne records prompt mein bhejne hain
-
-  statusEl.textContent = '⏳ Database se data laaya ja raha hai...';
-  try{
-    artFilesCache = [];
-    let rows = [];
-    let sourceLabelParts = [];
-    // Authority filter na ho to bada pool khींचte hain (1200) aur phir har authority se
-    // barabar-barabar records leke variety banate hain — warna sirf sabse bade dataset
-    // (jaise BEOE, 5000+ records) hi hamesha dominate karta.
-    const fetchLimit = authority ? 200 : 1200;
-
-    if(dataType === 'verifications'){
-      if(authority){
-        let path = `verif-list?limit=200&authority=${encodeURIComponent(authority)}`;
-        if(typeFilter) path += `&type=${encodeURIComponent(typeFilter)}`;
-        rows = await callAdminApi(path) || [];
-        sourceLabelParts.push('Verifications DB', authority);
-        if(typeFilter) sourceLabelParts.push(typeFilter);
-      } else {
-        // Koi authority filter nahi — asal distinct authority list Sources Dashboard se
-        // lekar har ek se alag-alag, barabar sample lete hain. Bade dataset (BEOE, 81% of
-        // total rows) ke "updated_at" ordering pe chhodne se pehle wala approach hamesha
-        // BEOE hi laata tha — ab har authority ko guaranteed sample milta hai.
-        statusEl.textContent = '⏳ Har authority se sample liya ja raha hai...';
-        const dash = await callAdminApi('verif-sources-dashboard');
-        const authorities = [...new Set((dash?.summary || []).map(s => s.authority).filter(Boolean))];
-        const PER_AUTHORITY_LIMIT = 30;
-        const perAuthorityResults = await Promise.all(authorities.map(a => {
-          let p = `verif-list?limit=${PER_AUTHORITY_LIMIT}&authority=${encodeURIComponent(a)}`;
-          if(typeFilter) p += `&type=${encodeURIComponent(typeFilter)}`;
-          return callAdminApi(p).catch(() => []);
-        }));
-        rows = perAuthorityResults.flat();
-        sourceLabelParts.push('Verifications DB', `${authorities.length} authorities mixed (${authorities.join(', ')})`);
-        if(typeFilter) sourceLabelParts.push(typeFilter);
-      }
-      artFileDataForPrompt = rows.length
-        ? `[Verifications Database — Total ${rows.length} records${authority?` (authority: ${authority})`:' (mixed — har authority se sample liya gaya hai)'}${typeFilter?` (type: ${typeFilter})`:''}]\n` +
-          rows.map(r => `- ${r.name} | city: ${r.city||'-'} | authority: ${r.authority} | status: ${r.status}${r.blacklist_status?` | blacklist: ${r.blacklist_status}`:''} | reference_no: ${r.reference_no||'-'} | last_verified: ${r.last_verified||'-'}`).join('\n')
-        : '';
-    } else {
-      let path = `tenders-list?limit=${fetchLimit}`;
-      if(authority) path += `&authority=${encodeURIComponent(authority)}`;
-      let fetched = await callAdminApi(path) || [];
-      rows = authority ? fetched : roundRobinByAuthority(fetched, FINAL_COUNT);
-      sourceLabelParts.push('Tenders DB');
-      if(authority) sourceLabelParts.push(authority);
-      artFileDataForPrompt = rows.length
-        ? `[Tenders Database — Total ${rows.length} records${authority?` (authority: ${authority})`:' (mixed — har authority se sample liya gaya hai)'}]\n` +
-          rows.map(r => `- ${r.title||r.tender_no} | org: ${r.organization||'-'} | authority: ${r.authority||'-'} | status: ${r.status||'-'} | tender_no: ${r.tender_no||'-'} | updated: ${r.updated_at||'-'}`).join('\n')
-        : '';
-    }
-
-    if(!rows.length){ statusEl.textContent = '⚠️ Koi record nahi mila — authority/type filter check karein.'; artFileDataForPrompt=''; return; }
-
-    artSourceLabelOverride = sourceLabelParts.join(' — ');
-    statusEl.textContent = `✅ ${rows.length} records mile.`;
-    await runArtTopicExtraction(topicsStatusEl, topicsBox);
-  }catch(e){
-    statusEl.textContent = '❌ ' + e.message;
-  }
-});
-
-document.getElementById('odSearchBtn').addEventListener('click', async () => {
-  const statusEl = document.getElementById('artOdStatus');
-  const resultsBox = document.getElementById('artOdResults');
-  const resourcesBox = document.getElementById('artOdResourcesBox');
-  resultsBox.innerHTML = '';
-  resourcesBox.innerHTML = '';
-  document.getElementById('artTopicsList').innerHTML = '';
-  document.getElementById('artTopicsStatus').textContent = '';
-  document.getElementById('artGenerateWrap').style.display = 'none';
-  document.getElementById('artDraftBox').innerHTML = '';
-
-  const portal = document.getElementById('artOdPortal').value;
-  const keyword = document.getElementById('artOdKeyword').value.trim();
-  if(!keyword){ statusEl.textContent = '❌ Pehle koi keyword likhein.'; return; }
-
-  statusEl.textContent = '⏳ Datasets dhoondhe ja rahe hain...';
-  try{
-    const data = await callAdminApi(`opendata-search?portal=${portal}&q=${encodeURIComponent(keyword)}`);
-    if(!data || !data.results || data.results.length === 0){ statusEl.textContent = '⚠️ Koi dataset nahi mila — dusra keyword try karein.'; return; }
-    statusEl.textContent = `✅ ${data.results.length} datasets mile (total ${data.count}) — ek select karein:`;
-    resultsBox.innerHTML = data.results.map((d, i) => `
-      <div class="cat-row" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="selectOdDataset(${i})">
-        <b>${escapeHtml(d.title)}</b>
-        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(d.organization||'')} — ${d.resources.length} file(s): ${d.resources.map(r=>escapeHtml(r.format)).join(', ')}</span>
-        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(d.notes||'')}</span>
-      </div>
-    `).join('');
-    window._odDatasetsCache = data.results;
-  }catch(e){
-    statusEl.textContent = '❌ ' + e.message;
-  }
-});
-
-function selectOdDataset(i){
-  const ds = window._odDatasetsCache[i];
-  const resourcesBox = document.getElementById('artOdResourcesBox');
-  const usable = ds.resources.filter(r => ['CSV','JSON','TSV','TXT'].includes(r.format));
-  if(usable.length === 0){
-    resourcesBox.innerHTML = `<div style="font-size:.85rem;color:var(--muted)">⚠️ Is dataset mein koi CSV/JSON/TXT resource nahi mila (sirf: ${ds.resources.map(r=>escapeHtml(r.format)).join(', ') || 'koi file nahi'}) — dusra dataset try karein.</div>`;
-    return;
-  }
-  resourcesBox.innerHTML = `<b>"${escapeHtml(ds.title)}" ke resources:</b>` + usable.map((r, j) => `
-    <div class="cat-row" style="cursor:pointer" onclick="selectOdResource(${i}, ${j})">
-      <span>${escapeHtml(r.name)} <span style="color:var(--muted)">(${escapeHtml(r.format)})</span></span>
-      <button type="button" class="mini-btn">Ye Use Karein</button>
-    </div>
-  `).join('');
-  window._odCurrentDatasetIdx = i;
-  window._odUsableResources = usable;
-}
-
-async function selectOdResource(dsIdx, resIdx){
-  const ds = window._odDatasetsCache[dsIdx];
-  const resource = window._odUsableResources[resIdx];
-  const statusEl = document.getElementById('artOdStatus');
-  statusEl.textContent = `⏳ "${resource.name}" download ho raha hai...`;
-  try{
-    artFilesCache = [];
-    const data = await callAdminApi(`opendata-fetch-resource?url=${encodeURIComponent(resource.url)}`);
-    if(!data || !data.text){ statusEl.textContent = '❌ Resource khaali mila.'; return; }
-    artFileDataForPrompt = `[Open Data — ${ds.organization || 'Govt Portal'} — ${ds.title} — file: ${resource.name} (${resource.format})]\n${data.text}`;
-    artSourceLabelOverride = `Open Data — ${ds.title} (${resource.name})`;
-    statusEl.textContent = `✅ Data mil gaya (${data.length} characters${data.truncated ? ', bada file tha to shuru ka hissa liya gaya' : ''}).`;
-    await runArtTopicExtraction(document.getElementById('artTopicsStatus'), document.getElementById('artTopicsList'));
-  }catch(e){
-    statusEl.textContent = '❌ ' + e.message;
-  }
-}
-
-
-function buildSbpUrl(series, apiKey, startDate, endDate){
-  let url = `https://easydata.sbp.org.pk/api/v1/series/${encodeURIComponent(series)}/data?api_key=${encodeURIComponent(apiKey)}&format=json`;
-  if(startDate) url += `&start_date=${encodeURIComponent(startDate)}`;
-  if(endDate) url += `&end_date=${encodeURIComponent(endDate)}`;
-  return url;
-}
-
-async function processSbpPayload(payload, series, statusEl){
-  const rows = payload?.rows || [];
-  const columns = payload?.columns || [];
-  if(!rows.length){ statusEl.textContent = '⚠️ Koi observation nahi mila — series key ya date range check karein.'; return; }
-
-  const seriesName = rows[0]?.[2] || series; // "Series Name" column, agar mile
-  artFileDataForPrompt = `[SBP EasyData — Series: ${series} (${seriesName})]\nColumns: ${columns.join(', ')}\n` +
-    rows.map(r => r.join(' | ')).join('\n');
-  artSourceLabelOverride = `SBP EasyData — ${seriesName} (${series})`;
-  statusEl.textContent = `✅ ${rows.length} observations mile.`;
-  await runArtTopicExtraction(document.getElementById('artTopicsStatus'), document.getElementById('artTopicsList'));
-}
-
-function buildSbpMetaUrl(datasetCode, apiKey){
-  return `https://easydata.sbp.org.pk/api/v1/dataset/${encodeURIComponent(datasetCode)}/meta?api_key=${encodeURIComponent(apiKey)}&format=json`;
-}
-
-function getSbpDatasetCode(){
-  const explicit = document.getElementById('artSbpDatasetCode').value.trim();
-  if(explicit) return explicit.includes('.') ? explicit.split('.')[0] : explicit;
-  const seriesKey = document.getElementById('artSbpSeriesKey').value.trim();
-  if(seriesKey.includes('.')) return seriesKey.split('.')[0];
-  return '';
-}
-
-// SBP ki meta API ka exact response shape documented nahi mila — is liye defensive
-// parsing: kayi mumkin shapes try karte hain, aur kuch na mile to raw JSON dikha dete
-// hain taake dekh kar aage fix ho sake.
-function renderSbpMetaResults(data, resultsBox, statusEl){
-  let list = [];
-  if(Array.isArray(data?.series)){
-    list = data.series.map(s => ({ key: s.series_key || s.seriesKey || s.key || '', name: s.series_name || s.seriesName || s.name || '' }));
-  } else if(Array.isArray(data?.rows) && Array.isArray(data?.columns)){
-    const keyIdx = data.columns.findIndex(c => /series\s*key/i.test(c));
-    const nameIdx = data.columns.findIndex(c => /series\s*name/i.test(c));
-    if(keyIdx >= 0){
-      list = data.rows.map(r => ({ key: r[keyIdx] || '', name: nameIdx >= 0 ? (r[nameIdx] || '') : '' }));
-    }
-  }
-  list = list.filter(s => s.key);
-
-  if(list.length === 0){
-    statusEl.textContent = '⚠️ Series list ka format pehchana nahi gaya — raw response neeche hai, isse dekh kar batayein kya format hai:';
-    resultsBox.innerHTML = `<pre style="white-space:pre-wrap;font-size:.72rem;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:300px;overflow-y:auto">${escapeHtml(JSON.stringify(data, null, 2)).slice(0,3000)}</pre>`;
-    return;
-  }
-  statusEl.textContent = `✅ ${list.length} series mile — ek select karein:`;
-  resultsBox.innerHTML = list.map((s, i) => `
-    <div class="cat-row" style="cursor:pointer" onclick="document.getElementById('artSbpSeriesKey').value='${escapeHtml(s.key)}'">
-      <span><b>${escapeHtml(s.key)}</b> — ${escapeHtml(s.name)}</span>
-    </div>
-  `).join('');
-}
-
-document.getElementById('sbpMetaServerBtn').addEventListener('click', async () => {
-  const statusEl = document.getElementById('artSbpMetaStatus');
-  const resultsBox = document.getElementById('artSbpMetaResults');
-  resultsBox.innerHTML = '';
-  const sbpKey = rzSbpKey();
-  if(!sbpKey){ statusEl.textContent = '❌ SBP API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.'; return; }
-  const datasetCode = getSbpDatasetCode();
-  if(!datasetCode){ statusEl.textContent = '❌ Dataset code chahiye — ya to wo field bharein, ya upar Series Key mein kuch likhein.'; return; }
-
-  statusEl.textContent = '⏳ Server se dhoondha ja raha hai...';
-  try{
-    const result = await callAdminApi(`sbp-easydata-meta?dataset_code=${encodeURIComponent(datasetCode)}&api_key=${encodeURIComponent(sbpKey)}`);
-    renderSbpMetaResults(result?.data, resultsBox, statusEl);
-  }catch(e){
-    statusEl.textContent = '❌ ' + e.message + ' — "📱 Phone se Try Karein" button try karein.';
-  }
-});
-
-document.getElementById('sbpMetaPhoneBtn').addEventListener('click', async () => {
-  const statusEl = document.getElementById('artSbpMetaStatus');
-  const resultsBox = document.getElementById('artSbpMetaResults');
-  resultsBox.innerHTML = '';
-  const sbpKey = rzSbpKey();
-  if(!sbpKey){ statusEl.textContent = '❌ SBP API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.'; return; }
-  const datasetCode = getSbpDatasetCode();
-  if(!datasetCode){ statusEl.textContent = '❌ Dataset code chahiye — ya to wo field bharein, ya upar Series Key mein kuch likhein.'; return; }
-
-  statusEl.textContent = '⏳ Phone se direct dhoondha ja raha hai...';
-  try{
-    const resp = await fetch(buildSbpMetaUrl(datasetCode, sbpKey));
-    if(!resp.ok){ statusEl.textContent = `❌ SBP se error mila (HTTP ${resp.status}).`; return; }
-    const data = await resp.json();
-    renderSbpMetaResults(data, resultsBox, statusEl);
-  }catch(e){
-    statusEl.textContent = '❌ Direct fetch fail hui — Kiwi Browser + "Allow CORS" extension try karein.';
-  }
-});
-
-
-document.getElementById('sbpFetchBtn').addEventListener('click', async () => {
-  const statusEl = document.getElementById('artSbpStatus');
-  document.getElementById('artTopicsList').innerHTML = '';
-  document.getElementById('artTopicsStatus').textContent = '';
-  document.getElementById('artGenerateWrap').style.display = 'none';
-  document.getElementById('artDraftBox').innerHTML = '';
-
-  const sbpKey = rzSbpKey();
-  if(!sbpKey){ statusEl.textContent = '❌ SBP API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.'; return; }
-  const series = document.getElementById('artSbpSeriesKey').value.trim();
-  if(!series){ statusEl.textContent = '❌ Series key likhein (ya upar se select karein).'; return; }
-  const startDate = document.getElementById('artSbpStartDate').value.trim();
-  const endDate = document.getElementById('artSbpEndDate').value.trim();
-
-  statusEl.textContent = '⏳ SBP se data laaya ja raha hai (server ke zariye)...';
-  try{
-    artFilesCache = [];
-    let path = `sbp-easydata-fetch?series=${encodeURIComponent(series)}&api_key=${encodeURIComponent(sbpKey)}`;
-    if(startDate) path += `&start_date=${encodeURIComponent(startDate)}`;
-    if(endDate) path += `&end_date=${encodeURIComponent(endDate)}`;
-    const result = await callAdminApi(path);
-    await processSbpPayload(result?.data, series, statusEl);
-  }catch(e){
-    statusEl.textContent = '❌ ' + e.message + ' — "📱 Phone se Direct Try Karein" button try karein.';
-  }
-});
-
-document.getElementById('sbpDirectFetchBtn').addEventListener('click', async () => {
-  const statusEl = document.getElementById('artSbpStatus');
-  document.getElementById('artTopicsList').innerHTML = '';
-  document.getElementById('artTopicsStatus').textContent = '';
-  document.getElementById('artGenerateWrap').style.display = 'none';
-  document.getElementById('artDraftBox').innerHTML = '';
-
-  const sbpKey = rzSbpKey();
-  if(!sbpKey){ statusEl.textContent = '❌ SBP API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.'; return; }
-  const series = document.getElementById('artSbpSeriesKey').value.trim();
-  if(!series){ statusEl.textContent = '❌ Series key likhein (ya upar se select karein).'; return; }
-  const startDate = document.getElementById('artSbpStartDate').value.trim();
-  const endDate = document.getElementById('artSbpEndDate').value.trim();
-
-  statusEl.textContent = '⏳ Phone se direct fetch ho raha hai...';
-  try{
-    artFilesCache = [];
-    const url = buildSbpUrl(series, sbpKey, startDate, endDate);
-    const resp = await fetch(url);
-    if(!resp.ok){ statusEl.textContent = `❌ SBP se error mila (HTTP ${resp.status}) — is browser se bhi block ho raha hai.`; return; }
-    const data = await resp.json();
-    await processSbpPayload(data, series, statusEl);
-  }catch(e){
-    statusEl.textContent = '❌ Direct fetch fail hui (browser CORS block kar raha hai) — Kiwi Browser + "Allow CORS" extension try karein (Table Downloader mein jaisa setup hai), ya Chrome mein hi rehte hue "Data Laayein (Server se)" button dobara try karein.';
-  }
-});
-
-
 document.getElementById('extractTopicsBtn').addEventListener('click', async () => {
   const statusEl = document.getElementById('artTopicsStatus');
   const topicsBox = document.getElementById('artTopicsList');
@@ -2703,7 +2181,6 @@ document.getElementById('extractTopicsBtn').addEventListener('click', async () =
 
   try{
     artFilesCache = [];
-    artSourceLabelOverride = null;
     for(const file of files){
       statusEl.textContent = `⏳ Padh raha hoon: ${file.name}...`;
       const parsed = await readFileForArticle(file);
@@ -2711,9 +2188,34 @@ document.getElementById('extractTopicsBtn').addEventListener('click', async () =
     }
 
     const textParts = artFilesCache.filter(f => f.kind === 'text').map(f => `[File: ${f.label}]\n${f.text}`).join('\n\n');
+    const imageParts = artFilesCache.filter(f => f.kind === 'image');
     artFileDataForPrompt = textParts;
 
-    await runArtTopicExtraction(statusEl, topicsBox);
+    statusEl.textContent = '⏳ Gemini topics nikal raha hai...';
+    const prompt = `Neeche di gayi file(s) ka data dekho aur is se 5-8 mumkin article/blog topics suggest karo — har topic aisa ho jo is data se ek acha, interesting, data-driven article ban sake.
+
+${textParts ? `File data:\n"""\n${textParts.slice(0, 15000)}\n"""` : '(Files upar attach hain, unhe dekho)'}
+
+Sirf JSON array return karo, koi extra text nahi:
+[{"topic": "short topic title", "angle": "1-line iska kya interesting angle ho sakta hai"}]`;
+
+    // Pehli image ko pass karo (Gemini ek image/PDF context mein lena support karta hai is call ke liye)
+    const raw = await rzCallGemini(prompt, imageParts[0]?.imagePart);
+    let cleaned = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+    let topics;
+    try{ topics = JSON.parse(cleaned); }
+    catch(e){ statusEl.textContent = '❌ AI ne valid JSON nahi diya.'; console.log(cleaned); return; }
+
+    if(!Array.isArray(topics) || topics.length === 0){ statusEl.textContent = '⚠️ Koi topic nahi mila.'; return; }
+
+    statusEl.textContent = `✅ ${topics.length} topics mile — ek select karein:`;
+    topicsBox.innerHTML = topics.map((t, i) => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="selectArtTopic(${i})">
+        <b>${escapeHtml(t.topic)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(t.angle||'')}</span>
+      </div>
+    `).join('');
+    window._artTopicsCache = topics;
   }catch(e){
     statusEl.textContent = '❌ ' + e.message;
   }
@@ -2794,25 +2296,11 @@ CHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]
 
     const wordCount = bodyHtml.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).length;
     statusBox.textContent = `✅ Article ban gaya (~${wordCount} words) — neeche review kar ke save karein.`;
-
-    await loadArtCategories();
-    const categoryOptionsHtml = artCategoriesCache.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.label)}</option>`).join('');
-
     draftBox.innerHTML = `
       <div class="draft-card">
         <div class="field"><label>Title</label><input type="text" id="artDTitle" value="${escapeHtml(title)}"></div>
         <div class="field"><label>Slug</label><input type="text" id="artDSlug" value="${escapeHtml(slug)}"></div>
         <div class="field"><label>Summary</label><textarea id="artDSummary" rows="2">${escapeHtml(summary)}</textarea></div>
-        <div class="field">
-          <label>Category</label>
-          <select id="artDCategory">${categoryOptionsHtml || '<option value="">— koi category nahi mili —</option>'}</select>
-          <button type="button" class="mini-btn" id="artNewCatToggle" style="margin-top:6px">+ Naya Category Add Karein</button>
-          <div id="artNewCatRow" style="display:none;margin-top:8px;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="text" id="artNewCatLabel" placeholder="Naya category ka naam" style="max-width:260px">
-            <button type="button" class="mini-btn" id="artNewCatSaveBtn">Save Karein</button>
-            <span id="artNewCatStatus" style="font-size:.78rem;color:var(--muted)"></span>
-          </div>
-        </div>
         <div class="field"><label>Body (HTML — preview neeche)</label><textarea id="artDBody" rows="14" style="font-family:monospace;font-size:.78rem">${escapeHtml(bodyHtml)}</textarea></div>
         <div class="field"><label>Preview</label><div dir="rtl" style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff;font-family:'Noto Nastaliq Urdu',serif;font-size:1.05rem;line-height:2;text-align:right">${bodyHtml}</div></div>
         <button class="btn" id="saveArticleBtn">📝 Draft Save Karein</button>
@@ -2820,32 +2308,6 @@ CHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]
       </div>
     `;
     window._artChartData = chartData;
-
-    document.getElementById('artNewCatToggle').addEventListener('click', () => {
-      const row = document.getElementById('artNewCatRow');
-      row.style.display = row.style.display === 'none' ? 'flex' : 'none';
-    });
-
-    document.getElementById('artNewCatSaveBtn').addEventListener('click', async () => {
-      const label = document.getElementById('artNewCatLabel').value.trim();
-      const statusEl = document.getElementById('artNewCatStatus');
-      if(!label){ statusEl.textContent = '❌ Naam likhein.'; return; }
-      const slug = slugifyCategoryLabel(label);
-      if(!slug){ statusEl.textContent = '❌ Valid naam likhein.'; return; }
-      statusEl.textContent = '⏳ Save ho raha hai...';
-      try{
-        await callAdminApi('create-article-category', { method: 'POST', body: JSON.stringify({ slug, label }) });
-        await loadArtCategories();
-        const sel = document.getElementById('artDCategory');
-        sel.innerHTML = artCategoriesCache.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.label)}</option>`).join('');
-        sel.value = slug;
-        document.getElementById('artNewCatLabel').value = '';
-        document.getElementById('artNewCatRow').style.display = 'none';
-        statusEl.textContent = '';
-      }catch(e){
-        statusEl.textContent = '❌ ' + e.message;
-      }
-    });
 
     document.getElementById('saveArticleBtn').addEventListener('click', async () => {
       const saveStatus = document.getElementById('artSaveStatus');
@@ -2860,8 +2322,8 @@ CHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]
             slug: document.getElementById('artDSlug').value.trim(),
             summary: document.getElementById('artDSummary').value.trim(),
             body_html: bodyHtml,
-            category: document.getElementById('artDCategory').value || null,
-            source_label: artSourceLabelOverride || artFilesCache.map(f => f.label).join(', ') || null,
+            category: 'data-insights',
+            source_label: artFilesCache.map(f => f.label).join(', ') || null,
             source_url: null,
             chart_data: window._artChartData,
             word_count: wordCount
@@ -4359,6 +3821,7 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       if(useDirectPhone){
         log('Is phone se seedha fetch kar raha hoon…');
         const directResult = await directFetchClientSide(url, { method: 'GET' });
+        window._tblLastRawHtml = directResult.html;
         result = await callAdminApi(`table-downloader?operation=detect-from-html`, {
           method: 'POST',
           body: JSON.stringify({ html: directResult.html, sourceLabel: url })
@@ -4366,26 +3829,19 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       } else if(useBrowserRelay){
         log('Browser se relay ko call kar raha hoon (ye 30-60+ second le sakta hai, sabar karein)…');
         const relayResult = await relayFetchClientSide(url, { method: 'GET' });
+        window._tblLastRawHtml = relayResult.html;
         result = await callAdminApi(`table-downloader?operation=detect-from-html`, {
           method: 'POST',
           body: JSON.stringify({ html: relayResult.html, sourceLabel: url })
         });
       } else {
+        window._tblLastRawHtml = null;
         result = await callAdminApi(`table-downloader?operation=detect`, {
           method: 'POST',
           body: JSON.stringify({ url, overrideRobots: $('tblIgnoreRobots').checked })
         });
       }
       tblLastDetection = result;
-
-      if(!result.ok){
-        $('tblDetectResult').style.display = 'block';
-        $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${result.message || result.reason}</span>`;
-        $('tblTableChoices').innerHTML = '';
-        $('tblConfigBlock').style.display = 'none';
-        log(`Detect failed: ${result.reason}`);
-        return;
-      }
 
       const rec = result.tables[result.recommendedIndex];
       $('tblDetectResult').style.display = 'block';
@@ -4410,8 +3866,19 @@ document.getElementById('loadStats').addEventListener('click', async () => {
       showResumeIfAvailable();
     } catch(e) {
       $('tblDetectResult').style.display = 'block';
-      $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${e.message}</span>`;
-      log(`Detect error: ${e.message}`);
+      const rawLen = window._tblLastRawHtml ? window._tblLastRawHtml.length : 0;
+      $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${e.message}</span>` +
+        (window._tblLastRawHtml !== undefined && window._tblLastRawHtml !== null
+          ? `<br><br>Raw HTML length fetched: <b>${rawLen} characters</b><br><button class="mini-btn" id="tblShowRawHtmlBtn">🔍 Raw HTML dekhein (debug)</button><textarea id="tblRawHtmlBox" style="display:none;width:100%;margin-top:8px;font-family:monospace;font-size:.7rem" rows="16"></textarea>`
+          : '');
+      log(`Detect error: ${e.message} (raw HTML: ${rawLen} chars)`);
+      if(window._tblLastRawHtml){
+        document.getElementById('tblShowRawHtmlBtn').addEventListener('click', () => {
+          const box = document.getElementById('tblRawHtmlBox');
+          box.value = window._tblLastRawHtml;
+          box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        });
+      }
     } finally {
       $('tblDetectBtn').disabled = false;
       $('tblDetectBtn').textContent = 'Detect Table';
