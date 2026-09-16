@@ -2334,14 +2334,30 @@ document.getElementById('fetchWebDataBtn').addEventListener('click', async () =>
     const fetchLimit = authority ? 200 : 1200;
 
     if(dataType === 'verifications'){
-      let path = `verif-list?limit=${fetchLimit}`;
-      if(authority) path += `&authority=${encodeURIComponent(authority)}`;
-      if(typeFilter) path += `&type=${encodeURIComponent(typeFilter)}`;
-      let fetched = await callAdminApi(path) || [];
-      rows = authority ? fetched : roundRobinByAuthority(fetched, FINAL_COUNT);
-      sourceLabelParts.push('Verifications DB');
-      if(authority) sourceLabelParts.push(authority);
-      if(typeFilter) sourceLabelParts.push(typeFilter);
+      if(authority){
+        let path = `verif-list?limit=200&authority=${encodeURIComponent(authority)}`;
+        if(typeFilter) path += `&type=${encodeURIComponent(typeFilter)}`;
+        rows = await callAdminApi(path) || [];
+        sourceLabelParts.push('Verifications DB', authority);
+        if(typeFilter) sourceLabelParts.push(typeFilter);
+      } else {
+        // Koi authority filter nahi — asal distinct authority list Sources Dashboard se
+        // lekar har ek se alag-alag, barabar sample lete hain. Bade dataset (BEOE, 81% of
+        // total rows) ke "updated_at" ordering pe chhodne se pehle wala approach hamesha
+        // BEOE hi laata tha — ab har authority ko guaranteed sample milta hai.
+        statusEl.textContent = '⏳ Har authority se sample liya ja raha hai...';
+        const dash = await callAdminApi('verif-sources-dashboard');
+        const authorities = [...new Set((dash?.summary || []).map(s => s.authority).filter(Boolean))];
+        const PER_AUTHORITY_LIMIT = 30;
+        const perAuthorityResults = await Promise.all(authorities.map(a => {
+          let p = `verif-list?limit=${PER_AUTHORITY_LIMIT}&authority=${encodeURIComponent(a)}`;
+          if(typeFilter) p += `&type=${encodeURIComponent(typeFilter)}`;
+          return callAdminApi(p).catch(() => []);
+        }));
+        rows = perAuthorityResults.flat();
+        sourceLabelParts.push('Verifications DB', `${authorities.length} authorities mixed (${authorities.join(', ')})`);
+        if(typeFilter) sourceLabelParts.push(typeFilter);
+      }
       artFileDataForPrompt = rows.length
         ? `[Verifications Database — Total ${rows.length} records${authority?` (authority: ${authority})`:' (mixed — har authority se sample liya gaya hai)'}${typeFilter?` (type: ${typeFilter})`:''}]\n` +
           rows.map(r => `- ${r.name} | city: ${r.city||'-'} | authority: ${r.authority} | status: ${r.status}${r.blacklist_status?` | blacklist: ${r.blacklist_status}`:''} | reference_no: ${r.reference_no||'-'} | last_verified: ${r.last_verified||'-'}`).join('\n')
