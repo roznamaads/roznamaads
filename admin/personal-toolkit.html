@@ -1053,21 +1053,39 @@ async function rzCallGemini(prompt, imagePart, maxTokens){
   parts.push({ text: prompt });
   const generationConfig = { temperature: 0.3 };
   if(maxTokens) generationConfig.maxOutputTokens = maxTokens;
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts }], generationConfig })
-  });
-  if(!r.ok){
-    const errText = await r.text();
-    throw new Error(`Gemini error (${r.status}): ${errText.slice(0,200)}`);
+
+  const maxAttempts = 3;
+  let lastErr;
+  for(let attempt = 1; attempt <= maxAttempts; attempt++){
+    let r;
+    try{
+      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts }], generationConfig })
+      });
+    }catch(networkErr){
+      lastErr = networkErr;
+      if(attempt < maxAttempts){ await new Promise(res => setTimeout(res, attempt * 2000)); continue; }
+      throw networkErr;
+    }
+    if(!r.ok){
+      const errText = await r.text();
+      lastErr = new Error(`Gemini error (${r.status}): ${errText.slice(0,200)}`);
+      if((r.status === 503 || r.status === 429) && attempt < maxAttempts){
+        await new Promise(res => setTimeout(res, attempt * 2000)); // 2s, 4s backoff
+        continue;
+      }
+      throw lastErr;
+    }
+    const data = await r.json();
+    const finishReason = data.candidates?.[0]?.finishReason;
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!text) throw new Error('Gemini ne khali jawab diya — key/model check karein.');
+    if(finishReason === 'MAX_TOKENS') throw new Error('Gemini ka jawab output-limit se pehle kat gaya (MAX_TOKENS) — chota topic/kam data try karein.');
+    return text;
   }
-  const data = await r.json();
-  const finishReason = data.candidates?.[0]?.finishReason;
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if(!text) throw new Error('Gemini ne khali jawab diya — key/model check karein.');
-  if(finishReason === 'MAX_TOKENS') throw new Error('Gemini ka jawab output-limit se pehle kat gaya (MAX_TOKENS) — chota topic/kam data try karein.');
-  return text;
+  throw lastErr;
 }
 
 document.getElementById('saveAiSettings').addEventListener('click', () => {
@@ -2244,9 +2262,9 @@ async function runArtTopicExtraction(statusEl, topicsBox){
   const textParts = artFileDataForPrompt;
   const imageParts = artFilesCache.filter(f => f.kind === 'image');
   statusEl.textContent = '⏳ Gemini topics nikal raha hai...';
-  const prompt = `Neeche di gayi file(s) ka data dekho aur is se 5-8 mumkin article/blog topics suggest karo — har topic aisa ho jo is data se ek acha, interesting, data-driven article ban sake.
+  const prompt = `Neeche di gayi file(s) ka data dekho aur is se 10-14 mumkin article/blog topics suggest karo — har topic aisa ho jo is data se ek acha, interesting, data-driven article ban sake. Topics mein variety honi chahiye — agar data mein multiple authorities/categories hain to sab ko cover karo, sirf ek hi cheez pe focus mat karo.
 
-${textParts ? `File data:\n"""\n${textParts.slice(0, 15000)}\n"""` : '(Files upar attach hain, unhe dekho)'}
+${textParts ? `File data:\n"""\n${textParts.slice(0, 40000)}\n"""` : '(Files upar attach hain, unhe dekho)'}
 
 Sirf JSON array return karo, koi extra text nahi:
 [{"topic": "short topic title", "angle": "1-line iska kya interesting angle ho sakta hai"}]`;
@@ -2269,6 +2287,28 @@ Sirf JSON array return karo, koi extra text nahi:
   window._artTopicsCache = topics;
 }
 
+function roundRobinByAuthority(rows, targetCount){
+  const groups = {};
+  for(const r of rows){
+    const key = r.authority || '—';
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  }
+  const keys = Object.keys(groups);
+  const result = [];
+  let i = 0;
+  while(result.length < targetCount && result.length < rows.length){
+    let addedThisRound = false;
+    for(const key of keys){
+      if(groups[key][i]){ result.push(groups[key][i]); addedThisRound = true; }
+      if(result.length >= targetCount) break;
+    }
+    if(!addedThisRound) break;
+    i++;
+  }
+  return result;
+}
+
 document.getElementById('fetchWebDataBtn').addEventListener('click', async () => {
   const statusEl = document.getElementById('artWebDataStatus');
   const topicsStatusEl = document.getElementById('artTopicsStatus');
@@ -2281,33 +2321,40 @@ document.getElementById('fetchWebDataBtn').addEventListener('click', async () =>
   const dataType = document.getElementById('artWebDataType').value;
   const authority = document.getElementById('artWebAuthority').value.trim();
   const typeFilter = document.getElementById('artWebTypeFilter').value;
+  const FINAL_COUNT = 200; // kitne records prompt mein bhejne hain
 
   statusEl.textContent = '⏳ Database se data laaya ja raha hai...';
   try{
     artFilesCache = [];
     let rows = [];
     let sourceLabelParts = [];
+    // Authority filter na ho to bada pool khींचte hain (1200) aur phir har authority se
+    // barabar-barabar records leke variety banate hain — warna sirf sabse bade dataset
+    // (jaise BEOE, 5000+ records) hi hamesha dominate karta.
+    const fetchLimit = authority ? 200 : 1200;
 
     if(dataType === 'verifications'){
-      let path = `verif-list?limit=200`;
+      let path = `verif-list?limit=${fetchLimit}`;
       if(authority) path += `&authority=${encodeURIComponent(authority)}`;
       if(typeFilter) path += `&type=${encodeURIComponent(typeFilter)}`;
-      rows = await callAdminApi(path) || [];
+      let fetched = await callAdminApi(path) || [];
+      rows = authority ? fetched : roundRobinByAuthority(fetched, FINAL_COUNT);
       sourceLabelParts.push('Verifications DB');
       if(authority) sourceLabelParts.push(authority);
       if(typeFilter) sourceLabelParts.push(typeFilter);
       artFileDataForPrompt = rows.length
-        ? `[Verifications Database — Total ${rows.length} records${authority?` (authority: ${authority})`:''}${typeFilter?` (type: ${typeFilter})`:''}]\n` +
+        ? `[Verifications Database — Total ${rows.length} records${authority?` (authority: ${authority})`:' (mixed — har authority se sample liya gaya hai)'}${typeFilter?` (type: ${typeFilter})`:''}]\n` +
           rows.map(r => `- ${r.name} | city: ${r.city||'-'} | authority: ${r.authority} | status: ${r.status}${r.blacklist_status?` | blacklist: ${r.blacklist_status}`:''} | reference_no: ${r.reference_no||'-'} | last_verified: ${r.last_verified||'-'}`).join('\n')
         : '';
     } else {
-      let path = `tenders-list?limit=200`;
+      let path = `tenders-list?limit=${fetchLimit}`;
       if(authority) path += `&authority=${encodeURIComponent(authority)}`;
-      rows = await callAdminApi(path) || [];
+      let fetched = await callAdminApi(path) || [];
+      rows = authority ? fetched : roundRobinByAuthority(fetched, FINAL_COUNT);
       sourceLabelParts.push('Tenders DB');
       if(authority) sourceLabelParts.push(authority);
       artFileDataForPrompt = rows.length
-        ? `[Tenders Database — Total ${rows.length} records${authority?` (authority: ${authority})`:''}]\n` +
+        ? `[Tenders Database — Total ${rows.length} records${authority?` (authority: ${authority})`:' (mixed — har authority se sample liya gaya hai)'}]\n` +
           rows.map(r => `- ${r.title||r.tender_no} | org: ${r.organization||'-'} | authority: ${r.authority||'-'} | status: ${r.status||'-'} | tender_no: ${r.tender_no||'-'} | updated: ${r.updated_at||'-'}`).join('\n')
         : '';
     }

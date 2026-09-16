@@ -414,7 +414,7 @@ export default async function handler(req, res) {
         const search = req.query.search;
         const status = req.query.status;
         const authority = req.query.authority;
-        const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 200);
+        const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 1500);
         let url = `${SB()}/rest/v1/tenders?order=updated_at.desc&select=*&limit=${limit}`;
         if (status) url += `&status=eq.${encodeURIComponent(status)}`;
         if (authority) url += `&authority=eq.${encodeURIComponent(authority)}`;
@@ -428,7 +428,7 @@ export default async function handler(req, res) {
         const type = req.query.type;
         const authority = req.query.authority;
         const search = req.query.search;
-        const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 200);
+        const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 1500);
         let url = `${SB()}/rest/v1/verifications?order=updated_at.desc&select=*&limit=${limit}`;
         if (type) url += `&type=eq.${encodeURIComponent(type)}`;
         if (authority) url += `&authority=eq.${encodeURIComponent(authority)}`;
