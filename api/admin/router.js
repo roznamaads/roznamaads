@@ -160,6 +160,50 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, category: Array.isArray(data) ? data[0] : data });
       }
 
+      case 'opendata-search': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const PORTALS = {
+          kp: 'https://opendata.kp.gov.pk',
+          nodp: 'https://opendata.com.pk'
+        };
+        const portal = req.query.portal;
+        const q = req.query.q || '';
+        const base = PORTALS[portal];
+        if (!base) return res.status(400).json({ error: 'Invalid portal — kp ya nodp use karein' });
+        try {
+          const url = `${base}/api/3/action/package_search?q=${encodeURIComponent(q)}&rows=15`;
+          const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+          const data = await r.json();
+          if (!data.success) return res.status(502).json({ error: 'Portal ne error diya', detail: data.error || data });
+          const results = (data.result?.results || []).map(pkg => ({
+            id: pkg.id,
+            title: pkg.title || pkg.name,
+            notes: (pkg.notes || '').slice(0, 300),
+            organization: pkg.organization?.title || '',
+            resources: (pkg.resources || []).map(res => ({ id: res.id, name: res.name || res.format, format: (res.format || '').toUpperCase(), url: res.url }))
+          }));
+          return res.status(200).json({ ok: true, count: data.result?.count || 0, results });
+        } catch (e) {
+          return res.status(502).json({ error: 'Portal se connect nahi ho saka: ' + e.message });
+        }
+      }
+
+      case 'opendata-fetch-resource': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const resourceUrl = req.query.url;
+        if (!resourceUrl || !/^https?:\/\//i.test(resourceUrl)) return res.status(400).json({ error: 'Valid resource URL chahiye' });
+        try {
+          const r = await fetch(resourceUrl, { signal: AbortSignal.timeout(20000) });
+          if (!r.ok) return res.status(502).json({ error: `Resource fetch failed (${r.status})` });
+          let text = await r.text();
+          const truncated = text.length > 200000;
+          if (truncated) text = text.slice(0, 200000);
+          return res.status(200).json({ ok: true, text, length: text.length, truncated });
+        } catch (e) {
+          return res.status(502).json({ error: 'Resource download nahi ho saka: ' + e.message });
+        }
+      }
+
       case 'publish-all-pending': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
         const r = await fetch(`${SB()}/rest/v1/ads?status=eq.pending`, {

@@ -172,7 +172,24 @@
       <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="file" checked> 📁 File Upload</label>
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="website"> 📊 Website Data (Verifications/Tenders)</label>
+        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="opendata"> 🌐 Open Data API (KP/NODP)</label>
       </div>
+    </div>
+
+    <div id="artOpendataBlock" style="display:none">
+      <div class="field"><label>Portal</label>
+        <select id="artOdPortal">
+          <option value="kp">KP Open Data (opendata.kp.gov.pk)</option>
+          <option value="nodp">NODP (opendata.com.pk)</option>
+        </select>
+      </div>
+      <div class="field"><label>Keyword</label>
+        <input type="text" id="artOdKeyword" placeholder="e.g. education, health, agriculture, budget">
+      </div>
+      <button class="btn" id="odSearchBtn">🔍 Datasets Dhoondhein</button>
+      <div id="artOdStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+      <div id="artOdResults" style="margin-top:12px"></div>
+      <div id="artOdResourcesBox" style="margin-top:12px"></div>
     </div>
 
     <div id="artFileSourceBlock">
@@ -2242,9 +2259,13 @@ document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
     const mode = document.querySelector('input[name="artSourceMode"]:checked').value;
     document.getElementById('artFileSourceBlock').style.display = mode === 'file' ? 'block' : 'none';
     document.getElementById('artWebsiteSourceBlock').style.display = mode === 'website' ? 'block' : 'none';
+    document.getElementById('artOpendataBlock').style.display = mode === 'opendata' ? 'block' : 'none';
     document.getElementById('artTopicsList').innerHTML = '';
     document.getElementById('artTopicsStatus').textContent = '';
     document.getElementById('artWebDataStatus').textContent = '';
+    document.getElementById('artOdStatus').textContent = '';
+    document.getElementById('artOdResults').innerHTML = '';
+    document.getElementById('artOdResourcesBox').innerHTML = '';
     document.getElementById('artGenerateWrap').style.display = 'none';
     document.getElementById('artDraftBox').innerHTML = '';
     artFilesCache = [];
@@ -2384,6 +2405,76 @@ document.getElementById('fetchWebDataBtn').addEventListener('click', async () =>
     statusEl.textContent = '❌ ' + e.message;
   }
 });
+
+document.getElementById('odSearchBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('artOdStatus');
+  const resultsBox = document.getElementById('artOdResults');
+  const resourcesBox = document.getElementById('artOdResourcesBox');
+  resultsBox.innerHTML = '';
+  resourcesBox.innerHTML = '';
+  document.getElementById('artTopicsList').innerHTML = '';
+  document.getElementById('artTopicsStatus').textContent = '';
+  document.getElementById('artGenerateWrap').style.display = 'none';
+  document.getElementById('artDraftBox').innerHTML = '';
+
+  const portal = document.getElementById('artOdPortal').value;
+  const keyword = document.getElementById('artOdKeyword').value.trim();
+  if(!keyword){ statusEl.textContent = '❌ Pehle koi keyword likhein.'; return; }
+
+  statusEl.textContent = '⏳ Datasets dhoondhe ja rahe hain...';
+  try{
+    const data = await callAdminApi(`opendata-search?portal=${portal}&q=${encodeURIComponent(keyword)}`);
+    if(!data || !data.results || data.results.length === 0){ statusEl.textContent = '⚠️ Koi dataset nahi mila — dusra keyword try karein.'; return; }
+    statusEl.textContent = `✅ ${data.results.length} datasets mile (total ${data.count}) — ek select karein:`;
+    resultsBox.innerHTML = data.results.map((d, i) => `
+      <div class="cat-row" style="flex-direction:column;align-items:stretch;cursor:pointer" onclick="selectOdDataset(${i})">
+        <b>${escapeHtml(d.title)}</b>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(d.organization||'')} — ${d.resources.length} file(s): ${d.resources.map(r=>escapeHtml(r.format)).join(', ')}</span>
+        <span style="font-size:.78rem;color:var(--muted)">${escapeHtml(d.notes||'')}</span>
+      </div>
+    `).join('');
+    window._odDatasetsCache = data.results;
+  }catch(e){
+    statusEl.textContent = '❌ ' + e.message;
+  }
+});
+
+function selectOdDataset(i){
+  const ds = window._odDatasetsCache[i];
+  const resourcesBox = document.getElementById('artOdResourcesBox');
+  const usable = ds.resources.filter(r => ['CSV','JSON','TSV','TXT'].includes(r.format));
+  if(usable.length === 0){
+    resourcesBox.innerHTML = `<div style="font-size:.85rem;color:var(--muted)">⚠️ Is dataset mein koi CSV/JSON/TXT resource nahi mila (sirf: ${ds.resources.map(r=>escapeHtml(r.format)).join(', ') || 'koi file nahi'}) — dusra dataset try karein.</div>`;
+    return;
+  }
+  resourcesBox.innerHTML = `<b>"${escapeHtml(ds.title)}" ke resources:</b>` + usable.map((r, j) => `
+    <div class="cat-row" style="cursor:pointer" onclick="selectOdResource(${i}, ${j})">
+      <span>${escapeHtml(r.name)} <span style="color:var(--muted)">(${escapeHtml(r.format)})</span></span>
+      <button type="button" class="mini-btn">Ye Use Karein</button>
+    </div>
+  `).join('');
+  window._odCurrentDatasetIdx = i;
+  window._odUsableResources = usable;
+}
+
+async function selectOdResource(dsIdx, resIdx){
+  const ds = window._odDatasetsCache[dsIdx];
+  const resource = window._odUsableResources[resIdx];
+  const statusEl = document.getElementById('artOdStatus');
+  statusEl.textContent = `⏳ "${resource.name}" download ho raha hai...`;
+  try{
+    artFilesCache = [];
+    const data = await callAdminApi(`opendata-fetch-resource?url=${encodeURIComponent(resource.url)}`);
+    if(!data || !data.text){ statusEl.textContent = '❌ Resource khaali mila.'; return; }
+    artFileDataForPrompt = `[Open Data — ${ds.organization || 'Govt Portal'} — ${ds.title} — file: ${resource.name} (${resource.format})]\n${data.text}`;
+    artSourceLabelOverride = `Open Data — ${ds.title} (${resource.name})`;
+    statusEl.textContent = `✅ Data mil gaya (${data.length} characters${data.truncated ? ', bada file tha to shuru ka hissa liya gaya' : ''}).`;
+    await runArtTopicExtraction(document.getElementById('artTopicsStatus'), document.getElementById('artTopicsList'));
+  }catch(e){
+    statusEl.textContent = '❌ ' + e.message;
+  }
+}
+
 
 document.getElementById('extractTopicsBtn').addEventListener('click', async () => {
   const statusEl = document.getElementById('artTopicsStatus');
