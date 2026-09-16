@@ -238,6 +238,28 @@ export default async function handler(req, res) {
         }
       }
 
+      case 'sbp-easydata-fetch': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const apiKey = req.query.api_key;
+        const series = req.query.series;
+        if (!apiKey) return res.status(400).json({ error: 'SBP API key chahiye — AI Settings tab mein daal kar Save karein.' });
+        if (!series || !/^[A-Za-z0-9_.]+$/.test(series)) return res.status(400).json({ error: 'Valid series key chahiye' });
+        let url = `https://easydata.sbp.org.pk/api/v1/series/${series}/data?api_key=${encodeURIComponent(apiKey)}&format=json`;
+        if (req.query.start_date) url += `&start_date=${encodeURIComponent(req.query.start_date)}`;
+        if (req.query.end_date) url += `&end_date=${encodeURIComponent(req.query.end_date)}`;
+        try {
+          const { status, text } = await fetchGovUrl(url);
+          if (status === 401 || status === 403) return res.status(401).json({ error: 'SBP ne key reject ki — expire ho chuki ho sakti hai (90 din mein expire hoti hai). easydata.sbp.org.pk pe jaake naya key generate karein.' });
+          if (status < 200 || status >= 300) return res.status(502).json({ error: `SBP se error mila (${status})` });
+          let data;
+          try{ data = JSON.parse(text); }
+          catch{ return res.status(502).json({ error: 'SBP se invalid response mila.' }); }
+          return res.status(200).json({ ok: true, data });
+        } catch (e) {
+          return res.status(502).json({ error: 'SBP se connect nahi ho saka: ' + e.message });
+        }
+      }
+
       case 'publish-all-pending': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
         const r = await fetch(`${SB()}/rest/v1/ads?status=eq.pending`, {
