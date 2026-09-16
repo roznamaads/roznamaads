@@ -99,6 +99,24 @@
     ⚠️ Ye nateeja ek maloomati tasdeeq aur risk assessment hai — ye koi qanooni faisla, tauseeq ya guarantee nahi. Ye AI chatbot nahi hai aur na hi verification ka mukammal badal. Adaigi ya wabastagi se pehle hamesha mutalliqa official idaray se khud tasdeeq karein.
   </div>
   <p class="sc-report-link">Koi fraud/scam suspect hua? <a href="report-risk.html">Hamein report karein</a> — har report admin review ke baad hi consider hota hai.</p>
+
+  <div class="sc-permission-checker" style="max-width:640px;margin:30px auto 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px">
+    <h2 style="font-size:1.15rem;margin:0 0 6px">🛂 Apna Visa Permission Number Verify Karein</h2>
+    <p style="font-size:.85rem;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Agar aapko koi visa/job offer mila hai, to BEOE ke official record se confirm karein:
+      kya ye offer wahi agency de rahi hai jo claim kar rahi hai, kya salary sahi hai, aur
+      kya offer abhi valid hai — <b>paisay dene se pehle</b>.
+    </p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input type="text" id="scPermissionInput" placeholder="Permission No. likhein (e.g. 4709541)" style="flex:1;min-width:180px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:.9rem">
+      <button id="scPermissionBtn" style="background:var(--accent,#1f8a4c);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:.9rem;font-weight:700;cursor:pointer">BEOE Official Site pe Verify Karein →</button>
+    </div>
+    <p style="font-size:.75rem;color:var(--muted);margin:10px 0 0">
+      Ye button aapko seedha BEOE ki official website (beoe.gov.pk) ke us record ke page par le
+      jayega — hum khud data nahi dikhate, taake aapko hamesha sab se up-to-date aur official
+      jawab mile.
+    </p>
+  </div>
 </main>
 
 <footer>
@@ -343,6 +361,15 @@ async function runScamCheck(){
 
 document.getElementById('scSearchBtn').addEventListener('click', runScamCheck);
 document.getElementById('scSearchInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') runScamCheck(); });
+
+document.getElementById('scPermissionBtn').addEventListener('click', () => {
+  const num = document.getElementById('scPermissionInput').value.trim().replace(/[^0-9]/g, '');
+  if(!num){ alert('Pehle Permission Number likhein.'); return; }
+  window.open(`https://beoe.gov.pk/foreign-jobs/${num}`, '_blank', 'noopener');
+});
+document.getElementById('scPermissionInput').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') document.getElementById('scPermissionBtn').click();
+});
 </script>
 </body>
 </html>
