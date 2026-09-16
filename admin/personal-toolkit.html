@@ -3845,11 +3845,14 @@ document.getElementById('loadStats').addEventListener('click', async () => {
 
       if(!result.ok){
         $('tblDetectResult').style.display = 'block';
+        const rawLen = window._tblLastRawHtml ? window._tblLastRawHtml.length : 0;
         $('tblDetectBody').innerHTML = `<span style="color:#c0392b">❌ ${result.message || result.reason}</span>` +
-          (window._tblLastRawHtml ? `<br><br><button class="mini-btn" id="tblShowRawHtmlBtn">🔍 Raw HTML dekhein (debug)</button><textarea id="tblRawHtmlBox" style="display:none;width:100%;margin-top:8px;font-family:monospace;font-size:.7rem" rows="16"></textarea>` : '');
+          (window._tblLastRawHtml !== undefined && window._tblLastRawHtml !== null
+            ? `<br><br>Raw HTML length fetched: <b>${rawLen} characters</b><br><button class="mini-btn" id="tblShowRawHtmlBtn">🔍 Raw HTML dekhein (debug)</button><textarea id="tblRawHtmlBox" style="display:none;width:100%;margin-top:8px;font-family:monospace;font-size:.7rem" rows="16"></textarea>`
+            : '<br><br><i>(Is mode mein raw HTML cache nahi hui — server-side fetch tha)</i>');
         $('tblTableChoices').innerHTML = '';
         $('tblConfigBlock').style.display = 'none';
-        log(`Detect failed: ${result.reason}`);
+        log(`Detect failed: ${result.reason} (raw HTML: ${rawLen} chars)`);
         if(window._tblLastRawHtml){
           document.getElementById('tblShowRawHtmlBtn').addEventListener('click', () => {
             const box = document.getElementById('tblRawHtmlBox');
