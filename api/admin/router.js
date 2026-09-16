@@ -238,6 +238,25 @@ export default async function handler(req, res) {
         }
       }
 
+      case 'sbp-easydata-meta': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const apiKey = req.query.api_key;
+        const datasetCode = req.query.dataset_code;
+        if (!apiKey) return res.status(400).json({ error: 'SBP API key chahiye — AI Settings tab mein daal kar Save karein.' });
+        if (!datasetCode || !/^[A-Za-z0-9_]+$/.test(datasetCode)) return res.status(400).json({ error: 'Valid dataset code chahiye' });
+        const url = `https://easydata.sbp.org.pk/api/v1/dataset/${datasetCode}/meta?api_key=${encodeURIComponent(apiKey)}&format=json`;
+        try {
+          const { status, text } = await fetchGovUrl(url);
+          if (status < 200 || status >= 300) return res.status(502).json({ error: `SBP se error mila (HTTP ${status}): ${text.slice(0, 300)}` });
+          let data;
+          try{ data = JSON.parse(text); }
+          catch{ return res.status(502).json({ error: 'SBP se invalid response mila: ' + text.slice(0, 300) }); }
+          return res.status(200).json({ ok: true, data });
+        } catch (e) {
+          return res.status(502).json({ error: 'SBP se connect nahi ho saka: ' + e.message });
+        }
+      }
+
       case 'sbp-easydata-fetch': {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
         const apiKey = req.query.api_key;

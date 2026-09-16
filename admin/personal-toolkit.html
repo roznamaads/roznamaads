@@ -214,6 +214,16 @@
         <input type="text" id="artSbpSeriesKey" placeholder="e.g. TS_GP_BOP_WR_M.WR0010">
         <span style="font-size:.78rem;color:var(--muted)">Naye series key <a href="https://easydata.sbp.org.pk" target="_blank">easydata.sbp.org.pk</a> ke "Datasets" tab se copy karein (har series ki apni "Series Key" likhi hoti hai).</span>
       </div>
+      <div class="field"><label>🔎 Dataset ke sab series dhoondhein (optional)</label>
+        <input type="text" id="artSbpDatasetCode" placeholder="e.g. TS_GP_PF_ZAKATRCT_Y (series key ka '.' se pehle wala hissa)">
+        <span style="font-size:.78rem;color:var(--muted)">Series Key field bhari ho to yahan khali chhod kar button dabayein — dataset code khud nikal jayega.</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn" id="sbpMetaServerBtn">🔎 Series Dhoondhein (Server se)</button>
+        <button type="button" class="btn alt" id="sbpMetaPhoneBtn">📱 Phone se Try Karein</button>
+      </div>
+      <div id="artSbpMetaStatus" style="margin-top:8px;font-size:.85rem;color:var(--muted)"></div>
+      <div id="artSbpMetaResults" style="margin-top:10px"></div>
       <div class="field"><label>Start Date (optional, YYYY-MM-DD)</label>
         <input type="text" id="artSbpStartDate" placeholder="e.g. 2020-01-01"></div>
       <div class="field"><label>End Date (optional, YYYY-MM-DD)</label>
@@ -2545,6 +2555,86 @@ async function processSbpPayload(payload, series, statusEl){
   statusEl.textContent = `✅ ${rows.length} observations mile.`;
   await runArtTopicExtraction(document.getElementById('artTopicsStatus'), document.getElementById('artTopicsList'));
 }
+
+function buildSbpMetaUrl(datasetCode, apiKey){
+  return `https://easydata.sbp.org.pk/api/v1/dataset/${encodeURIComponent(datasetCode)}/meta?api_key=${encodeURIComponent(apiKey)}&format=json`;
+}
+
+function getSbpDatasetCode(){
+  const explicit = document.getElementById('artSbpDatasetCode').value.trim();
+  if(explicit) return explicit;
+  const seriesKey = document.getElementById('artSbpSeriesKey').value.trim();
+  if(seriesKey.includes('.')) return seriesKey.split('.')[0];
+  return '';
+}
+
+// SBP ki meta API ka exact response shape documented nahi mila — is liye defensive
+// parsing: kayi mumkin shapes try karte hain, aur kuch na mile to raw JSON dikha dete
+// hain taake dekh kar aage fix ho sake.
+function renderSbpMetaResults(data, resultsBox, statusEl){
+  let list = [];
+  if(Array.isArray(data?.series)){
+    list = data.series.map(s => ({ key: s.series_key || s.seriesKey || s.key || '', name: s.series_name || s.seriesName || s.name || '' }));
+  } else if(Array.isArray(data?.rows) && Array.isArray(data?.columns)){
+    const keyIdx = data.columns.findIndex(c => /series\s*key/i.test(c));
+    const nameIdx = data.columns.findIndex(c => /series\s*name/i.test(c));
+    if(keyIdx >= 0){
+      list = data.rows.map(r => ({ key: r[keyIdx] || '', name: nameIdx >= 0 ? (r[nameIdx] || '') : '' }));
+    }
+  }
+  list = list.filter(s => s.key);
+
+  if(list.length === 0){
+    statusEl.textContent = '⚠️ Series list ka format pehchana nahi gaya — raw response neeche hai, isse dekh kar batayein kya format hai:';
+    resultsBox.innerHTML = `<pre style="white-space:pre-wrap;font-size:.72rem;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:300px;overflow-y:auto">${escapeHtml(JSON.stringify(data, null, 2)).slice(0,3000)}</pre>`;
+    return;
+  }
+  statusEl.textContent = `✅ ${list.length} series mile — ek select karein:`;
+  resultsBox.innerHTML = list.map((s, i) => `
+    <div class="cat-row" style="cursor:pointer" onclick="document.getElementById('artSbpSeriesKey').value='${escapeHtml(s.key)}'">
+      <span><b>${escapeHtml(s.key)}</b> — ${escapeHtml(s.name)}</span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('sbpMetaServerBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('artSbpMetaStatus');
+  const resultsBox = document.getElementById('artSbpMetaResults');
+  resultsBox.innerHTML = '';
+  const sbpKey = rzSbpKey();
+  if(!sbpKey){ statusEl.textContent = '❌ SBP API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.'; return; }
+  const datasetCode = getSbpDatasetCode();
+  if(!datasetCode){ statusEl.textContent = '❌ Dataset code chahiye — ya to wo field bharein, ya upar Series Key mein kuch likhein.'; return; }
+
+  statusEl.textContent = '⏳ Server se dhoondha ja raha hai...';
+  try{
+    const result = await callAdminApi(`sbp-easydata-meta?dataset_code=${encodeURIComponent(datasetCode)}&api_key=${encodeURIComponent(sbpKey)}`);
+    renderSbpMetaResults(result?.data, resultsBox, statusEl);
+  }catch(e){
+    statusEl.textContent = '❌ ' + e.message + ' — "📱 Phone se Try Karein" button try karein.';
+  }
+});
+
+document.getElementById('sbpMetaPhoneBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('artSbpMetaStatus');
+  const resultsBox = document.getElementById('artSbpMetaResults');
+  resultsBox.innerHTML = '';
+  const sbpKey = rzSbpKey();
+  if(!sbpKey){ statusEl.textContent = '❌ SBP API key set nahi hai — pehle "AI Settings" tab mein daal kar Save karein.'; return; }
+  const datasetCode = getSbpDatasetCode();
+  if(!datasetCode){ statusEl.textContent = '❌ Dataset code chahiye — ya to wo field bharein, ya upar Series Key mein kuch likhein.'; return; }
+
+  statusEl.textContent = '⏳ Phone se direct dhoondha ja raha hai...';
+  try{
+    const resp = await fetch(buildSbpMetaUrl(datasetCode, sbpKey));
+    if(!resp.ok){ statusEl.textContent = `❌ SBP se error mila (HTTP ${resp.status}).`; return; }
+    const data = await resp.json();
+    renderSbpMetaResults(data, resultsBox, statusEl);
+  }catch(e){
+    statusEl.textContent = '❌ Direct fetch fail hui — Kiwi Browser + "Allow CORS" extension try karein.';
+  }
+});
+
 
 document.getElementById('sbpFetchBtn').addEventListener('click', async () => {
   const statusEl = document.getElementById('artSbpStatus');
