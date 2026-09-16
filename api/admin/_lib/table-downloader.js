@@ -64,7 +64,7 @@ function extractCookiesFromFetchHeaders(headers) {
   return parseSetCookieHeader(headers.get ? headers.get('set-cookie') : null);
 }
 
-async function relayRequest(urlString, { method = 'GET', headers = {}, body = null, contentType = null } = {}) {
+export async function relayRequest(urlString, { method = 'GET', headers = {}, body = null, contentType = null } = {}) {
   if (!RELAY_URL || !RELAY_SECRET) {
     throw new Error('Relay configure nahi hai (RELAY_URL / RELAY_SECRET Vercel env vars missing).');
   }

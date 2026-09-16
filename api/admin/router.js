@@ -8,23 +8,36 @@ import { hecData } from './_lib/hec-data.js';
 import { hecUniversitiesData } from './_lib/hec-universities-data.js';
 import { hecIllegalData } from './_lib/hec-illegal-data.js';
 import { ppraBlacklistData } from './_lib/ppra-blacklist-data.js';
-import { detectTableAndPagination, fetchSinglePage, fetchPostbackPage, detectTableFromHtml, extractRowsFromHtml } from './_lib/table-downloader.js';
+import { detectTableAndPagination, fetchSinglePage, fetchPostbackPage, detectTableFromHtml, extractRowsFromHtml, relayRequest } from './_lib/table-downloader.js';
 import { Agent } from 'undici';
 
 // Kuch Pakistani govt open-data portals ka TLS cert chain incomplete hota hai
-// (jaisa HEC ke saath pehle dekha gaya — Table Downloader mein isi wajah se
-// insecureAgent bana tha). Open-data proxy endpoints ke liye wahi pattern
-// reuse kar rahe hain: pehle normal fetch, fail ho to relaxed-TLS retry.
+// (jaisa HEC ke saath pehle dekha gaya), aur kuch Vercel ke datacenter IPs
+// block/ignore karte hain (jaisa BEOE/PPRA-Punjab). Open-data proxy endpoints
+// ke liye Table Downloader wala hi 3-step fallback chain reuse kar rahe hain:
+// 1) direct fetch  2) relaxed-TLS retry  3) Google Apps Script relay
+// (RELAY_URL/RELAY_SECRET env vars — already configured for Table Downloader).
 const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
-async function fetchWithTlsFallback(url, opts = {}){
+const FAST_TIMEOUT_MS = 5000; // fail fast taake relay (48s tak) ke liye time bache — function ka maxDuration 60s hai
+
+async function fetchGovUrl(url){
   try{
-    return await fetch(url, opts);
-  }catch(e){
+    const r = await fetch(url, { signal: AbortSignal.timeout(FAST_TIMEOUT_MS) });
+    return { status: r.status, text: await r.text() };
+  }catch(e1){
     try{
-      return await fetch(url, { ...opts, dispatcher: insecureAgent });
+      const r2 = await fetch(url, { signal: AbortSignal.timeout(FAST_TIMEOUT_MS), dispatcher: insecureAgent });
+      return { status: r2.status, text: await r2.text() };
     }catch(e2){
-      const cause = e2.cause?.message || e2.cause?.code || e2.message;
-      throw new Error(cause);
+      if(process.env.RELAY_URL && process.env.RELAY_SECRET){
+        try{
+          const relayResult = await relayRequest(url, { method: 'GET' });
+          return { status: relayResult.status, text: relayResult.html };
+        }catch(e3){
+          throw new Error(`Direct connect fail (site shayad Vercel ke IP block karti hai), TLS retry bhi fail, aur relay bhi fail: ${e3.message}`);
+        }
+      }
+      throw new Error(e2.cause?.message || e2.message);
     }
   }
 }
@@ -191,8 +204,10 @@ export default async function handler(req, res) {
         if (!base) return res.status(400).json({ error: 'Invalid portal — kp ya nodp use karein' });
         try {
           const url = `${base}/api/3/action/package_search?q=${encodeURIComponent(q)}&rows=15`;
-          const r = await fetchWithTlsFallback(url, { signal: AbortSignal.timeout(15000) });
-          const data = await r.json();
+          const { text } = await fetchGovUrl(url);
+          let data;
+          try{ data = JSON.parse(text); }
+          catch{ return res.status(502).json({ error: 'Portal se invalid response mila (JSON parse fail).' }); }
           if (!data.success) return res.status(502).json({ error: 'Portal ne error diya', detail: data.error || data });
           const results = (data.result?.results || []).map(pkg => ({
             id: pkg.id,
@@ -203,7 +218,7 @@ export default async function handler(req, res) {
           }));
           return res.status(200).json({ ok: true, count: data.result?.count || 0, results });
         } catch (e) {
-          return res.status(502).json({ error: 'Portal se connect nahi ho saka: ' + (e.cause?.message || e.message) });
+          return res.status(502).json({ error: 'Portal se connect nahi ho saka: ' + e.message });
         }
       }
 
@@ -212,14 +227,14 @@ export default async function handler(req, res) {
         const resourceUrl = req.query.url;
         if (!resourceUrl || !/^https?:\/\//i.test(resourceUrl)) return res.status(400).json({ error: 'Valid resource URL chahiye' });
         try {
-          const r = await fetchWithTlsFallback(resourceUrl, { signal: AbortSignal.timeout(20000) });
-          if (!r.ok) return res.status(502).json({ error: `Resource fetch failed (${r.status})` });
-          let text = await r.text();
-          const truncated = text.length > 200000;
-          if (truncated) text = text.slice(0, 200000);
-          return res.status(200).json({ ok: true, text, length: text.length, truncated });
+          const { status, text } = await fetchGovUrl(resourceUrl);
+          if (status < 200 || status >= 300) return res.status(502).json({ error: `Resource fetch failed (${status})` });
+          let finalText = text;
+          const truncated = finalText.length > 200000;
+          if (truncated) finalText = finalText.slice(0, 200000);
+          return res.status(200).json({ ok: true, text: finalText, length: finalText.length, truncated });
         } catch (e) {
-          return res.status(502).json({ error: 'Resource download nahi ho saka: ' + (e.cause?.message || e.message) });
+          return res.status(502).json({ error: 'Resource download nahi ho saka: ' + e.message });
         }
       }
 
