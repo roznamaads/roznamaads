@@ -2562,7 +2562,7 @@ function buildSbpMetaUrl(datasetCode, apiKey){
 
 function getSbpDatasetCode(){
   const explicit = document.getElementById('artSbpDatasetCode').value.trim();
-  if(explicit) return explicit;
+  if(explicit) return explicit.includes('.') ? explicit.split('.')[0] : explicit;
   const seriesKey = document.getElementById('artSbpSeriesKey').value.trim();
   if(seriesKey.includes('.')) return seriesKey.split('.')[0];
   return '';
