@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="share-widget.js"></script>
 <script src="analytics-config.js"></script>
 <script src="badges.js"></script>
 <style>
@@ -95,6 +96,7 @@
 
 <main id="main-content" class="sc-results">
   <div id="scResults" class="vempty">Target type chunein, naam/number/URL likhein aur "Check" dabayein.</div>
+  <div id="scShareRow" style="display:none;text-align:center;margin:14px 0"><div id="shareWidget" style="display:inline-block"></div></div>
   <div class="vdisclaimer">
     ⚠️ Ye nateeja ek maloomati tasdeeq aur risk assessment hai — ye koi qanooni faisla, tauseeq ya guarantee nahi. Ye AI chatbot nahi hai aur na hi verification ka mukammal badal. Adaigi ya wabastagi se pehle hamesha mutalliqa official idaray se khud tasdeeq karein.
   </div>
@@ -220,6 +222,10 @@ async function runScamCheck(){
   if(!q){ alert('Pehle naam/number/URL likhein.'); return; }
   box.className = 'vempty';
   box.innerHTML = 'Check ho raha hai...';
+
+  // URL ko search ke sath sync karte hain — taake result shareable/bookmarkable ho
+  const newUrl = `${location.pathname}?type=${encodeURIComponent(type)}&q=${encodeURIComponent(q)}`;
+  history.replaceState(null, '', newUrl);
 
   try{
     let verificationRows = [];
@@ -356,10 +362,28 @@ async function runScamCheck(){
     box.innerHTML = cards.join('');
   }catch(e){
     box.innerHTML = '❌ Check mein masla hua: ' + escapeHtml(e.message || String(e));
+  }finally{
+    document.getElementById('scShareRow').style.display = 'block';
+    renderShareWidget('shareWidget', {
+      url: location.href,
+      title: `${q} — Scam Checker Result — RoznamaAds.pk`
+    });
   }
 }
 
 document.getElementById('scSearchBtn').addEventListener('click', runScamCheck);
+
+// Agar URL mein ?type=&q= diya gaya ho (shared link se aaya ho), to khud search kar dein
+(function initFromUrl(){
+  const params = new URLSearchParams(location.search);
+  const urlType = params.get('type');
+  const urlQ = params.get('q');
+  if(urlType && urlQ){
+    document.getElementById('scType').value = urlType;
+    document.getElementById('scSearchInput').value = urlQ;
+    runScamCheck();
+  }
+})();
 document.getElementById('scSearchInput').addEventListener('keydown', (e) => { if(e.key === 'Enter') runScamCheck(); });
 
 document.getElementById('scPermissionBtn').addEventListener('click', () => {

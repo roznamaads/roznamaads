@@ -148,6 +148,13 @@ footer .copy .foot-email{display:block;margin-top:6px}
 
 /* ToolNest cross-promotion widget */
 .toolnest-card{display:flex;gap:14px;align-items:center;margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;text-decoration:none;color:inherit;transition:border-color .15s}
+.share-widget{position:relative;display:inline-block}
+.share-btn{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font-size:.88rem;font-weight:600;color:var(--green-dark);cursor:pointer}
+.share-btn:hover{border-color:var(--green)}
+.share-menu{position:absolute;top:calc(100% + 6px);left:0;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.1);padding:6px;min-width:160px;z-index:20}
+.share-menu a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:7px;text-decoration:none;color:var(--ink);font-size:.85rem}
+.share-menu a:hover{background:var(--green-pale)}
+.share-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .toolnest-card:hover{border-color:var(--green)}
 .toolnest-card .tn-card-icon{font-size:1.8rem;flex-shrink:0}
 .toolnest-card .tn-label{font-size:.78rem;color:var(--muted);margin:0 0 4px}
