@@ -181,6 +181,7 @@
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="website"> 📊 Website Data (Verifications/Tenders)</label>
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="opendata"> 🌐 Open Data API (KP/NODP)</label>
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="sbp"> 🏦 SBP EasyData (Economic Indicators)</label>
+        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="guide"> 📘 Guide/How-To Article</label>
       </div>
     </div>
 
@@ -239,6 +240,17 @@
       <button class="btn" id="sbpFetchBtn">🏦 Data Laayein (Server se)</button>
       <button class="btn alt" id="sbpDirectFetchBtn" style="margin-top:8px">📱 Phone se Direct Try Karein (agar upar wala fail ho)</button>
       <div id="artSbpStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+    </div>
+
+    <div id="artGuideBlock" style="display:none">
+      <div class="field"><label>Guide Topic (title/subject)</label>
+        <input type="text" id="artGuideTopic" placeholder="e.g. Property ad newspaper mein kaise dhoondein">
+      </div>
+      <div class="field"><label>Extra Notes (optional — jo points zaroor cover hon)</label>
+        <textarea id="artGuideNotes" rows="3" placeholder="e.g. Trust/scam se bachne ke tips, RoznamaAds.pk ka scam-checker mention karo, wagera"></textarea>
+      </div>
+      <button class="btn" id="guideTopicsBtn">🔍 Angles/Sub-Topics Nikalein</button>
+      <div id="artGuideStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     </div>
 
     <div id="artFileSourceBlock">
@@ -2279,6 +2291,7 @@ document.getElementById('beoeConvertBtn').addEventListener('click', async () => 
 let artFilesCache = [];       // { file, kind: 'text'|'image', textContent?, imagePart? }
 let artFileDataForPrompt = ''; // combined text summary of all files or DB rows, for prompt
 let artSourceLabelOverride = null; // set when source = website data, else falls back to file labels
+let artIsGuideMode = false; // true when "Guide/How-To Article" source is selected — changes the final-article prompt framing
 let artCategoriesCache = [];  // { id, slug, label } loaded from article_categories table
 
 async function loadArtCategories(){
@@ -2322,7 +2335,9 @@ document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
     document.getElementById('artWebsiteSourceBlock').style.display = mode === 'website' ? 'block' : 'none';
     document.getElementById('artOpendataBlock').style.display = mode === 'opendata' ? 'block' : 'none';
     document.getElementById('artSbpBlock').style.display = mode === 'sbp' ? 'block' : 'none';
+    document.getElementById('artGuideBlock').style.display = mode === 'guide' ? 'block' : 'none';
     if(mode === 'sbp') loadSbpBookmarks();
+    artIsGuideMode = (mode === 'guide');
     document.getElementById('artTopicsList').innerHTML = '';
     document.getElementById('artTopicsStatus').textContent = '';
     document.getElementById('artWebDataStatus').textContent = '';
@@ -2330,6 +2345,7 @@ document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
     document.getElementById('artOdResults').innerHTML = '';
     document.getElementById('artOdResourcesBox').innerHTML = '';
     document.getElementById('artSbpStatus').textContent = '';
+    document.getElementById('artGuideStatus').textContent = '';
     document.getElementById('artGenerateWrap').style.display = 'none';
     document.getElementById('artDraftBox').innerHTML = '';
     artFilesCache = [];
@@ -2391,18 +2407,7 @@ document.getElementById('artWebDataType').addEventListener('change', () => {
     document.getElementById('artWebDataType').value === 'verifications' ? 'block' : 'none';
 });
 
-async function runArtTopicExtraction(statusEl, topicsBox){
-  const textParts = artFileDataForPrompt;
-  const imageParts = artFilesCache.filter(f => f.kind === 'image');
-  statusEl.textContent = '⏳ Gemini topics nikal raha hai...';
-  const prompt = `Neeche di gayi file(s) ka data dekho aur is se 10-14 mumkin article/blog topics suggest karo — har topic aisa ho jo is data se ek acha, interesting, data-driven article ban sake. Topics mein variety honi chahiye — agar data mein multiple authorities/categories hain to sab ko cover karo, sirf ek hi cheez pe focus mat karo.
-
-${textParts ? `File data:\n"""\n${textParts.slice(0, 40000)}\n"""` : '(Files upar attach hain, unhe dekho)'}
-
-Sirf JSON array return karo, koi extra text nahi:
-[{"topic": "short topic title", "angle": "1-line iska kya interesting angle ho sakta hai"}]`;
-
-  const raw = await rzCallGemini(prompt, imageParts[0]?.imagePart);
+async function renderTopicsFromRawResponse(raw, statusEl, topicsBox){
   let cleaned = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
   let topics;
   try{ topics = JSON.parse(cleaned); }
@@ -2419,6 +2424,59 @@ Sirf JSON array return karo, koi extra text nahi:
   `).join('');
   window._artTopicsCache = topics;
 }
+
+async function runArtTopicExtraction(statusEl, topicsBox){
+  const textParts = artFileDataForPrompt;
+  const imageParts = artFilesCache.filter(f => f.kind === 'image');
+  statusEl.textContent = '⏳ Gemini topics nikal raha hai...';
+  const prompt = `Neeche di gayi file(s) ka data dekho aur is se 10-14 mumkin article/blog topics suggest karo — har topic aisa ho jo is data se ek acha, interesting, data-driven article ban sake. Topics mein variety honi chahiye — agar data mein multiple authorities/categories hain to sab ko cover karo, sirf ek hi cheez pe focus mat karo.
+
+${textParts ? `File data:\n"""\n${textParts.slice(0, 40000)}\n"""` : '(Files upar attach hain, unhe dekho)'}
+
+Sirf JSON array return karo, koi extra text nahi:
+[{"topic": "short topic title", "angle": "1-line iska kya interesting angle ho sakta hai"}]`;
+
+  const raw = await rzCallGemini(prompt, imageParts[0]?.imagePart);
+  await renderTopicsFromRawResponse(raw, statusEl, topicsBox);
+}
+
+async function runGuideTopicExtraction(topic, notes, statusEl, topicsBox){
+  statusEl.textContent = '⏳ Gemini angles nikal raha hai...';
+  const prompt = `RoznamaAds.pk (Pakistani classified ads + verification website) ke liye ek practical "how-to/guide" style blog article banana hai.
+
+Main Topic: "${topic}"
+${notes ? `Extra notes jo cover honi chahiye: ${notes}` : ''}
+
+Is topic ke around 10-14 mumkin angles/sub-topics suggest karo — har ek aisa ho jo is topic ka ek alag practical/useful pehlu cover kare (jaise: step-by-step guide, common scams se bachna, price negotiation tips, verification tips, red flags, best practices, wagera). Ye data-driven nahi, practical advice/how-to content hai.
+
+Sirf JSON array return karo, koi extra text nahi:
+[{"topic": "short angle title", "angle": "1-line iska kya practical value hai"}]`;
+
+  const raw = await rzCallGemini(prompt);
+  await renderTopicsFromRawResponse(raw, statusEl, topicsBox);
+}
+
+document.getElementById('guideTopicsBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('artGuideStatus');
+  const topicsBox = document.getElementById('artTopicsList');
+  document.getElementById('artTopicsStatus').textContent = '';
+  document.getElementById('artGenerateWrap').style.display = 'none';
+  document.getElementById('artDraftBox').innerHTML = '';
+  topicsBox.innerHTML = '';
+
+  const topic = document.getElementById('artGuideTopic').value.trim();
+  const notes = document.getElementById('artGuideNotes').value.trim();
+  if(!topic){ statusEl.textContent = '❌ Pehle guide topic likhein.'; return; }
+
+  try{
+    artFilesCache = [];
+    artFileDataForPrompt = notes ? `[Extra notes jo article mein cover honi chahiye]\n${notes}` : '';
+    artSourceLabelOverride = `Guide/How-To — ${topic}`;
+    await runGuideTopicExtraction(topic, notes, statusEl, topicsBox);
+  }catch(e){
+    statusEl.textContent = '❌ ' + e.message;
+  }
+});
 
 function roundRobinByAuthority(rows, targetCount){
   const groups = {};
@@ -2796,16 +2854,33 @@ document.getElementById('genArticleBtn').addEventListener('click', async () => {
   draftBox.innerHTML = '';
 
   const imageParts = artFilesCache.filter(f => f.kind === 'image');
-  const prompt = `Tum RoznamaAds.pk ke liye ek Pakistani-audience data-journalism article likh rahe ho.
+
+  const contextBlock = artIsGuideMode
+    ? (artFileDataForPrompt ? `Extra notes jo cover karni hain:\n"""\n${artFileDataForPrompt.slice(0, 5000)}\n"""\n` : '')
+    : (artFileDataForPrompt ? `Neeche diya gaya asal data istemal karo article mein — sirf isi data ke numbers/facts quote karo, kuch bhi fabricate mat karo:\n"""\n${artFileDataForPrompt.slice(0, 15000)}\n"""\n` : '(Attached file(s) ka data istemal karo — jo bhi image/PDF di gayi hai usse padh kar.)');
+
+  const roleLine = artIsGuideMode
+    ? 'Tum RoznamaAds.pk (Pakistani classified ads + verification website) ke liye ek practical "how-to/guide" style blog article likh rahe ho — apna general knowledge aur practical Pakistani-context tajurba istemal karo, koi specific dataset zaroori nahi.'
+    : 'Tum RoznamaAds.pk ke liye ek Pakistani-audience data-journalism article likh rahe ho.';
+
+  const tableInstruction = artIsGuideMode
+    ? 'Jahan step-by-step ya comparison ho munasib ho, wahan HTML <table> ya <ul>/<ol> banao (readable, Urdu mein).'
+    : 'Jahan data ka comparison/breakdown ho, wahan HTML <table> banao (thead ke sath, readable) — table ke andar labels/headings bhi Urdu mein likho, sirf numbers English digits mein rakho.';
+
+  const chartLine = artIsGuideMode
+    ? 'CHART_TYPE: [NONE — guide articles mein chart zaroori nahi]\nCHART_LABELS: [NONE]\nCHART_VALUES: [NONE]\nCHART_DATASET_LABEL: [NONE]'
+    : 'CHART_TYPE: [bar ya line ya NONE]\nCHART_LABELS: [comma-separated labels — Urdu mein likh sakte hain, ya NONE]\nCHART_VALUES: [comma-separated numbers, ya NONE]\nCHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]';
+
+  const prompt = `${roleLine}
 
 Topic: "${topic}"
 
-${artFileDataForPrompt ? `Neeche diya gaya asal data istemal karo article mein — sirf isi data ke numbers/facts quote karo, kuch bhi fabricate mat karo:\n"""\n${artFileDataForPrompt.slice(0, 15000)}\n"""\n` : '(Attached file(s) ka data istemal karo — jo bhi image/PDF di gayi hai usse padh kar.)'}
+${contextBlock}
 
 Requirements:
 1. Kam az kam 4,000 words ka article, proper H2/H3 headings ke saath.
 2. Zaban: **Poora article Urdu rasm-ul-khat (Urdu script, جیسے اردو اخبار میں لکھا جاتا ہے) mein likho** — Roman Urdu ya English mein nahi. TITLE aur SUMMARY bhi Urdu script mein hon. Sirf SLUG field English mein rakho (URL ke liye zaroori hai, us mein sirf lowercase English letters aur hyphens).
-3. Jahan data ka comparison/breakdown ho, wahan HTML <table> banao (thead ke sath, readable) — table ke andar labels/headings bhi Urdu mein likho, sirf numbers English digits mein rakho.
+3. ${tableInstruction}
 4. Poora article "colorful"/visually rich ho — headings, tables, bullet lists sab istemal karo jahan munasib ho, sirf plain paragraphs ka dher na ho.
 
 Jawab bilkul is format mein do — koi JSON nahi, koi markdown code-fence nahi, sirf plain text is exact structure ke saath (har label apni line par, colon ke baad value):
@@ -2813,10 +2888,7 @@ Jawab bilkul is format mein do — koi JSON nahi, koi markdown code-fence nahi, 
 TITLE: [Urdu script mein SEO-friendly title, ek line]
 SLUG: [sirf is field ke liye English — url-friendly-slug-in-english-only, ek line]
 SUMMARY: [Urdu script mein 1-2 line excerpt, ek line]
-CHART_TYPE: [bar ya line ya NONE]
-CHART_LABELS: [comma-separated labels — Urdu mein likh sakte hain, ya NONE]
-CHART_VALUES: [comma-separated numbers, ya NONE]
-CHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]
+${chartLine}
 ===BODY===
 [Yahan se poora article Urdu script mein shuru hota hai, HTML tags ke sath — h2, h3, p, ul, li, table, thead, tbody, tr, th, td tags istemal karo. Koi h1 mat lagana (title upar se ban jayega). Ye sab kuch text ka aakhri hissa hai.]`;
 
