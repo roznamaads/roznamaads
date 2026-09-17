@@ -2359,7 +2359,13 @@ async function loadSbpBookmarks(){
 
 document.getElementById('sbpSaveSeriesToggle').addEventListener('click', () => {
   const row = document.getElementById('sbpSaveSeriesRow');
-  row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+  const willShow = row.style.display === 'none';
+  row.style.display = willShow ? 'flex' : 'none';
+  if(willShow){
+    const currentKey = document.getElementById('artSbpSeriesKey').value.trim();
+    const existing = sbpBookmarksCache.find(b => b.series_key === currentKey);
+    document.getElementById('sbpSaveSeriesLabel').value = existing ? existing.label : '';
+  }
 });
 
 document.getElementById('sbpSaveSeriesBtn').addEventListener('click', async () => {
