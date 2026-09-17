@@ -118,7 +118,7 @@ export default async function handler(req, res) {
 
       case 'create-article': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-        const { title, slug, summary, body_html, category, source_label, source_url, chart_data, word_count, toolnest_category } = req.body || {};
+        const { title, slug, summary, body_html, category, source_label, source_url, chart_data, word_count, toolnest_category, toolnest_tool_slug } = req.body || {};
         if (!title || !slug || !body_html) return res.status(400).json({ error: 'title, slug, body_html required' });
         const r = await fetch(`${SB()}/rest/v1/articles`, {
           method: 'POST',
@@ -128,6 +128,7 @@ export default async function handler(req, res) {
             source_label: source_label || null, source_url: source_url || null,
             chart_data: chart_data || null, word_count: word_count || null,
             toolnest_category: toolnest_category || null,
+            toolnest_tool_slug: toolnest_tool_slug || null,
             published: false
           })
         });

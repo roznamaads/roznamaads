@@ -2947,18 +2947,7 @@ ${chartLine}
         </div>
         <div class="field">
           <label>ToolNest Cross-Promotion (optional — ad.html jaisa widget article page pe dikhega)</label>
-          <select id="artDToolnestCat">
-            <option value="">— Koi widget nahi —</option>
-            <option value="property">Property (Land/Plot, Mortgage, Rental Yield tools)</option>
-            <option value="jobs">Jobs (Resume, Salary Calculator tools)</option>
-            <option value="matrimonial">Matrimonial/Rishta (Biodata, Wedding Budget tools)</option>
-            <option value="electronics">Electronics (Image/Photo tools)</option>
-            <option value="services">Services (QR Code, Invoice tools)</option>
-            <option value="visa">Visa (Document Photo/Scanner tools)</option>
-            <option value="auctions">Auctions (Document Scanner tool)</option>
-            <option value="admissions">Admissions/Education (Document tools)</option>
-            <option value="tenders">Tenders (Document Scanner tool)</option>
-          </select>
+          <select id="artDToolnestCat"><option value="">⏳ Tools load ho rahe hain...</option></select>
         </div>
         <div class="field"><label>Body (HTML — preview neeche)</label><textarea id="artDBody" rows="14" style="font-family:monospace;font-size:.78rem">${escapeHtml(bodyHtml)}</textarea></div>
         <div class="field"><label>Preview</label><div dir="rtl" style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff;font-family:'Noto Nastaliq Urdu',serif;font-size:1.05rem;line-height:2;text-align:right">${bodyHtml}</div></div>
@@ -2967,8 +2956,38 @@ ${chartLine}
       </div>
     `;
     window._artChartData = chartData;
+    populateToolnestDropdown();
 
-    document.getElementById('artNewCatToggle').addEventListener('click', () => {
+    const TOOLNEST_CAT_LABELS = {
+  property: 'Property', jobs: 'Jobs', matrimonial: 'Matrimonial/Rishta',
+  electronics: 'Electronics', services: 'Services', visa: 'Visa',
+  auctions: 'Auctions', admissions: 'Admissions/Education', tenders: 'Tenders'
+};
+let toolnestToolsCache = null;
+async function populateToolnestDropdown(){
+  const select = document.getElementById('artDToolnestCat');
+  if(!select) return;
+  try{
+    if(!toolnestToolsCache){
+      const res = await fetch('../toolnest-tools.json');
+      toolnestToolsCache = await res.json();
+    }
+    let html = '<option value="">— Koi widget nahi —</option>';
+    for(const catKey of Object.keys(toolnestToolsCache)){
+      const tools = toolnestToolsCache[catKey];
+      if(!tools || tools.length === 0) continue;
+      html += `<optgroup label="${escapeHtml(TOOLNEST_CAT_LABELS[catKey] || catKey)}">`;
+      html += tools.map(t => `<option value="${catKey}|${escapeHtml(t.slug)}">${escapeHtml(t.name)}</option>`).join('');
+      html += '</optgroup>';
+    }
+    select.innerHTML = html;
+  }catch(e){
+    select.innerHTML = '<option value="">— Tools load nahi hue, widget skip ho jayega —</option>';
+  }
+}
+
+
+document.getElementById('artNewCatToggle').addEventListener('click', () => {
       const row = document.getElementById('artNewCatRow');
       row.style.display = row.style.display === 'none' ? 'flex' : 'none';
     });
@@ -2999,6 +3018,8 @@ ${chartLine}
       saveStatus.textContent = '⏳ Save ho raha hai...';
       const bodyHtml = document.getElementById('artDBody').value;
       const wordCount = bodyHtml.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).length;
+      const toolnestSelected = document.getElementById('artDToolnestCat').value || '';
+      const [toolnestCat, toolnestSlug] = toolnestSelected.includes('|') ? toolnestSelected.split('|') : [null, null];
       try{
         const data = await callAdminApi('create-article', {
           method: 'POST',
@@ -3012,7 +3033,8 @@ ${chartLine}
             source_url: null,
             chart_data: window._artChartData,
             word_count: wordCount,
-            toolnest_category: document.getElementById('artDToolnestCat').value || null
+            toolnest_category: toolnestCat,
+            toolnest_tool_slug: toolnestSlug
           })
         });
         if(!data){ saveStatus.textContent = '❌ Admin secret nahi mila.'; return; }

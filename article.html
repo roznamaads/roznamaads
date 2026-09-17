@@ -146,7 +146,7 @@ async function loadArticle(){
     });
   }
 
-  loadToolnestWidget(article.toolnest_category);
+  loadToolnestWidget(article.toolnest_category, article.toolnest_tool_slug);
 }
 
 const ARTICLE_TOOLNEST_INTROS = {
@@ -161,14 +161,15 @@ const ARTICLE_TOOLNEST_INTROS = {
   tenders: "Tender documents scan/organize karne ke liye:"
 };
 
-async function loadToolnestWidget(catKey){
+async function loadToolnestWidget(catKey, toolSlug){
   if(!catKey) return;
   try{
     const res = await fetch('toolnest-tools.json');
     const map = await res.json();
     const tools = map[catKey];
     if(!tools || tools.length === 0) return;
-    const tool = tools[Math.floor(Math.random() * tools.length)];
+    // Agar admin ne specific tool select kiya ho to wahi dikhao, warna category se random
+    const tool = (toolSlug && tools.find(t => t.slug === toolSlug)) || tools[Math.floor(Math.random() * tools.length)];
     const intro = ARTICLE_TOOLNEST_INTROS[catKey] || "Ye related free tool try karein:";
     const toolUrl = `https://toolnest.link/${tool.slug}.html`;
     document.getElementById('toolnestWidget').innerHTML = `
