@@ -2945,6 +2945,21 @@ ${chartLine}
             <span id="artNewCatStatus" style="font-size:.78rem;color:var(--muted)"></span>
           </div>
         </div>
+        <div class="field">
+          <label>ToolNest Cross-Promotion (optional — ad.html jaisa widget article page pe dikhega)</label>
+          <select id="artDToolnestCat">
+            <option value="">— Koi widget nahi —</option>
+            <option value="property">Property (Land/Plot, Mortgage, Rental Yield tools)</option>
+            <option value="jobs">Jobs (Resume, Salary Calculator tools)</option>
+            <option value="matrimonial">Matrimonial/Rishta (Biodata, Wedding Budget tools)</option>
+            <option value="electronics">Electronics (Image/Photo tools)</option>
+            <option value="services">Services (QR Code, Invoice tools)</option>
+            <option value="visa">Visa (Document Photo/Scanner tools)</option>
+            <option value="auctions">Auctions (Document Scanner tool)</option>
+            <option value="admissions">Admissions/Education (Document tools)</option>
+            <option value="tenders">Tenders (Document Scanner tool)</option>
+          </select>
+        </div>
         <div class="field"><label>Body (HTML — preview neeche)</label><textarea id="artDBody" rows="14" style="font-family:monospace;font-size:.78rem">${escapeHtml(bodyHtml)}</textarea></div>
         <div class="field"><label>Preview</label><div dir="rtl" style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff;font-family:'Noto Nastaliq Urdu',serif;font-size:1.05rem;line-height:2;text-align:right">${bodyHtml}</div></div>
         <button class="btn" id="saveArticleBtn">📝 Draft Save Karein</button>
@@ -2996,7 +3011,8 @@ ${chartLine}
             source_label: artSourceLabelOverride || artFilesCache.map(f => f.label).join(', ') || null,
             source_url: null,
             chart_data: window._artChartData,
-            word_count: wordCount
+            word_count: wordCount,
+            toolnest_category: document.getElementById('artDToolnestCat').value || null
           })
         });
         if(!data){ saveStatus.textContent = '❌ Admin secret nahi mila.'; return; }

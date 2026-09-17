@@ -134,6 +134,7 @@ async function loadArticle(){
     <p class="article-meta" style="text-align:center">${new Date(article.published_at || article.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}</p>
     <div class="article-body" dir="rtl">${article.body_html}</div>
     ${chartHtml}
+    <div id="toolnestWidget" style="max-width:720px;margin:20px auto 0"></div>
   `;
 
   if(article.chart_data){
@@ -144,6 +145,43 @@ async function loadArticle(){
       options: { responsive: true }
     });
   }
+
+  loadToolnestWidget(article.toolnest_category);
+}
+
+const ARTICLE_TOOLNEST_INTROS = {
+  property: "Property calculations chahiye? Ye free tool try karein:",
+  jobs: "Job apply karte waqt ye kaam aa sakta hai:",
+  matrimonial: "Rishta process ko asaan banane ke liye:",
+  electronics: "Photos ke liye ye free tool istemal karein:",
+  services: "Apni service business ke liye ye tool try karein:",
+  visa: "Visa documents taiyar karne mein madad ke liye:",
+  auctions: "Auction documents scan/organize karne ke liye:",
+  admissions: "Admission documents taiyar karne ke liye:",
+  tenders: "Tender documents scan/organize karne ke liye:"
+};
+
+async function loadToolnestWidget(catKey){
+  if(!catKey) return;
+  try{
+    const res = await fetch('toolnest-tools.json');
+    const map = await res.json();
+    const tools = map[catKey];
+    if(!tools || tools.length === 0) return;
+    const tool = tools[Math.floor(Math.random() * tools.length)];
+    const intro = ARTICLE_TOOLNEST_INTROS[catKey] || "Ye related free tool try karein:";
+    const toolUrl = `https://toolnest.link/${tool.slug}.html`;
+    document.getElementById('toolnestWidget').innerHTML = `
+      <a class="toolnest-card" href="${toolUrl}" target="_blank" rel="noopener">
+        <div class="tn-card-icon">🧰</div>
+        <div class="tn-card-text">
+          <p class="tn-label">${intro}</p>
+          <p class="tn-tool-name">${tool.name} <span class="tn-arrow">↗</span></p>
+          <p class="tn-credit">Powered by ToolNest — 99 free tools</p>
+        </div>
+      </a>
+    `;
+  }catch(e){ /* widget is optional; fail silently */ }
 }
 
 loadArticle();
