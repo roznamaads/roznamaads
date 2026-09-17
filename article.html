@@ -10,6 +10,11 @@
 <meta property="og:description" id="ogDesc" content="Data-driven article on RoznamaAds.pk">
 <meta property="og:type" content="article">
 <meta property="og:url" id="ogUrl" content="https://roznamaads.pk/article.html">
+<meta property="og:image" id="ogImage" content="https://roznamaads.pk/logo.svg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" id="twTitle" content="Article — RoznamaAds.pk">
+<meta name="twitter:description" id="twDesc" content="Data-driven article on RoznamaAds.pk">
+<meta name="twitter:image" id="twImage" content="https://roznamaads.pk/logo.svg">
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
@@ -114,6 +119,8 @@ async function loadArticle(){
   document.getElementById('ogTitle').setAttribute('content', article.title);
   document.getElementById('ogDesc').setAttribute('content', article.summary || '');
   document.getElementById('ogUrl').setAttribute('content', 'https://roznamaads.pk/article.html?slug=' + slug);
+  document.getElementById('twTitle').setAttribute('content', article.title);
+  document.getElementById('twDesc').setAttribute('content', article.summary || '');
   document.getElementById('canonicalLink').setAttribute('href', 'https://roznamaads.pk/article.html?slug=' + slug);
   document.getElementById('breadcrumbTitle').textContent = article.title;
 
