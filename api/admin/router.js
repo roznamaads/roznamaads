@@ -192,6 +192,30 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, category: Array.isArray(data) ? data[0] : data });
       }
 
+      case 'list-sbp-series-bookmarks': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const r = await fetch(`${SB()}/rest/v1/sbp_series_bookmarks?order=label.asc&select=*`, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'save-sbp-series-bookmark': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { series_key, label } = req.body || {};
+        if (!series_key || !label) return res.status(400).json({ error: 'series_key and label required' });
+        const r = await fetch(`${SB()}/rest/v1/sbp_series_bookmarks?on_conflict=series_key`, {
+          method: 'POST',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation,resolution=merge-duplicates' },
+          body: JSON.stringify({ series_key, label })
+        });
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        const data = await r.json();
+        return res.status(200).json({ ok: true, bookmark: Array.isArray(data) ? data[0] : data });
+      }
+
       case 'opendata-search': {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
         const PORTALS = {

@@ -201,18 +201,26 @@
     </div>
 
     <div id="artSbpBlock" style="display:none">
-      <div class="field"><label>Common Series (shortcut — sirf confirmed keys)</label>
+      <div class="field"><label>Common Series (shortcut — confirmed + aapke saved series)</label>
         <select id="artSbpCommonSeries">
           <option value="">— Khud series key likhein neeche —</option>
           <option value="TS_GP_BOP_WR_M.WR0010">Workers' Remittances — Total Cash Inflow</option>
           <option value="TS_GP_PF_ZAKATRCT_Y.ZR0100000">Zakat Receipts — Saving Bank Accounts</option>
           <option value="TS_GP_BAM_GOVTDDL_M.GDDL00010">Govt Domestic Debt — Permanent Debt</option>
         </select>
-        <span style="font-size:.78rem;color:var(--muted)">Ye 3 confirmed hain. Baaki (inflation, monetary, fiscal wagera) ke liye khud "Datasets" tab se series key copy karein — neeche field mein paste kar dein.</span>
+        <span style="font-size:.78rem;color:var(--muted)">Ye 3 hamesha rehte hain. Naye series (inflation, monetary, fiscal wagera) ke liye khud "Datasets" tab se series key copy karein — neeche field mein paste kar ke "Save Karein" bhi kar sakte hain, taake dobara type na karna pade.</span>
       </div>
       <div class="field"><label>Series Key (khud likhein ya upar se select karein)</label>
         <input type="text" id="artSbpSeriesKey" placeholder="e.g. TS_GP_BOP_WR_M.WR0010">
         <span style="font-size:.78rem;color:var(--muted)">Naye series key <a href="https://easydata.sbp.org.pk" target="_blank">easydata.sbp.org.pk</a> ke "Datasets" tab se copy karein (har series ki apni "Series Key" likhi hoti hai).</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button type="button" class="mini-btn" id="sbpSaveSeriesToggle">+ Is Series Ko Save Karein</button>
+      </div>
+      <div id="sbpSaveSeriesRow" style="display:none;margin-top:8px;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="sbpSaveSeriesLabel" placeholder="Naam (e.g. Policy Rate)" style="max-width:260px">
+        <button type="button" class="mini-btn" id="sbpSaveSeriesBtn">Save Karein</button>
+        <span id="sbpSaveSeriesStatus" style="font-size:.78rem;color:var(--muted)"></span>
       </div>
       <div class="field"><label>🔎 Dataset ke sab series dhoondhein (optional)</label>
         <input type="text" id="artSbpDatasetCode" placeholder="e.g. TS_GP_PF_ZAKATRCT_Y (series key ka '.' se pehle wala hissa)">
@@ -2314,6 +2322,7 @@ document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
     document.getElementById('artWebsiteSourceBlock').style.display = mode === 'website' ? 'block' : 'none';
     document.getElementById('artOpendataBlock').style.display = mode === 'opendata' ? 'block' : 'none';
     document.getElementById('artSbpBlock').style.display = mode === 'sbp' ? 'block' : 'none';
+    if(mode === 'sbp') loadSbpBookmarks();
     document.getElementById('artTopicsList').innerHTML = '';
     document.getElementById('artTopicsStatus').textContent = '';
     document.getElementById('artWebDataStatus').textContent = '';
@@ -2332,6 +2341,43 @@ document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
 document.getElementById('artSbpCommonSeries').addEventListener('change', () => {
   const v = document.getElementById('artSbpCommonSeries').value;
   if(v) document.getElementById('artSbpSeriesKey').value = v;
+});
+
+let sbpBookmarksCache = [];
+async function loadSbpBookmarks(){
+  try{
+    sbpBookmarksCache = await callAdminApi('list-sbp-series-bookmarks') || [];
+  }catch(e){ sbpBookmarksCache = []; return; }
+  const select = document.getElementById('artSbpCommonSeries');
+  // Pehle 4 fixed options (khali + 3 confirmed) rakhte hain, uske baad saved bookmarks
+  const fixedOptions = Array.from(select.options).slice(0, 4).map(o => o.outerHTML).join('');
+  const bookmarkOptions = sbpBookmarksCache
+    .filter(b => !['TS_GP_BOP_WR_M.WR0010','TS_GP_PF_ZAKATRCT_Y.ZR0100000','TS_GP_BAM_GOVTDDL_M.GDDL00010'].includes(b.series_key))
+    .map(b => `<option value="${escapeHtml(b.series_key)}">${escapeHtml(b.label)} (saved)</option>`).join('');
+  select.innerHTML = fixedOptions + bookmarkOptions;
+}
+
+document.getElementById('sbpSaveSeriesToggle').addEventListener('click', () => {
+  const row = document.getElementById('sbpSaveSeriesRow');
+  row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+});
+
+document.getElementById('sbpSaveSeriesBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('sbpSaveSeriesStatus');
+  const seriesKey = document.getElementById('artSbpSeriesKey').value.trim();
+  const label = document.getElementById('sbpSaveSeriesLabel').value.trim();
+  if(!seriesKey){ statusEl.textContent = '❌ Pehle Series Key field bharein.'; return; }
+  if(!label){ statusEl.textContent = '❌ Naam likhein (e.g. Policy Rate).'; return; }
+  statusEl.textContent = '⏳ Save ho raha hai...';
+  try{
+    await callAdminApi('save-sbp-series-bookmark', { method: 'POST', body: JSON.stringify({ series_key: seriesKey, label }) });
+    await loadSbpBookmarks();
+    document.getElementById('sbpSaveSeriesLabel').value = '';
+    document.getElementById('sbpSaveSeriesRow').style.display = 'none';
+    statusEl.textContent = '';
+  }catch(e){
+    statusEl.textContent = '❌ ' + e.message;
+  }
 });
 
 document.getElementById('artWebDataType').addEventListener('change', () => {
