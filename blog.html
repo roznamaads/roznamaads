@@ -50,36 +50,10 @@
   <div class="blog-tabs">
     <button class="active" data-filter="all">Sab</button>
     <button data-filter="insights">📊 Data Insights</button>
-    <button data-filter="guides">Ads Guides</button>
-    <button data-filter="tips">Category Tips</button>
+    <button data-filter="guides">📘 Ads Guides</button>
   </div>
 
   <div class="blog-grid" id="blogGrid">
-    <a class="blog-card" href="blog/newspaper-ads-online-pakistan.html" data-cat="guides">
-      <span class="blog-tag">Ads Guide</span>
-      <h3>Jang, Express, Dawn Newspaper Ads Online Kaise Dekhein</h3>
-      <p>Pakistani newspaper classifieds ko print se digital tak search karne ka poora tareeqa.</p>
-    </a>
-    <a class="blog-card" href="blog/property-ads-newspaper-guide.html" data-cat="guides">
-      <span class="blog-tag">Ads Guide</span>
-      <h3>Property Ad Newspaper Mein Kaise Dhoondein</h3>
-      <p>Lahore, Karachi, Islamabad mein plot, ghar, aur rental ads dhoondne ka smart tareeqa.</p>
-    </a>
-    <a class="blog-card" href="blog/government-job-ads-pakistan-guide.html" data-cat="guides">
-      <span class="blog-tag">Ads Guide</span>
-      <h3>Government Job Ads Pakistan Newspaper — Complete Guide</h3>
-      <p>Newspaper mein government job ads dhoondne, samajhne, aur apply karne ka tareeqa.</p>
-    </a>
-    <a class="blog-card" href="blog/purani-gari-ads-newspaper-guide.html" data-cat="tips">
-      <span class="blog-tag">Category Tip</span>
-      <h3>Purani Gari Kaise Khareedein — Newspaper Vehicle Ads Guide</h3>
-      <p>Newspaper vehicle classifieds se safe tareeqe se purani gari khareedne ke tips.</p>
-    </a>
-    <a class="blog-card" href="blog/rishta-ads-newspaper-guide.html" data-cat="tips">
-      <span class="blog-tag">Category Tip</span>
-      <h3>Rishta Ads Newspaper Mein Kaise Dhoondein</h3>
-      <p>Matrimonial classifieds samajhne aur respectfully approach karne ka tareeqa.</p>
-    </a>
   </div>
 </main>
 
@@ -112,13 +86,19 @@ async function loadDataInsights(){
       .order('published_at', { ascending: false })
       .limit(30);
     if(error || !articles || articles.length === 0) return;
-    const cardsHtml = articles.map(a => `
-      <a class="blog-card" href="article.html?slug=${encodeURIComponent(a.slug)}" data-cat="insights">
-        <span class="blog-tag">📊 Data Insights</span>
+    const cardsHtml = articles.map(a => {
+      const cat = (a.category || '').toLowerCase();
+      const isGuide = cat.includes('guide') || cat.includes('tip');
+      const tabCat = isGuide ? 'guides' : 'insights';
+      const tagLabel = isGuide ? '📘 Ads Guide' : '📊 Data Insights';
+      return `
+      <a class="blog-card" href="article.html?slug=${encodeURIComponent(a.slug)}" data-cat="${tabCat}">
+        <span class="blog-tag">${tagLabel}</span>
         <h3>${escapeHtml(a.title)}</h3>
         <p>${escapeHtml(a.summary || '')}</p>
       </a>
-    `).join('');
+    `;
+    }).join('');
     grid.insertAdjacentHTML('afterbegin', cardsHtml);
   }catch(e){ /* silently ignore — static guides still show */ }
 }
