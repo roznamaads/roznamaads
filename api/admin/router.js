@@ -194,6 +194,59 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, category: Array.isArray(data) ? data[0] : data });
       }
 
+      case 'list-authors': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const r = await fetch(`${SB()}/rest/v1/authors?order=name.asc&select=*`, { headers: sbHeaders() });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'create-author': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { name, slug, bio, photo, role, profile_url } = req.body || {};
+        if (!name || !slug) return res.status(400).json({ error: 'name and slug required' });
+        const r = await fetch(`${SB()}/rest/v1/authors`, {
+          method: 'POST',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify({
+            name, slug,
+            bio: bio || null, photo: photo || null,
+            role: role || null, profile_url: profile_url || null
+          })
+        });
+        if (!r.ok) {
+          const errText = await r.text();
+          return res.status(r.status).json({ error: errText });
+        }
+        const data = await r.json();
+        return res.status(200).json({ ok: true, author: Array.isArray(data) ? data[0] : data });
+      }
+
+      case 'update-author': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const ALLOWED_FIELDS = ['name', 'slug', 'bio', 'photo', 'role', 'profile_url'];
+        const { id, fields } = req.body || {};
+        if (!id || !fields) return res.status(400).json({ error: 'id and fields required' });
+        const patch = {};
+        for (const key of ALLOWED_FIELDS) if (fields[key] !== undefined) patch[key] = fields[key];
+        if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+        const r = await fetch(`${SB()}/rest/v1/authors?id=eq.${id}`, {
+          method: 'PATCH',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify(patch)
+        });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'delete-author': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { id } = req.body || {};
+        if (!id) return res.status(400).json({ error: 'id required' });
+        const r = await fetch(`${SB()}/rest/v1/authors?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+        return res.status(200).json({ ok: r.ok });
+      }
+
       case 'list-sbp-series-bookmarks': {
         if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
         const r = await fetch(`${SB()}/rest/v1/sbp_series_bookmarks?order=label.asc&select=*`, { headers: sbHeaders() });
