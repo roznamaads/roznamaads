@@ -3042,6 +3042,16 @@ ${chartLine}
           <select id="artDAuthor">${authorOptionsHtml}</select>
         </div>
         <div class="field">
+          <label>Hero Image</label>
+          <input type="text" id="artDHeroUrl" placeholder="Image URL (khali chhoro to default OG image use hogi)">
+          <input type="text" id="artDHeroCaption" placeholder="Caption" style="margin-top:6px">
+          <input type="text" id="artDHeroAlt" placeholder="Alt text (descriptive, SEO ke liye)" style="margin-top:6px">
+        </div>
+        <div class="field">
+          <label>Key Points (ek line = ek bullet)</label>
+          <textarea id="artDKeyPoints" rows="3" placeholder="Har line ek key point..."></textarea>
+        </div>
+        <div class="field">
           <label>Official Source</label>
           <div class="field-row">
             <input type="text" id="artDSourceName" placeholder="Source name (e.g. BEOE, HEC)">
@@ -3164,7 +3174,11 @@ document.getElementById('artNewCatToggle').addEventListener('click', () => {
             fact_checked: document.getElementById('artDFactChecked').checked,
             human_reviewed: document.getElementById('artDHumanReviewed').checked,
             original_value_verified: document.getElementById('artDOriginalValue').checked,
-            ai_assisted: document.getElementById('artDAiAssisted').checked
+            ai_assisted: document.getElementById('artDAiAssisted').checked,
+            hero_image_url: document.getElementById('artDHeroUrl').value.trim() || null,
+            hero_image_caption: document.getElementById('artDHeroCaption').value.trim() || null,
+            hero_image_alt: document.getElementById('artDHeroAlt').value.trim() || null,
+            key_points: document.getElementById('artDKeyPoints').value.trim() || null
           })
         });
         if(!data){ saveStatus.textContent = '❌ Admin secret nahi mila.'; return; }
