@@ -122,7 +122,7 @@ export default async function handler(req, res) {
           title, slug, summary, body_html, category, source_label, source_url, chart_data, word_count, toolnest_category, toolnest_tool_slug,
           author_id, editor_id, source_name, source_type, source_published_at, data_collected_at, methodology,
           fact_checked, human_reviewed, original_value_verified, ai_assisted,
-          hero_image_url, hero_image_caption, hero_image_alt, key_points
+          hero_image_url, hero_image_caption, hero_image_alt, key_points, source_status
         } = req.body || {};
         if (!title || !slug || !body_html) return res.status(400).json({ error: 'title, slug, body_html required' });
         const r = await fetch(`${SB()}/rest/v1/articles`, {
@@ -150,6 +150,7 @@ export default async function handler(req, res) {
             hero_image_caption: hero_image_caption || null,
             hero_image_alt: hero_image_alt || null,
             key_points: key_points || null,
+            source_status: source_status || null,
             published: false
           })
         });

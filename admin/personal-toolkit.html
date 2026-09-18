@@ -2972,6 +2972,10 @@ TITLE: [Urdu script mein SEO-friendly title, ek line]
 SLUG: [sirf is field ke liye English — url-friendly-slug-in-english-only, ek line]
 SUMMARY: [Urdu script mein 1-2 line excerpt, ek line]
 ${chartLine}
+KEY_POINTS: [3-5 sabse important points, Urdu script mein, ek line par sab, "|" se separate karo, ya NONE agar guide article]
+SOURCE_NAME: [attached data/files ka source kya hai — e.g. "BEOE", "HEC", uploaded file ka naam, ya NONE agar koi specific source nahi]
+SOURCE_TYPE: [government / press release / survey / other — jo sabse theek match kare, ya NONE]
+METHODOLOGY: [1-3 lines Urdu script mein — data kahan se aya, AI ka role kya tha is article banane mein, ya NONE]
 ===BODY===
 [Yahan se poora article Urdu script mein shuru hota hai, HTML tags ke sath — h2, h3, p, ul, li, table, thead, tbody, tr, th, td tags istemal karo. Koi h1 mat lagana (title upar se ban jayega). Ye sab kuch text ka aakhri hissa hai.]`;
 
@@ -2995,6 +2999,12 @@ ${chartLine}
     const chartLabels = grabField('CHART_LABELS');
     const chartValues = grabField('CHART_VALUES');
     const chartDatasetLabel = grabField('CHART_DATASET_LABEL');
+    const isNone = v => !v || v.toUpperCase() === 'NONE';
+    const aiKeyPointsRaw = grabField('KEY_POINTS');
+    const aiKeyPoints = isNone(aiKeyPointsRaw) ? '' : aiKeyPointsRaw.split('|').map(s => s.trim()).filter(Boolean).join('\n');
+    const aiSourceName = grabField('SOURCE_NAME');
+    const aiSourceType = grabField('SOURCE_TYPE');
+    const aiMethodology = grabField('METHODOLOGY');
 
     let chartData = null;
     if(chartType && chartType.toUpperCase() !== 'NONE' && chartLabels && chartValues){
@@ -3067,6 +3077,15 @@ ${chartLine}
             <div class="field"><label style="font-size:.75rem">Source Published Date</label><input type="date" id="artDSourcePublishedAt"></div>
             <div class="field"><label style="font-size:.75rem">Data Collected Date</label><input type="date" id="artDDataCollectedAt" value="${new Date().toISOString().slice(0,10)}"></div>
           </div>
+          <div class="field" style="margin-top:6px">
+            <label style="font-size:.75rem">Source Status</label>
+            <select id="artDSourceStatus">
+              <option value="">— select —</option>
+              <option value="verified">Verified</option>
+              <option value="unavailable">Unavailable</option>
+              <option value="needs_review">Needs Review</option>
+            </select>
+          </div>
         </div>
         <div class="field"><label>Methodology (data kahan se aya, AI ka role kya tha)</label><textarea id="artDMethodology" rows="3"></textarea></div>
         <div class="field" style="display:flex;gap:14px;flex-wrap:wrap;font-size:.82rem">
@@ -3087,6 +3106,14 @@ ${chartLine}
     `;
     window._artChartData = chartData;
     populateToolnestDropdown();
+    document.getElementById('artDKeyPoints').value = aiKeyPoints;
+    document.getElementById('artDSourceName').value = isNone(aiSourceName) ? '' : aiSourceName;
+    document.getElementById('artDMethodology').value = isNone(aiMethodology) ? '' : aiMethodology;
+    if(!isNone(aiSourceType)){
+      const typeSel = document.getElementById('artDSourceType');
+      const match = Array.from(typeSel.options).find(o => o.value.toLowerCase() === aiSourceType.toLowerCase());
+      if(match) typeSel.value = match.value;
+    }
 
     const TOOLNEST_CAT_LABELS = {
   property: 'Property', jobs: 'Jobs', matrimonial: 'Matrimonial/Rishta',
@@ -3178,7 +3205,8 @@ document.getElementById('artNewCatToggle').addEventListener('click', () => {
             hero_image_url: document.getElementById('artDHeroUrl').value.trim() || null,
             hero_image_caption: document.getElementById('artDHeroCaption').value.trim() || null,
             hero_image_alt: document.getElementById('artDHeroAlt').value.trim() || null,
-            key_points: document.getElementById('artDKeyPoints').value.trim() || null
+            key_points: document.getElementById('artDKeyPoints').value.trim() || null,
+            source_status: document.getElementById('artDSourceStatus').value || null
           })
         });
         if(!data){ saveStatus.textContent = '❌ Admin secret nahi mila.'; return; }
