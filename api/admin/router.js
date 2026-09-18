@@ -172,14 +172,45 @@ export default async function handler(req, res) {
         return res.status(r.status).json(data);
       }
 
+      case 'update-article': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const ALLOWED_FIELDS = [
+          'title', 'summary', 'body_html', 'category', 'source_label', 'source_url',
+          'author_id', 'editor_id', 'source_name', 'source_type', 'source_published_at', 'data_collected_at',
+          'methodology', 'fact_checked', 'human_reviewed', 'original_value_verified', 'ai_assisted',
+          'hero_image_url', 'hero_image_caption', 'hero_image_alt', 'key_points', 'source_status', 'publish_status'
+        ];
+        const { id, fields } = req.body || {};
+        if (!id || !fields) return res.status(400).json({ error: 'id and fields required' });
+        const patch = {};
+        for (const key of ALLOWED_FIELDS) if (fields[key] !== undefined) patch[key] = fields[key];
+        if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+        patch.updated_at = new Date().toISOString();
+        const r = await fetch(`${SB()}/rest/v1/articles?id=eq.${id}`, {
+          method: 'PATCH',
+          headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify(patch)
+        });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
       case 'publish-article': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
         const { id } = req.body || {};
         if (!id) return res.status(400).json({ error: 'id required' });
+        // Quality gate: only publish if human_reviewed has been checked (Phase D)
+        const checkR = await fetch(`${SB()}/rest/v1/articles?id=eq.${id}&select=human_reviewed`, { headers: sbHeaders() });
+        const checkData = await checkR.json();
+        const existing = Array.isArray(checkData) ? checkData[0] : null;
+        if (!existing) return res.status(404).json({ error: 'Article nahi mila' });
+        if (!existing.human_reviewed) {
+          return res.status(400).json({ error: 'Publish se pehle "Human Reviewed" checkbox tick karna zaroori hai.' });
+        }
         const r = await fetch(`${SB()}/rest/v1/articles?id=eq.${id}`, {
           method: 'PATCH',
           headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify({ published: true, published_at: new Date().toISOString() })
+          body: JSON.stringify({ published: true, published_at: new Date().toISOString(), publish_status: 'published' })
         });
         return res.status(200).json({ ok: r.ok });
       }
