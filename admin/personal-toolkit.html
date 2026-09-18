@@ -602,6 +602,16 @@
     <p class="desc" id="catSaveMsg" style="margin-top:8px"></p>
   </section>
 
+  <!-- Authors -->
+  <section class="panel" data-panel="authors">
+    <h2>Authors</h2>
+    <p class="desc">Article Engine ke authors/editors (name, role, bio) — Article Generator mein byline select karne ke liye.</p>
+    <button class="btn" id="loadAuthorsBtn">📥 Load Authors</button>
+    <button class="btn alt" id="addAuthorBtn" style="margin-top:10px">+ New Author</button>
+    <div id="authorsList" style="margin-top:14px"></div>
+    <p class="desc" id="authorsMsg" style="margin-top:8px"></p>
+  </section>
+
   <!-- Universal Table Downloader -->
   <section class="panel" data-panel="table-downloader">
     <h2>🌐 Universal Table Downloader</h2>
@@ -1070,6 +1080,7 @@ const TOOLS = [
   {id:'newspaper-manager', label:'Newspaper Mgr'},
   {id:'ad-generator', label:'Ad Post Generator'},
   {id:'article-generator', label:'Article Generator'},
+  {id:'authors', label:'Authors'},
   {id:'draft-queue', label:'Draft Queue'},
   {id:'ad-manager', label:'Ad Manager'},
   {id:'dup-check', label:'Duplicate Check'},
@@ -2286,6 +2297,78 @@ document.getElementById('beoeConvertBtn').addEventListener('click', async () => 
     log('❌ BEOE convert error: ' + e.message);
   }
 });
+
+/* ---------- Authors ---------- */
+let authorsData = [];
+let editingAuthorId = null;
+
+async function loadAuthors(){
+  try{
+    authorsData = await callAdminApi('list-authors', { method: 'GET' }) || [];
+    renderAuthors();
+    log('✅ ' + authorsData.length + ' author(s) load hue.');
+  }catch(e){
+    document.getElementById('authorsMsg').textContent = '❌ Load fail: ' + e.message;
+  }
+}
+
+function renderAuthors(){
+  const box = document.getElementById('authorsList');
+  if(authorsData.length === 0){ box.innerHTML = '<p class="desc">Koi author nahi mila — "+ New Author" se add karein.</p>'; return; }
+  box.innerHTML = authorsData.map(a => `
+    <div class="cat-row" data-id="${a.id}" style="flex-wrap:wrap">
+      <input type="text" value="${(a.name||'').replace(/"/g,'&quot;')}" placeholder="Name" data-field="name">
+      <input type="text" value="${(a.slug||'').replace(/"/g,'&quot;')}" placeholder="slug" data-field="slug">
+      <input type="text" value="${(a.role||'').replace(/"/g,'&quot;')}" placeholder="Role (e.g. Data Desk)" data-field="role">
+      <input type="text" value="${(a.profile_url||'').replace(/"/g,'&quot;')}" placeholder="Profile URL" data-field="profile_url">
+      <input type="text" value="${(a.photo||'').replace(/"/g,'&quot;')}" placeholder="Photo URL" data-field="photo">
+      <input type="text" value="${(a.bio||'').replace(/"/g,'&quot;')}" placeholder="Bio" data-field="bio" style="min-width:200px">
+      <button class="mini-btn" onclick="saveAuthor('${a.id}')">💾 Save</button>
+      <button class="mini-btn" style="color:#c0392b" onclick="deleteAuthor('${a.id}')">✕ Delete</button>
+    </div>
+  `).join('');
+}
+
+document.getElementById('addAuthorBtn').addEventListener('click', () => {
+  authorsData.push({id:'new-' + Date.now(), name:'', slug:'', role:'', profile_url:'', photo:'', bio:'', _new:true});
+  renderAuthors();
+});
+
+async function saveAuthor(id){
+  const row = document.querySelector(`.cat-row[data-id="${id}"]`);
+  if(!row) return;
+  const fields = {};
+  row.querySelectorAll('input[data-field]').forEach(inp => { fields[inp.dataset.field] = inp.value.trim(); });
+  const msg = document.getElementById('authorsMsg');
+  if(!fields.name || !fields.slug){ msg.textContent = '❌ Name aur slug required hain.'; return; }
+  try{
+    const isNew = id.startsWith('new-');
+    if(isNew){
+      const result = await callAdminApi('create-author', { method: 'POST', body: JSON.stringify(fields) });
+      msg.textContent = '✅ Author add ho gaya: ' + result.author.name;
+    }else{
+      await callAdminApi('update-author', { method: 'POST', body: JSON.stringify({ id, fields }) });
+      msg.textContent = '✅ Author update ho gaya.';
+    }
+    await loadAuthors();
+  }catch(e){
+    msg.textContent = '❌ Save fail: ' + e.message;
+  }
+}
+
+async function deleteAuthor(id){
+  if(id.startsWith('new-')){ authorsData = authorsData.filter(a => a.id !== id); renderAuthors(); return; }
+  if(!confirm('Ye author delete karna hai? (Jin articles mein ye author linked hai unka author_id null ho jayega agar FK allow kare)')) return;
+  try{
+    await callAdminApi('delete-author', { method: 'POST', body: JSON.stringify({ id }) });
+    document.getElementById('authorsMsg').textContent = '✅ Author delete ho gaya.';
+    await loadAuthors();
+  }catch(e){
+    document.getElementById('authorsMsg').textContent = '❌ Delete fail: ' + e.message;
+  }
+}
+
+document.getElementById('loadAuthorsBtn').addEventListener('click', loadAuthors);
 
 /* ---------- Article Generator — simplified: files -> topics -> article ---------- */
 let artFilesCache = [];       // { file, kind: 'text'|'image', textContent?, imagePart? }
