@@ -2850,7 +2850,7 @@ document.getElementById('genArticleBtn').addEventListener('click', async () => {
   const topic = document.getElementById('artSelectedTopic').value.trim();
   if(!topic){ statusBox.textContent = '❌ Topic likhein ya select karein.'; return; }
 
-  statusBox.textContent = '⏳ Gemini se article likh raha hai... (4,000+ words, thoda time lagega)';
+  statusBox.textContent = '⏳ Gemini se article likh raha hai... (2,500–4,000 words, thoda time lagega)';
   draftBox.innerHTML = '';
 
   const imageParts = artFilesCache.filter(f => f.kind === 'image');
@@ -2878,7 +2878,7 @@ Topic: "${topic}"
 ${contextBlock}
 
 Requirements:
-1. Kam az kam 4,000 words ka article, proper H2/H3 headings ke saath.
+1. Article ki length topic ki zaroorat ke hisab se 2,500 se 4,000 words ke beech rakho (jitna topic ko justice de sake, zabardasti padding mat daalo) — proper H2/H3 headings ke saath.
 2. Zaban: **Poora article Urdu rasm-ul-khat (Urdu script, جیسے اردو اخبار میں لکھا جاتا ہے) mein likho** — Roman Urdu ya English mein nahi. TITLE aur SUMMARY bhi Urdu script mein hon. Sirf SLUG field English mein rakho (URL ke liye zaroori hai, us mein sirf lowercase English letters aur hyphens).
 3. ${tableInstruction}
 4. Poora article "colorful"/visually rich ho — headings, tables, bullet lists sab istemal karo jahan munasib ho, sirf plain paragraphs ka dher na ho.
@@ -2925,7 +2925,10 @@ ${chartLine}
     if(!title || !bodyHtml){ statusBox.textContent = '❌ Title ya body khali mili — dobara try karein.'; return; }
 
     const wordCount = bodyHtml.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).length;
-    statusBox.textContent = `✅ Article ban gaya (~${wordCount} words) — neeche review kar ke save karein.`;
+    const wordCountWarning = (wordCount < 2500 || wordCount > 4000)
+      ? ` ⚠️ Target range (2,500–4,000) se bahar hai — review kar lein.`
+      : '';
+    statusBox.textContent = `✅ Article ban gaya (~${wordCount} words)${wordCountWarning} — neeche review kar ke save karein.`;
 
     await loadArtCategories();
     const categoryOptionsHtml = artCategoriesCache.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.label)}</option>`).join('');

@@ -28,15 +28,17 @@ create table if not exists public.articles (
   slug          text not null unique,           -- English, url-friendly (article.html?slug=...)
   summary       text,                           -- 1-2 line excerpt, also used as meta description
   body_html     text not null,                  -- full article HTML (h2/h3/p/ul/table etc.)
-  category      text,                           -- currently hardcoded 'data-insights' from generator UI;
-                                                 -- final category list still an open question (plan §9)
+  category      text,                           -- slug from article_categories table, chosen in generator UI
+                                                 -- (dropdown on the draft-review screen; not hardcoded)
   source_label  text,                           -- human-readable source description (e.g. uploaded file names)
   source_url    text,                           -- optional link to source data, if applicable
   chart_data    jsonb,                          -- { type, labels, datasets } — rendered client-side via Chart.js
-  word_count    integer,                        -- informational only, not enforced at save time
+  word_count    integer,                        -- informational only, not enforced at save time (target: 2,500-4,000)
   published     boolean not null default false,
   published_at  timestamptz,                    -- set when publish-article action runs
-  created_at    timestamptz not null default now()
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz                     -- set when an existing article's body/summary is edited post-publish;
+                                                 -- feeds the "dateModified" field in article.html's Article schema
 );
 
 create index if not exists articles_slug_idx        on public.articles (slug);
