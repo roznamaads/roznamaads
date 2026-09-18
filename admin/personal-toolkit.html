@@ -2965,6 +2965,7 @@ Requirements:
 2. Zaban: **Poora article Urdu rasm-ul-khat (Urdu script, جیسے اردو اخبار میں لکھا جاتا ہے) mein likho** — Roman Urdu ya English mein nahi. TITLE aur SUMMARY bhi Urdu script mein hon. Sirf SLUG field English mein rakho (URL ke liye zaroori hai, us mein sirf lowercase English letters aur hyphens).
 3. ${tableInstruction}
 4. Poora article "colorful"/visually rich ho — headings, tables, bullet lists sab istemal karo jahan munasib ho, sirf plain paragraphs ka dher na ho.
+5. TITLE clickbait na ho — jo bhi headline likho wo article ke actual content se pura match kare (ye hi title social share aur Google mein bhi dikhega, isliye consistent hona zaroori hai).
 
 Jawab bilkul is format mein do — koi JSON nahi, koi markdown code-fence nahi, sirf plain text is exact structure ke saath (har label apni line par, colon ke baad value):
 
@@ -3093,6 +3094,7 @@ METHODOLOGY: [1-3 lines Urdu script mein — data kahan se aya, AI ka role kya t
           <label><input type="checkbox" id="artDHumanReviewed"> Human Reviewed</label>
           <label><input type="checkbox" id="artDOriginalValue"> Original Value Verified</label>
           <label><input type="checkbox" id="artDAiAssisted" checked> AI Assisted</label>
+          <label><input type="checkbox" id="artDTimeSensitive"> Time-Sensitive (news alert — NewsArticle schema)</label>
         </div>
         <div class="field">
           <label>ToolNest Cross-Promotion (optional — ad.html jaisa widget article page pe dikhega)</label>
@@ -3239,7 +3241,8 @@ Sirf bullet points do, koi lambi explanation nahi, koi markdown headers nahi.`;
             hero_image_caption: document.getElementById('artDHeroCaption').value.trim() || null,
             hero_image_alt: document.getElementById('artDHeroAlt').value.trim() || null,
             key_points: document.getElementById('artDKeyPoints').value.trim() || null,
-            source_status: document.getElementById('artDSourceStatus').value || null
+            source_status: document.getElementById('artDSourceStatus').value || null,
+            is_time_sensitive: document.getElementById('artDTimeSensitive').checked
           })
         });
         if(!data){ saveStatus.textContent = '❌ Admin secret nahi mila.'; return; }
