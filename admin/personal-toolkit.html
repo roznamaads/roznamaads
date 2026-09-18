@@ -3016,6 +3016,12 @@ ${chartLine}
     await loadArtCategories();
     const categoryOptionsHtml = artCategoriesCache.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.label)}</option>`).join('');
 
+    let authorOptionsHtml = '<option value="">— koi author nahi —</option>';
+    try{
+      const authorsForSelect = await callAdminApi('list-authors', { method: 'GET' }) || [];
+      authorOptionsHtml += authorsForSelect.map(a => `<option value="${a.id}">${escapeHtml(a.name)}${a.role ? ' — ' + escapeHtml(a.role) : ''}</option>`).join('');
+    }catch(e){ /* authors optional, ignore fail */ }
+
     draftBox.innerHTML = `
       <div class="draft-card">
         <div class="field"><label>Title</label><input type="text" id="artDTitle" value="${escapeHtml(title)}"></div>
@@ -3030,6 +3036,34 @@ ${chartLine}
             <button type="button" class="mini-btn" id="artNewCatSaveBtn">Save Karein</button>
             <span id="artNewCatStatus" style="font-size:.78rem;color:var(--muted)"></span>
           </div>
+        </div>
+        <div class="field">
+          <label>Author / Desk</label>
+          <select id="artDAuthor">${authorOptionsHtml}</select>
+        </div>
+        <div class="field">
+          <label>Official Source</label>
+          <div class="field-row">
+            <input type="text" id="artDSourceName" placeholder="Source name (e.g. BEOE, HEC)">
+            <select id="artDSourceType">
+              <option value="">— source type —</option>
+              <option value="government">Government</option>
+              <option value="press release">Press Release</option>
+              <option value="survey">Survey</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field-row" style="margin-top:6px">
+            <div class="field"><label style="font-size:.75rem">Source Published Date</label><input type="date" id="artDSourcePublishedAt"></div>
+            <div class="field"><label style="font-size:.75rem">Data Collected Date</label><input type="date" id="artDDataCollectedAt" value="${new Date().toISOString().slice(0,10)}"></div>
+          </div>
+        </div>
+        <div class="field"><label>Methodology (data kahan se aya, AI ka role kya tha)</label><textarea id="artDMethodology" rows="3"></textarea></div>
+        <div class="field" style="display:flex;gap:14px;flex-wrap:wrap;font-size:.82rem">
+          <label><input type="checkbox" id="artDFactChecked"> Fact Checked</label>
+          <label><input type="checkbox" id="artDHumanReviewed"> Human Reviewed</label>
+          <label><input type="checkbox" id="artDOriginalValue"> Original Value Verified</label>
+          <label><input type="checkbox" id="artDAiAssisted" checked> AI Assisted</label>
         </div>
         <div class="field">
           <label>ToolNest Cross-Promotion (optional — ad.html jaisa widget article page pe dikhega)</label>
@@ -3120,7 +3154,17 @@ document.getElementById('artNewCatToggle').addEventListener('click', () => {
             chart_data: window._artChartData,
             word_count: wordCount,
             toolnest_category: toolnestCat,
-            toolnest_tool_slug: toolnestSlug
+            toolnest_tool_slug: toolnestSlug,
+            author_id: document.getElementById('artDAuthor').value || null,
+            source_name: document.getElementById('artDSourceName').value.trim() || null,
+            source_type: document.getElementById('artDSourceType').value || null,
+            source_published_at: document.getElementById('artDSourcePublishedAt').value || null,
+            data_collected_at: document.getElementById('artDDataCollectedAt').value || null,
+            methodology: document.getElementById('artDMethodology').value.trim() || null,
+            fact_checked: document.getElementById('artDFactChecked').checked,
+            human_reviewed: document.getElementById('artDHumanReviewed').checked,
+            original_value_verified: document.getElementById('artDOriginalValue').checked,
+            ai_assisted: document.getElementById('artDAiAssisted').checked
           })
         });
         if(!data){ saveStatus.textContent = '❌ Admin secret nahi mila.'; return; }

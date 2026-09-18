@@ -118,7 +118,11 @@ export default async function handler(req, res) {
 
       case 'create-article': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-        const { title, slug, summary, body_html, category, source_label, source_url, chart_data, word_count, toolnest_category, toolnest_tool_slug } = req.body || {};
+        const {
+          title, slug, summary, body_html, category, source_label, source_url, chart_data, word_count, toolnest_category, toolnest_tool_slug,
+          author_id, editor_id, source_name, source_type, source_published_at, data_collected_at, methodology,
+          fact_checked, human_reviewed, original_value_verified, ai_assisted
+        } = req.body || {};
         if (!title || !slug || !body_html) return res.status(400).json({ error: 'title, slug, body_html required' });
         const r = await fetch(`${SB()}/rest/v1/articles`, {
           method: 'POST',
@@ -129,6 +133,18 @@ export default async function handler(req, res) {
             chart_data: chart_data || null, word_count: word_count || null,
             toolnest_category: toolnest_category || null,
             toolnest_tool_slug: toolnest_tool_slug || null,
+            author_id: author_id || null,
+            editor_id: editor_id || null,
+            source_name: source_name || null,
+            source_type: source_type || null,
+            source_published_at: source_published_at || null,
+            data_collected_at: data_collected_at || null,
+            methodology: methodology || null,
+            fact_checked: !!fact_checked,
+            human_reviewed: !!human_reviewed,
+            original_value_verified: !!original_value_verified,
+            ai_assisted: ai_assisted !== undefined ? !!ai_assisted : true,
+            publish_status: 'draft',
             published: false
           })
         });
