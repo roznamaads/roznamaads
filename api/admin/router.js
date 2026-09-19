@@ -175,7 +175,7 @@ export default async function handler(req, res) {
           title, slug, summary, body_html, category, source_label, source_url, chart_data, word_count, toolnest_category, toolnest_tool_slug,
           author_id, editor_id, source_name, source_type, source_published_at, data_collected_at, methodology,
           fact_checked, human_reviewed, original_value_verified, ai_assisted,
-          hero_image_url, hero_image_caption, hero_image_alt, key_points, source_status, is_time_sensitive
+          hero_image_url, hero_image_caption, hero_image_alt, key_points, source_status, is_time_sensitive, target_keywords
         } = req.body || {};
         if (!title || !slug || !body_html) return res.status(400).json({ error: 'title, slug, body_html required' });
         const r = await fetch(`${SB()}/rest/v1/articles`, {
@@ -205,6 +205,7 @@ export default async function handler(req, res) {
             key_points: key_points || null,
             source_status: source_status || null,
             is_time_sensitive: !!is_time_sensitive,
+            target_keywords: target_keywords || null,
             published: false
           })
         });
@@ -233,7 +234,7 @@ export default async function handler(req, res) {
           'author_id', 'editor_id', 'source_name', 'source_type', 'source_published_at', 'data_collected_at',
           'methodology', 'fact_checked', 'human_reviewed', 'original_value_verified', 'ai_assisted',
           'hero_image_url', 'hero_image_caption', 'hero_image_alt', 'key_points', 'source_status', 'publish_status',
-          'is_time_sensitive', 'correction_note'
+          'is_time_sensitive', 'correction_note', 'target_keywords'
         ];
         const { id, fields, revision_reason } = req.body || {};
         if (!id || !fields) return res.status(400).json({ error: 'id and fields required' });

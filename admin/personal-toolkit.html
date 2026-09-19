@@ -303,6 +303,11 @@
       <div class="field"><label>Selected Topic (edit bhi kar sakte hain)</label>
         <input type="text" id="artSelectedTopic">
       </div>
+      <div class="field"><label>Target Keywords (comma se separate karein — jo log Google par actually search karte hain)</label>
+        <textarea id="artTargetKeywords" rows="2" placeholder="e.g. beoe visa check online, apni chhat scheme punjab, HEC scholarship 2026"></textarea>
+        <button type="button" class="mini-btn" id="suggestKeywordsBtn" style="margin-top:6px">🔍 Keywords Suggest Karein</button>
+        <span id="suggestKeywordsStatus" style="font-size:.78rem;color:var(--muted)"></span>
+      </div>
       <button class="btn" id="genArticleBtn">🧠 Is Topic Pe Article Likhein</button>
       <div id="artGenStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     </div>
@@ -2979,6 +2984,27 @@ function selectArtTopic(i){
   document.getElementById('artGenerateWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+document.getElementById('suggestKeywordsBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('suggestKeywordsStatus');
+  const topic = document.getElementById('artSelectedTopic').value.trim();
+  if(!topic){ statusEl.textContent = '❌ Pehle topic select/likhein.'; return; }
+  statusEl.textContent = '⏳ Keywords soch raha hoon...';
+  try{
+    const dataHint = artFileDataForPrompt ? artFileDataForPrompt.slice(0, 3000) : '';
+    const prompt = `Ye topic hai jis par ek Urdu article likha ja raha hai RoznamaAds.pk (Pakistani classifieds + verification website) ke liye: "${topic}"
+${dataHint ? `\nRelated data/context:\n"""\n${dataHint}\n"""` : ''}
+
+Pakistani log Google par is topic ke bare mein kya actually search karte hain (Roman Urdu, English, ya mix mein — jaisa log waise hi type karte hain, na ke formal Urdu)? 6-8 short keyword phrases suggest karo jo real search queries jaise lagein (e.g. "beoe visa check online", "apni chhat scheme kaise apply karein", "HEC scholarship 2026 last date").
+
+Sirf comma-separated list do, koi extra text nahi, koi numbering nahi.`;
+    const result = await rzCallGemini(prompt, null, 500);
+    document.getElementById('artTargetKeywords').value = result.trim();
+    statusEl.textContent = '✅ Keywords mil gaye — review kar ke edit kar sakte hain.';
+  }catch(e){
+    statusEl.textContent = '❌ ' + e.message;
+  }
+});
+
 document.getElementById('genArticleBtn').addEventListener('click', async () => {
   const statusBox = document.getElementById('artGenStatus');
   const draftBox = document.getElementById('artDraftBox');
@@ -2988,6 +3014,8 @@ document.getElementById('genArticleBtn').addEventListener('click', async () => {
   statusBox.textContent = '⏳ Gemini se article likh raha hai... (2,500–4,000 words, thoda time lagega)';
   draftBox.innerHTML = '';
 
+  const targetKeywords = document.getElementById('artTargetKeywords').value.trim();
+  window._artTargetKeywordsUsed = targetKeywords;
   const imageParts = artFilesCache.filter(f => f.kind === 'image');
 
   const contextBlock = artIsGuideMode
@@ -3006,6 +3034,10 @@ document.getElementById('genArticleBtn').addEventListener('click', async () => {
     ? 'CHART_TYPE: [NONE — guide articles mein chart zaroori nahi]\nCHART_LABELS: [NONE]\nCHART_VALUES: [NONE]\nCHART_DATASET_LABEL: [NONE]'
     : 'CHART_TYPE: [bar ya line ya NONE]\nCHART_LABELS: [comma-separated labels — Urdu mein likh sakte hain, ya NONE]\nCHART_VALUES: [comma-separated numbers, ya NONE]\nCHART_DATASET_LABEL: [is dataset ka naam Urdu mein, ya NONE]';
 
+  const keywordLine = targetKeywords
+    ? `6. SEO ke liye ye target keywords/phrases hain jo log Google par actually search karte hain: "${targetKeywords}". Inhe NATURALLY use karo — TITLE mein kam-az-kam ek keyword (Urdu translation ya jaisa munasib ho), pehle paragraph mein, aur 1-2 H2 headings mein. Keyword-stuffing mat karo — agar Urdu article hai to keyword ka Urdu tarjuma ya munasib mila-jula (Roman/English term jo log waise hi search karte hain, jaise "BEOE" ya scheme ka English naam) context mein fit karo, force-fit mat karo jahan ajeeb lage.`
+    : '';
+
   const prompt = `${roleLine}
 
 Topic: "${topic}"
@@ -3018,6 +3050,7 @@ Requirements:
 3. ${tableInstruction}
 4. Poora article "colorful"/visually rich ho — headings, tables, bullet lists sab istemal karo jahan munasib ho, sirf plain paragraphs ka dher na ho.
 5. TITLE clickbait na ho — jo bhi headline likho wo article ke actual content se pura match kare (ye hi title social share aur Google mein bhi dikhega, isliye consistent hona zaroori hai).
+${keywordLine}
 
 Jawab bilkul is format mein do — koi JSON nahi, koi markdown code-fence nahi, sirf plain text is exact structure ke saath (har label apni line par, colon ke baad value):
 
@@ -3368,7 +3401,8 @@ Sirf bullet points do, koi lambi explanation nahi, koi markdown headers nahi.`;
             hero_image_alt: document.getElementById('artDHeroAlt').value.trim() || null,
             key_points: document.getElementById('artDKeyPoints').value.trim() || null,
             source_status: document.getElementById('artDSourceStatus').value || null,
-            is_time_sensitive: document.getElementById('artDTimeSensitive').checked
+            is_time_sensitive: document.getElementById('artDTimeSensitive').checked,
+            target_keywords: window._artTargetKeywordsUsed || null
           })
         });
         if(!data){ saveStatus.textContent = '❌ Admin secret nahi mila.'; return; }
