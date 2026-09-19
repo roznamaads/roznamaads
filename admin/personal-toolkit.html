@@ -3108,6 +3108,9 @@ METHODOLOGY: [1-3 lines Urdu script mein — data kahan se aya, AI ka role kya t
         <div class="field">
           <label>Hero Image</label>
           <input type="text" id="artDHeroUrl" placeholder="Image URL (khali chhoro to default OG image use hogi)">
+          <button class="mini-btn" id="uploadHeroImageBtn" type="button" style="margin-top:6px">📤 Image Upload Karein</button>
+          <input type="file" id="heroImageFileInput" accept="image/*" style="display:none">
+          <span id="heroImageUploadStatus" style="font-size:.78rem;color:var(--muted)"></span>
           <input type="text" id="artDHeroCaption" placeholder="Caption" style="margin-top:6px">
           <input type="text" id="artDHeroAlt" placeholder="Alt text (descriptive, SEO ke liye)" style="margin-top:6px">
         </div>
@@ -3155,7 +3158,10 @@ METHODOLOGY: [1-3 lines Urdu script mein — data kahan se aya, AI ka role kya t
           <select id="artDToolnestCat"><option value="">⏳ Tools load ho rahe hain...</option></select>
         </div>
         <div class="field"><label>Body (HTML — preview neeche)</label><textarea id="artDBody" rows="14" style="font-family:monospace;font-size:.78rem">${escapeHtml(bodyHtml)}</textarea></div>
-        <div class="field"><label>Preview</label><div dir="rtl" style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff;font-family:'Noto Nastaliq Urdu',serif;font-size:1.05rem;line-height:2;text-align:right">${bodyHtml}</div></div>
+        <button class="mini-btn" id="insertBodyImageBtn" type="button">📤 Image Upload Karein (Body Mein Insert)</button>
+        <input type="file" id="bodyImageFileInput" accept="image/*" style="display:none">
+        <span id="bodyImageUploadStatus" style="font-size:.78rem;color:var(--muted);margin-right:8px"></span>
+        <div class="field"><label>Preview</label><div id="artDBodyPreview" dir="rtl" style="border:1px solid var(--line);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;background:#fff;font-family:'Noto Nastaliq Urdu',serif;font-size:1.05rem;line-height:2;text-align:right">${bodyHtml}</div></div>
         <button class="btn alt" id="artQualityCheckBtn" type="button">🔍 AI Quality Check</button>
         <div id="artQualityResult" style="margin-top:8px;font-size:.85rem;line-height:1.7"></div>
         <button class="btn" id="saveArticleBtn" style="margin-top:10px">📝 Draft Save Karein</button>
@@ -3244,6 +3250,54 @@ document.getElementById('artNewCatToggle').addEventListener('click', () => {
       }catch(e){
         statusEl.textContent = '❌ ' + e.message;
       }
+    });
+
+    async function uploadArticleImage(file, statusEl){
+      statusEl.textContent = '⏳ Upload ho raha hai...';
+      const ext = (file.name.split('.').pop() || 'jpg');
+      const path = `articles/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await rzDb.storage.from('ad-images').upload(path, file);
+      if(upErr) throw new Error(upErr.message);
+      const { data: urlData } = rzDb.storage.from('ad-images').getPublicUrl(path);
+      statusEl.textContent = '✅ Upload ho gaya.';
+      return urlData.publicUrl;
+    }
+
+    document.getElementById('uploadHeroImageBtn').addEventListener('click', () => {
+      document.getElementById('heroImageFileInput').click();
+    });
+    document.getElementById('heroImageFileInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      const statusEl = document.getElementById('heroImageUploadStatus');
+      try{
+        const url = await uploadArticleImage(file, statusEl);
+        document.getElementById('artDHeroUrl').value = url;
+      }catch(err){ statusEl.textContent = '❌ ' + err.message; }
+      e.target.value = '';
+    });
+
+    document.getElementById('insertBodyImageBtn').addEventListener('click', () => {
+      document.getElementById('bodyImageFileInput').click();
+    });
+    document.getElementById('bodyImageFileInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      const statusEl = document.getElementById('bodyImageUploadStatus');
+      try{
+        const url = await uploadArticleImage(file, statusEl);
+        const altText = prompt('Is image ka alt text (SEO ke liye, chhota description):', '') || '';
+        const imgTag = `\n<figure style="margin:16px 0;text-align:center"><img src="${url}" alt="${altText.replace(/"/g,'&quot;')}" style="max-width:100%;border-radius:8px"></figure>\n`;
+        const textarea = document.getElementById('artDBody');
+        const cursorPos = textarea.selectionStart ?? textarea.value.length;
+        textarea.value = textarea.value.slice(0, cursorPos) + imgTag + textarea.value.slice(cursorPos);
+        document.getElementById('artDBodyPreview').innerHTML = textarea.value;
+      }catch(err){ statusEl.textContent = '❌ ' + err.message; }
+      e.target.value = '';
+    });
+
+    document.getElementById('artDBody').addEventListener('input', () => {
+      document.getElementById('artDBodyPreview').innerHTML = document.getElementById('artDBody').value;
     });
 
     document.getElementById('artQualityCheckBtn').addEventListener('click', async () => {
