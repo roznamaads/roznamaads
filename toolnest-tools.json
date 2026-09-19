@@ -1,46 +1,422 @@
 {
+  "business": [
+    {
+      "name": "Resume / CV Builder",
+      "slug": "resume-cv-builder"
+    },
+    {
+      "name": "Invoice Generator",
+      "slug": "invoice-generator"
+    },
+    {
+      "name": "Barcode Generator",
+      "slug": "barcode-generator"
+    },
+    {
+      "name": "Instant Contract / Agreement Draft Generator",
+      "slug": "contract-agreement-generator"
+    },
+    {
+      "name": "Client Proposal & Scope Generator",
+      "slug": "client-proposal-generator"
+    },
+    {
+      "name": "SaaS Runway & Cash Burn Rate Calculator",
+      "slug": "saas-runway-calculator"
+    },
+    {
+      "name": "WhatsApp Direct Chat",
+      "slug": "whatsapp-direct-chat"
+    },
+    {
+      "name": "QR Code Generator & Scanner",
+      "slug": "qr-code-generator-scanner"
+    },
+    {
+      "name": "Rishta Biodata Studio",
+      "slug": "rishta-biodata-studio"
+    },
+    {
+      "name": "Wedding & Shaadi Budget Planner",
+      "slug": "wedding-shaadi-planner-studio"
+    }
+  ],
+  "design": [
+    {
+      "name": "Logo Maker",
+      "slug": "logo-maker"
+    },
+    {
+      "name": "Business Card Maker",
+      "slug": "business-card-maker"
+    },
+    {
+      "name": "UI/UX Mesh Gradient Generator",
+      "slug": "mesh-gradient-generator"
+    },
+    {
+      "name": "Favicon Generator",
+      "slug": "favicon-generator"
+    },
+    {
+      "name": "Signature Maker",
+      "slug": "signature-maker"
+    },
+    {
+      "name": "Color Toolkit",
+      "slug": "color-toolkit"
+    },
+    {
+      "name": "Accessibility Contrast Checker",
+      "slug": "accessibility-contrast-checker"
+    }
+  ],
+  "developer": [
+    {
+      "name": "JSON Formatter & Validator",
+      "slug": "json-formatter-validator"
+    },
+    {
+      "name": "HEX ↔ RGB Converter",
+      "slug": "hex-to-rgb-converter"
+    },
+    {
+      "name": "CSS Minifier",
+      "slug": "css-minifier"
+    },
+    {
+      "name": "Unix Timestamp Converter",
+      "slug": "unix-timestamp-converter"
+    },
+    {
+      "name": "HTML Beautifier",
+      "slug": "html-beautifier"
+    },
+    {
+      "name": "JSON to CSV Converter",
+      "slug": "json-to-csv-converter"
+    },
+    {
+      "name": "Markdown Previewer",
+      "slug": "markdown-previewer"
+    },
+    {
+      "name": "Case Shifter",
+      "slug": "case-shifter"
+    },
+    {
+      "name": "Password Strength Tester",
+      "slug": "password-strength-tester"
+    },
+    {
+      "name": "Hash Generator",
+      "slug": "hash-generator"
+    },
+    {
+      "name": "Universal Encoder / Decoder",
+      "slug": "universal-encoder-decoder"
+    },
+    {
+      "name": "CSV Data Cleaner",
+      "slug": "csv-data-cleaner"
+    }
+  ],
+  "digital": [
+    {
+      "name": "Random Picker & Generator Studio",
+      "slug": "random-picker-generator-studio"
+    },
+    {
+      "name": "File Transfer / Quick Share",
+      "slug": "file-transfer-webrtc"
+    },
+    {
+      "name": "Internet Speed Test",
+      "slug": "internet-speed-test"
+    },
+    {
+      "name": "My IP Address & Location Finder",
+      "slug": "my-ip-address-location-finder"
+    },
+    {
+      "name": "DNS Lookup Tool",
+      "slug": "dns-lookup-tool"
+    },
+    {
+      "name": "User Agent Finder",
+      "slug": "user-agent-finder"
+    },
+    {
+      "name": "Ping & Latency Tester",
+      "slug": "ping-latency-tester"
+    }
+  ],
+  "education": [
+    {
+      "name": "Student Academic Toolkit",
+      "slug": "student-academic-toolkit"
+    },
+    {
+      "name": "Marks & Final Grade Calculator",
+      "slug": "marks-grade-calculator"
+    },
+    {
+      "name": "Scientific Notation Converter",
+      "slug": "scientific-notation-converter"
+    },
+    {
+      "name": "Text Similarity Checker",
+      "slug": "text-similarity-checker"
+    },
+    {
+      "name": "Citation Generator",
+      "slug": "citation-generator"
+    },
+    {
+      "name": "Age Calculator for School",
+      "slug": "age-calculator-for-school"
+    },
+    {
+      "name": "Quadratic Equation Solver",
+      "slug": "quadratic-equation-solver"
+    },
+    {
+      "name": "Fraction Calculator",
+      "slug": "fraction-calculator"
+    },
+    {
+      "name": "Standard Deviation Calculator",
+      "slug": "standard-deviation-calculator"
+    },
+    {
+      "name": "Discount & Scholarship Calculator",
+      "slug": "discount-scholarship-calculator"
+    },
+    {
+      "name": "Matrix Calculator",
+      "slug": "matrix-calculator"
+    },
+    {
+      "name": "Periodic Table Finder",
+      "slug": "periodic-table-finder"
+    },
+    {
+      "name": "AI Study Helper",
+      "slug": "ai-study-helper"
+    }
+  ],
+  "finance": [
+    {
+      "name": "SIP & Investment Return Calculator",
+      "slug": "sip-investment-return-calculator"
+    },
+    {
+      "name": "Simple & Compound Interest Calculator",
+      "slug": "simple-compound-interest-calculator"
+    },
+    {
+      "name": "Sales Tax / GST Calculator",
+      "slug": "sales-tax-gst-calculator"
+    },
+    {
+      "name": "Crypto / Stock Profit & Loss Calculator",
+      "slug": "crypto-stock-profit-loss-calculator"
+    },
+    {
+      "name": "Inflation Calculator",
+      "slug": "inflation-calculator"
+    },
+    {
+      "name": "Salary / Take-Home Pay Calculator",
+      "slug": "salary-take-home-pay-calculator"
+    },
+    {
+      "name": "Savings Goal Calculator",
+      "slug": "savings-goal-calculator"
+    },
+    {
+      "name": "Zakat & Ushr Studio",
+      "slug": "zakat-calculator"
+    },
+    {
+      "name": "Crypto Trading Command Center",
+      "slug": "crypto-trading-command-center"
+    }
+  ],
+  "health": [
+    {
+      "name": "Hydration Timer",
+      "slug": "hydration-timer"
+    },
+    {
+      "name": "Runner's Pace Predictor",
+      "slug": "runners-pace-predictor"
+    },
+    {
+      "name": "Sleep Cycle Planner",
+      "slug": "sleep-cycle-planner"
+    },
+    {
+      "name": "Fitness Dashboard",
+      "slug": "fitness-dashboard"
+    },
+    {
+      "name": "Period & Ovulation Calculator",
+      "slug": "period-ovulation-calculator"
+    },
+    {
+      "name": "Pregnancy Due Date Calculator",
+      "slug": "pregnancy-due-date-calculator"
+    }
+  ],
+  "image": [
+    {
+      "name": "Image Compressor",
+      "slug": "image-compressor"
+    },
+    {
+      "name": "Photo Enhancer",
+      "slug": "photo-enhancer"
+    },
+    {
+      "name": "Watermark Maker",
+      "slug": "watermark-maker"
+    },
+    {
+      "name": "Document Photo Maker",
+      "slug": "document-photo-maker"
+    },
+    {
+      "name": "Collage Maker",
+      "slug": "collage-maker"
+    },
+    {
+      "name": "JPG / PNG / WebP Image Converter",
+      "slug": "image-format-converter"
+    }
+  ],
+  "pdf": [
+    {
+      "name": "PDF to Word Converter",
+      "slug": "pdf-to-word-converter"
+    },
+    {
+      "name": "Document Scanner & PDF Maker",
+      "slug": "document-scanner-pdf-maker"
+    },
+    {
+      "name": "PDF Workspace",
+      "slug": "pdf-workspace"
+    },
+    {
+      "name": "PDF Grayscale & B/W Converter",
+      "slug": "pdf-grayscale-converter"
+    },
+    {
+      "name": "PDF Info Viewer",
+      "slug": "pdf-info-viewer"
+    },
+    {
+      "name": "Image to PDF",
+      "slug": "image-to-pdf"
+    },
+    {
+      "name": "Text to PDF",
+      "slug": "text-to-pdf"
+    }
+  ],
   "property": [
-    {"name": "Land & Plot Toolkit", "slug": "land-plot-toolkit"},
-    {"name": "Property Loan EMI & Mortgage Calculator", "slug": "property-loan-mortgage-calculator"},
-    {"name": "Rental Yield Calculator", "slug": "rental-yield-calculator"},
-    {"name": "Construction Cost Estimator", "slug": "construction-cost-estimator"},
-    {"name": "Property Document & Rent Agreement Studio", "slug": "property-document-studio"},
-    {"name": "Map Scale & Distance Calculator", "slug": "map-scale-distance-calculator"}
+    {
+      "name": "Land & Plot Toolkit",
+      "slug": "land-plot-toolkit"
+    },
+    {
+      "name": "Construction Bricks Calculator",
+      "slug": "construction-bricks-calculator"
+    },
+    {
+      "name": "Cement & Concrete Volume Calculator",
+      "slug": "cement-concrete-volume-calculator"
+    },
+    {
+      "name": "Paint Estimator",
+      "slug": "paint-estimator"
+    },
+    {
+      "name": "Flooring Tile Calculator",
+      "slug": "flooring-tile-calculator"
+    },
+    {
+      "name": "Property Loan EMI & Mortgage Calculator",
+      "slug": "property-loan-mortgage-calculator"
+    },
+    {
+      "name": "Rental Yield Calculator",
+      "slug": "rental-yield-calculator"
+    },
+    {
+      "name": "Construction Cost Estimator",
+      "slug": "construction-cost-estimator"
+    },
+    {
+      "name": "Map Scale & Distance Calculator",
+      "slug": "map-scale-distance-calculator"
+    },
+    {
+      "name": "Property Document & Rent Agreement Studio",
+      "slug": "property-document-studio"
+    }
   ],
-  "jobs": [
-    {"name": "Resume / CV Builder", "slug": "resume-cv-builder"},
-    {"name": "Invoice Generator", "slug": "invoice-generator"},
-    {"name": "Client Proposal & Scope Generator", "slug": "client-proposal-generator"},
-    {"name": "Instant Contract / Agreement Draft Generator", "slug": "contract-agreement-generator"},
-    {"name": "Business Card Maker", "slug": "business-card-maker"},
-    {"name": "Salary / Take-Home Pay Calculator", "slug": "salary-take-home-pay-calculator"}
+  "text": [
+    {
+      "name": "Word & Character Counter",
+      "slug": "word-character-counter"
+    },
+    {
+      "name": "Text Diff Checker",
+      "slug": "text-diff-checker"
+    },
+    {
+      "name": "Text Transformer",
+      "slug": "text-transformer"
+    },
+    {
+      "name": "Duplicate Line Remover",
+      "slug": "duplicate-line-remover"
+    },
+    {
+      "name": "Lorem Ipsum Generator",
+      "slug": "lorem-ipsum-generator"
+    },
+    {
+      "name": "Find & Replace",
+      "slug": "find-and-replace"
+    },
+    {
+      "name": "Text to Image",
+      "slug": "text-to-image"
+    },
+    {
+      "name": "Spelling Checker",
+      "slug": "spelling-checker"
+    }
   ],
-  "matrimonial": [
-    {"name": "Rishta Biodata Studio", "slug": "rishta-biodata-studio"},
-    {"name": "Wedding & Shaadi Budget Planner", "slug": "wedding-shaadi-planner-studio"}
-  ],
-  "electronics": [
-    {"name": "Image Compressor", "slug": "image-compressor"},
-    {"name": "Photo Enhancer", "slug": "photo-enhancer"},
-    {"name": "Watermark Maker", "slug": "watermark-maker"}
-  ],
-  "services": [
-    {"name": "QR Code Generator & Scanner", "slug": "qr-code-generator-scanner"},
-    {"name": "WhatsApp Direct Chat", "slug": "whatsapp-direct-chat"},
-    {"name": "Invoice Generator", "slug": "invoice-generator"}
-  ],
-  "visa": [
-    {"name": "Document Photo Maker", "slug": "document-photo-maker"},
-    {"name": "Document Scanner & PDF Maker", "slug": "document-scanner-pdf-maker"}
-  ],
-  "auctions": [
-    {"name": "Document Scanner & PDF Maker", "slug": "document-scanner-pdf-maker"}
-  ],
-  "admissions": [
-    {"name": "Document Photo Maker", "slug": "document-photo-maker"},
-    {"name": "Document Scanner & PDF Maker", "slug": "document-scanner-pdf-maker"}
-  ],
-  "tenders": [
-    {"name": "Document Scanner & PDF Maker", "slug": "document-scanner-pdf-maker"}
+  "youtube": [
+    {
+      "name": "YouTube Branding Kit",
+      "slug": "youtube-branding-kit"
+    },
+    {
+      "name": "Title Generator",
+      "slug": "title-generator"
+    },
+    {
+      "name": "Description Template Builder",
+      "slug": "description-template-builder"
+    },
+    {
+      "name": "Tag & Keyword Idea Generator",
+      "slug": "tag-keyword-generator"
+    }
   ]
 }
