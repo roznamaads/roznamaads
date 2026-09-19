@@ -628,6 +628,29 @@
     <p class="desc" id="authorsMsg" style="margin-top:8px"></p>
   </section>
 
+  <!-- SEO Manager -->
+  <section class="panel" data-panel="seo-manager">
+    <h2>🔍 SEO Manager</h2>
+    <p class="desc">Article Engine V2 — Phase H tasks. Kuch tasks sirf tab ho sakte hain jab site live/public domain par ho.</p>
+
+    <h3 style="margin-top:18px">Ab Ho Sakta Hai (site preview URL par)</h3>
+    <ul class="desc" style="padding-right:18px;line-height:1.9">
+      <li>Real BEOE (ya kisi bhi source) dataset se poora end-to-end flow test karna — Source → Collect → Clean → Verify → Analyze → Visualize → Human Review → Publish</li>
+      <li>Published article ka JSON-LD manually review karna (view-source mein <code>#articleSchema</code> script tag check karein)</li>
+    </ul>
+
+    <h3 style="margin-top:18px">Site Live Hone Ke Baad — Checklist</h3>
+    <div id="seoChecklistBox"></div>
+
+    <h3 style="margin-top:18px">Quick Links (live hone ke baad)</h3>
+    <ul class="desc" style="padding-right:18px;line-height:1.9">
+      <li><a href="https://search.google.com/test/rich-results" target="_blank" rel="noopener">Google Rich Results Test →</a></li>
+      <li><a href="https://search.google.com/search-console" target="_blank" rel="noopener">Google Search Console →</a></li>
+      <li>News Sitemap URL (submit karne ke liye): <code>https://roznamaads.pk/news-sitemap.xml</code></li>
+      <li>General Sitemap URL: <code>https://roznamaads.pk/sitemap.xml</code></li>
+    </ul>
+  </section>
+
   <!-- Universal Table Downloader -->
   <section class="panel" data-panel="table-downloader">
     <h2>🌐 Universal Table Downloader</h2>
@@ -1097,6 +1120,7 @@ const TOOLS = [
   {id:'ad-generator', label:'Ad Post Generator'},
   {id:'article-generator', label:'Article Generator'},
   {id:'authors', label:'Authors'},
+  {id:'seo-manager', label:'SEO Manager'},
   {id:'draft-queue', label:'Draft Queue'},
   {id:'ad-manager', label:'Ad Manager'},
   {id:'dup-check', label:'Duplicate Check'},
@@ -2385,6 +2409,42 @@ async function deleteAuthor(id){
 }
 
 document.getElementById('loadAuthorsBtn').addEventListener('click', loadAuthors);
+
+/* ---------- SEO Manager (Phase H — post-launch checklist) ---------- */
+const SEO_CHECKLIST_ITEMS = [
+  { id: 'domain-live', label: 'roznamaads.pk domain live ho gaya (site ab preview URL nahi, asal domain par hai)' },
+  { id: 'search-console-verify', label: 'Google Search Console mein property verify ki (roznamaads.pk)' },
+  { id: 'sitemap-submit', label: 'sitemap.xml Search Console mein submit kiya' },
+  { id: 'news-sitemap-submit', label: 'news-sitemap.xml Search Console mein alag se submit kiya' },
+  { id: 'rich-results-test', label: 'Ek published article Google Rich Results Test se check kiya (koi error/warning nahi)' },
+  { id: 'url-inspection', label: 'Us article ka Search Console URL Inspection kiya — crawl/index status theek hai' },
+  { id: 'beoe-e2e-test', label: 'Real BEOE (ya kisi source) dataset se poora end-to-end flow test kiya' }
+];
+
+function loadSeoChecklistState(){
+  try{ return JSON.parse(localStorage.getItem('rz_seo_checklist') || '{}'); }
+  catch(e){ return {}; }
+}
+
+function renderSeoChecklist(){
+  const box = document.getElementById('seoChecklistBox');
+  if(!box) return;
+  const state = loadSeoChecklistState();
+  box.innerHTML = SEO_CHECKLIST_ITEMS.map(item => `
+    <label style="display:flex;align-items:flex-start;gap:8px;margin:8px 0;font-size:.88rem;font-weight:normal">
+      <input type="checkbox" class="seoChecklistItem" data-id="${item.id}" ${state[item.id] ? 'checked' : ''} style="margin-top:3px">
+      <span>${item.label}</span>
+    </label>
+  `).join('');
+  box.querySelectorAll('.seoChecklistItem').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const s = loadSeoChecklistState();
+      s[cb.dataset.id] = cb.checked;
+      localStorage.setItem('rz_seo_checklist', JSON.stringify(s));
+    });
+  });
+}
+renderSeoChecklist();
 
 /* ---------- Article Generator — simplified: files -> topics -> article ---------- */
 let artFilesCache = [];       // { file, kind: 'text'|'image', textContent?, imagePart? }
