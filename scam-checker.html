@@ -11,6 +11,22 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://roznamaads.pk/scam-checker.html">
 <meta property="og:image" content="https://roznamaads.pk/logo.svg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://roznamaads.pk/"},
+{"@type":"ListItem","position":2,"name":"Scam & Risk Checker","item":"https://roznamaads.pk/scam-checker.html"}
+]},
+{"@type":"Service","name":"Pakistan Scam & Risk Checker","serviceType":"Fraud Prevention","provider":{"@type":"Organization","name":"RoznamaAds.pk"},"areaServed":"PK","description":"9 tarah ke targets (society, visa agency, job, institute, company, tender, auction, phone, website) ka risk check — official records aur moderated user reports se."},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Scam Checker \"100% scam\" verdict deta hai?","acceptedAnswer":{"@type":"Answer","text":"Nahi, ye sirf ek maloomati risk assessment hai jo official records aur reports par based hai — koi automated final fatwa nahi."}},
+{"@type":"Question","name":"Kaunse 9 categories check ho sakti hain?","acceptedAnswer":{"@type":"Answer","text":"Housing Society, Visa/OEP Agency, Job/Recruiter, Institute, Company, Tender/Supplier, Auction, Phone Number, aur Website/URL."}},
+{"@type":"Question","name":"Phone number check karne se caller ki private details milti hain?","acceptedAnswer":{"@type":"Answer","text":"Nahi, sirf RoznamaAds ki apni ad-activity ka pattern dikhaya jata hai — koi telecom/SIM-owner data access nahi hota."}},
+{"@type":"Question","name":"Website/URL check kya karta hai?","acceptedAnswer":{"@type":"Answer","text":"HTTPS status, redirect behaviour, page ki claimed identity aur official-record match server-side check kiya jata hai."}},
+{"@type":"Question","name":"Fraud report karne ke baad kya hota hai?","acceptedAnswer":{"@type":"Answer","text":"Har report admin review se guzarta hai, us ke baad hi wo signal doosron ko dikhaya jata hai."}}
+]}
+]}
+</script>
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
@@ -45,6 +61,16 @@
   .vdisclaimer{background:#fff6e0;border:1px solid #f0d98a;border-radius:10px;padding:12px 14px;font-size:.78rem;color:#5c4a10;line-height:1.6;margin-top:16px}
   .vempty{text-align:center;color:var(--muted);padding:30px 10px;font-size:.9rem}
   .sc-report-link{max-width:760px;margin:0 auto;padding:0 16px;text-align:center;font-size:.82rem}
+  .seo-content{max-width:760px;margin:8px auto 0;padding:10px 16px 40px}
+  .seo-content h2{font-size:1.15rem;color:var(--green-dark);margin:26px 0 10px}
+  .seo-content h3{font-size:1rem;color:var(--ink);margin:16px 0 6px}
+  .seo-content p,.seo-content li{font-size:.9rem;line-height:1.7;color:var(--ink)}
+  .seo-content ul{padding-left:20px;margin:8px 0}
+  .cat-explainer{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
+  .cat-explainer .ce{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.82rem;line-height:1.6}
+  .cat-explainer .ce b{color:var(--green-dark)}
+  .seo-faq details{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;background:var(--card)}
+  .seo-faq summary{font-weight:700;font-size:.9rem;cursor:pointer;color:var(--green-dark)}
 </style>
 </head>
 <body>
@@ -120,6 +146,46 @@
     </p>
   </div>
 </main>
+
+<section class="seo-content">
+  <h2>Paisay Dene Se Pehle Verify Karein — 9 Categories Mein Se Koi Bhi</h2>
+  <p>Pakistan mein fraud sirf housing societies aur visa agencies tak mehdood nahi — fake job offers, ghost institutes, shell companies, fraudulent tenders, fake auctions, scam phone numbers aur phishing websites bhi aam hain. RoznamaAds.pk ka Scam &amp; Risk Checker 9 mukhtalif categories cover karta hai, taake paisay ya waqt invest karne se pehle aap official aur community signals dono dekh sakein.</p>
+
+  <h3>9 Categories Jo Check Ho Sakti Hain</h3>
+  <div class="cat-explainer">
+    <div class="ce"><b>🏘️ Housing Society</b> — CDA/RDA official record se match</div>
+    <div class="ce"><b>🛂 Visa/OEP Agency</b> — BEOE license record se match</div>
+    <div class="ce"><b>💼 Job/Recruiter</b> — community reports + pattern signals</div>
+    <div class="ce"><b>🎓 Institute</b> — HEC recognition record se cross-check</div>
+    <div class="ce"><b>🏢 Company/Business</b> — reports aur RoznamaAds ad-history</div>
+    <div class="ce"><b>📄 Tender/Supplier</b> — PPRA record se match</div>
+    <div class="ce"><b>🔨 Auction</b> — community reports</div>
+    <div class="ce"><b>📞 Phone Number</b> — RoznamaAds ad-activity pattern (koi telecom data nahi)</div>
+    <div class="ce"><b>🌐 Website/URL</b> — server-side HTTPS, redirect aur identity check</div>
+  </div>
+
+  <h3>Result Kaise Samjhein</h3>
+  <p>Har result ek "risk signal summary" hai — official record match, mukhtalif reports, aur RoznamaAds ki apni ad-history combine karke ek status label deta hai (jaise "Caution" ya "Warning"). Ye final legal faisla nahi, sirf ek starting point hai apni khud ki tehqeeq ke liye.</p>
+
+  <h3>Phone aur Website Checks Khaas Kyun Hain</h3>
+  <p>Phone number check karne se caller ki koi private/telecom data nahi milti — sirf ye dikhaya jata hai ke us number se RoznamaAds par kitni ads post hui hain aur kis naam se (multiple naam ek red flag ho sakta hai). Website check server-side HTTPS aur redirect behaviour test karta hai, taake fake/cloned websites ka pata chal sake jo asli company ka naam istemal karti hain.</p>
+
+  <h3>Apna Visa Permission Number Bhi Verify Karein</h3>
+  <p>Is page par ek alag tool hai jo aapko seedha BEOE ki official website (beoe.gov.pk) ke record tak le jata hai — apna Permission Number likh kar confirm karein ke offer asli agency se hai, salary sahi hai, aur offer abhi valid hai.</p>
+
+  <h2>Common Sawalat (FAQ)</h2>
+  <div class="seo-faq">
+    <details><summary>Scam Checker "100% scam" verdict deta hai?</summary><p>Nahi, ye sirf ek maloomati risk assessment hai jo official records aur reports par based hai — koi automated final fatwa nahi.</p></details>
+    <details><summary>Kaunse 9 categories check ho sakti hain?</summary><p>Housing Society, Visa/OEP Agency, Job/Recruiter, Institute, Company, Tender/Supplier, Auction, Phone Number, aur Website/URL.</p></details>
+    <details><summary>Phone number check karne se caller ki private details milti hain?</summary><p>Nahi, sirf RoznamaAds ki apni ad-activity ka pattern dikhaya jata hai — koi telecom/SIM-owner data access nahi hota.</p></details>
+    <details><summary>Website/URL check kya karta hai?</summary><p>HTTPS status, redirect behaviour, page ki claimed identity aur official-record match server-side check kiya jata hai.</p></details>
+    <details><summary>Fraud report karne ke baad kya hota hai?</summary><p>Har report admin review se guzarta hai, us ke baad hi wo signal doosron ko dikhaya jata hai.</p></details>
+    <details><summary>Ye check karna free hai?</summary><p>Haan, sab 9 categories free check ki ja sakti hain — koi sign-up ya payment nahi chahiye.</p></details>
+  </div>
+
+  <h2>Related Pages</h2>
+  <p><a href="verify.html">🛡️ Society/Visa Verify</a> · <a href="report-risk.html">🚩 Fraud Report Karein</a> · <a href="index.html">🏠 Home</a></p>
+</section>
 
 <footer>
   <div class="wrap">

@@ -11,6 +11,13 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://roznamaads.pk/">
 <link rel="stylesheet" href="styles.css">
+<style>
+  .about-timeline{max-width:720px;margin:20px auto 0;padding:0 16px}
+  .about-timeline .step{display:flex;gap:14px;margin-bottom:16px}
+  .about-timeline .num{flex:0 0 34px;height:34px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem}
+  .about-timeline .txt h4{margin:0 0 4px;font-size:.98rem;color:var(--green-dark)}
+  .about-timeline .txt p{margin:0;font-size:.86rem;color:var(--ink);line-height:1.6}
+</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="analytics-config.js"></script>
@@ -46,6 +53,7 @@
     <a href="scam-checker.html" class="hero-verify-btn">🛡️ Society, Visa Agency ya Institute Verify Karein — Free</a>
     <a href="submit-ad.html" class="hero-verify-btn" style="background:#1f8a4c;color:#fff">📝 Apni Ad Submit Karein — Free</a>
   </div>
+  <p style="max-width:600px;margin:12px auto 0;font-size:.82rem;color:#e5ecdf;line-height:1.6">Property, jobs, vehicles ya matrimonial — dhoondna ho, ya paisay dene se pehle kisi society, visa agency ya company ka status confirm karna ho, RoznamaAds.pk ek hi platform par dono kaam free deta hai.</p>
 </header>
 
 <div class="site-ticker">
@@ -58,6 +66,8 @@
 
 <main id="main-content">
 
+  <p style="max-width:720px;margin:0 auto 20px;padding:0 16px;font-size:.9rem;line-height:1.75;color:var(--ink);text-align:center">RoznamaAds.pk Pakistan ke sab se bade newspapers — Jang, Express, Nawa-i-Waqt aur Dawn — ke classified ads ko ek digital, searchable platform mein la kar deta hai. Property, Jobs, Vehicles, Matrimonial, Visa &amp; Overseas Employment, Auctions aur Government Tenders — sab ek jagah, bilkul free, koi sign-up zaroori nahi.</p>
+
   <div class="section-title"><h2>Categories</h2></div>
   <div class="category-grid" id="categoryGrid">
     <div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:.85rem">Loading categories...</div>
@@ -68,7 +78,15 @@
     <div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:.85rem">Loading...</div>
   </div>
 
+  <div class="section-title"><h2>RoznamaAds Kaise Use Karein</h2></div>
+  <div class="about-timeline" style="max-width:700px;margin:0 auto 20px;padding:0 16px">
+    <div class="step"><div class="num">1</div><div class="txt"><h4>Search ya Category Select Karein</h4><p>Top search bar mein keyword likhein, ya category card par tap karein.</p></div></div>
+    <div class="step"><div class="num">2</div><div class="txt"><h4>Ad Kholein Aur Details Dekhein</h4><p>Price, location, aur description dekhein — masked phone number reveal karne ka option bhi milega.</p></div></div>
+    <div class="step"><div class="num">3</div><div class="txt"><h4>Seedha Contact Karein</h4><p>Reveal Number ya WhatsApp button se seedha seller/poster se baat karein — koi middleman nahi.</p></div></div>
+  </div>
+
   <div class="section-title"><h2>Why RoznamaAds</h2></div>
+  <p style="max-width:700px;margin:0 auto 16px;padding:0 16px;font-size:.88rem;line-height:1.7;color:var(--ink)">Mainstream classified sites (OLX, Zameen) sirf online-submitted ads dikhati hain — newspaper ka data unke paas nahi hota. RoznamaAds.pk yehi gap fill karta hai, aur sath hi ek trust layer bhi deta hai jo mainstream sites nahi dete: government-verified Scam Checker.</p>
   <div class="feature-grid">
     <div class="feature-card feature-card-highlight"><div class="icon">🛡️</div><h4>Government-Verified Scam Checker</h4><p>BEOE, HEC, PPRA ke official records se — <a href="scam-checker.html">visa agency, society ya institute verify karein</a> paisay dene se pehle.</p></div>
     <div class="feature-card feature-card-highlight"><div class="icon">💘</div><h4>Rishta Board — Verified from Print</h4><p>Newspaper matrimonial classifieds se, bilkul free. <a href="rishta.html">Abhi dekhein →</a></p></div>
@@ -79,11 +97,22 @@
     <div class="feature-card"><div class="icon">🚫</div><h4>No Sign-Up to Browse</h4><p>Directly ads dekhein, contact karein.</p></div>
   </div>
 
+  <div class="section-title"><h2>Kin Newspapers Se Data Aata Hai</h2></div>
+  <p style="max-width:700px;margin:0 auto 20px;padding:0 16px;font-size:.88rem;line-height:1.7;color:var(--ink)">RoznamaAds.pk Pakistan ke leading newspapers — Jang, Express, Nawa-i-Waqt aur Dawn — ke classified sections se listings extract karta hai. Har naya edition process hone ke baad naye ads website par add hoti hain, is liye list roz fresh rehti hai. Newspaper mein chhapi hui ad hone ki wajah se ek accountability layer bhi milta hai jo purely-online listings mein nahi hota.</p>
+
+  <div class="section-title"><h2>Popular Cities &amp; Categories</h2></div>
+  <p style="max-width:700px;margin:0 auto 12px;padding:0 16px;font-size:.88rem;line-height:1.7;color:var(--ink)">RoznamaAds.pk par Lahore, Karachi, Islamabad, Rawalpindi, Faisalabad, Multan, Peshawar aur Quetta jaisay shehron ki classified ads milti hain — Property (plots, houses, commercial), Jobs (government aur private), Vehicles, Matrimonial, Visa &amp; Overseas Employment, Auctions, aur Government Tenders sab categories ek jagah, roz update hoti hain.</p>
+  <p style="max-width:700px;margin:0 auto 20px;padding:0 16px;font-size:.88rem;line-height:1.7;color:var(--ink)">Property section mein DHA, Bahria Town, aur doosri housing societies ke plots/houses mil jate hain — agar society ka status confirm karna ho to <a href="verify.html">Verification page</a> use karein. Jobs section mein government aur private, dono tarah ki vacancies newspaper classifieds se aati hain. Matrimonial ke liye <a href="rishta.html">Rishta Board</a> dedicated tarike se banaya gaya hai, taake wo experience baaqi categories se alag aur zyada privacy-focused rahe.</p>
+
   <div class="section-title"><h2>FAQs</h2></div>
   <div class="faq-block">
     <details><summary>Kya RoznamaAds free hai?</summary><p>Ji haan, ads browse karna bilkul free hai — koi sign-up zaroori nahi.</p></details>
     <details><summary>Ye ads kahan se aate hain?</summary><p>Pakistani newspapers ke classified sections se — OCR aur AI ke zariye extract karke website par publish kiye jate hain.</p></details>
     <details><summary>Kya main apni ad khud daal sakta hun?</summary><p>Ji haan, <a href="submit-ad.html">Submit Ad page</a> se aap apni ad khud bhi post kar sakte hain.</p></details>
+    <details><summary>Society ya visa agency verify karna free hai?</summary><p>Ji haan, <a href="verify.html">Verification page</a> aur <a href="scam-checker.html">Scam Checker</a> dono bilkul free hain — CDA, RDA, BEOE ke official records se check karein.</p></details>
+    <details><summary>Rishta Board kya hai?</summary><p>Newspaper matrimonial classifieds se liya gaya, verified aur free matrimonial section — <a href="rishta.html">yahan dekhein</a>.</p></details>
+    <details><summary>Kaunse shehron ki ads milti hain?</summary><p>Lahore, Karachi, Islamabad, Rawalpindi, Faisalabad, Multan, Peshawar, Quetta aur Pakistan ke doosre bade shehron ki ads — sab ek jagah, searchable.</p></details>
+    <details><summary>Government tenders bhi milte hain?</summary><p>Haan, <a href="tenders.html">Tenders page</a> par PPRA se live sync hone wali government tenders bhi mil jati hain, newspaper classifieds ke ilawa.</p></details>
   </div>
 
 </main>
@@ -162,7 +191,16 @@ document.getElementById('adSearch').addEventListener('keydown', (e) => {
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
 {"@type":"Organization","name":"RoznamaAds.pk","url":"https://roznamaads.pk/","description":"RoznamaAds.pk aggregates Pakistani newspaper classified ads into a searchable, digital platform."},
-{"@type":"WebSite","name":"RoznamaAds.pk","url":"https://roznamaads.pk/","description":"Pakistani newspaper classified ads — Property, Jobs, Vehicles, Matrimonial, Visa, Auctions, Tenders and more."}
+{"@type":"WebSite","name":"RoznamaAds.pk","url":"https://roznamaads.pk/","description":"Pakistani newspaper classified ads — Property, Jobs, Vehicles, Matrimonial, Visa, Auctions, Tenders and more."},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Kya RoznamaAds free hai?","acceptedAnswer":{"@type":"Answer","text":"Ji haan, ads browse karna bilkul free hai — koi sign-up zaroori nahi."}},
+{"@type":"Question","name":"Ye ads kahan se aate hain?","acceptedAnswer":{"@type":"Answer","text":"Pakistani newspapers ke classified sections se — OCR aur AI ke zariye extract karke website par publish kiye jate hain."}},
+{"@type":"Question","name":"Kya main apni ad khud daal sakta hun?","acceptedAnswer":{"@type":"Answer","text":"Ji haan, Submit Ad page se aap apni ad khud bhi post kar sakte hain."}},
+{"@type":"Question","name":"Society ya visa agency verify karna free hai?","acceptedAnswer":{"@type":"Answer","text":"Ji haan, Verification page aur Scam Checker dono bilkul free hain — CDA, RDA, BEOE ke official records se check karein."}},
+{"@type":"Question","name":"Rishta Board kya hai?","acceptedAnswer":{"@type":"Answer","text":"Newspaper matrimonial classifieds se liya gaya, verified aur free matrimonial section."}},
+{"@type":"Question","name":"Kaunse shehron ki ads milti hain?","acceptedAnswer":{"@type":"Answer","text":"Lahore, Karachi, Islamabad, Rawalpindi, Faisalabad, Multan, Peshawar, Quetta aur Pakistan ke doosre bade shehron ki ads — sab ek jagah, searchable."}},
+{"@type":"Question","name":"Government tenders bhi milte hain?","acceptedAnswer":{"@type":"Answer","text":"Haan, Tenders page par PPRA se live sync hone wali government tenders bhi mil jati hain, newspaper classifieds ke ilawa."}}
+]}
 ]}
 </script>
 </body>
