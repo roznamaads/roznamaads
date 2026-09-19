@@ -177,8 +177,7 @@
 
     <div class="field"><label>Data Source</label>
       <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
-        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="file" checked> 📁 File Upload</label>
-        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="url"> 🔗 URL Se Likhwayein</label>
+        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="file" checked> 📁 Files / URL / Text</label>
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="website"> 📊 Website Data (Verifications/Tenders)</label>
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="opendata"> 🌐 Open Data API (KP/NODP)</label>
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="sbp"> 🏦 SBP EasyData (Economic Indicators)</label>
@@ -243,14 +242,6 @@
       <div id="artSbpStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     </div>
 
-    <div id="artUrlBlock" style="display:none">
-      <div class="field"><label>Government Scheme / Press Release URL</label>
-        <input type="text" id="artUrlInput" placeholder="https://... (govt scheme page, press release, notification)">
-      </div>
-      <button class="btn" id="fetchUrlBtn">🔗 URL Fetch Karein &amp; Topics Nikalein</button>
-      <div id="artUrlStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
-    </div>
-
     <div id="artGuideBlock" style="display:none">
       <div class="field"><label>Guide Topic (title/subject)</label>
         <input type="text" id="artGuideTopic" placeholder="e.g. Property ad newspaper mein kaise dhoondein">
@@ -263,10 +254,17 @@
     </div>
 
     <div id="artFileSourceBlock">
-      <div class="field"><label>Files Upload Karein (PDF, CSV, TXT, Excel, Images — ek ya zyada)</label>
+      <p class="desc">Teeno optional hain — jo bhi bharo (ek ya zyada) wo sab mil kar article ke liye use hoga.</p>
+      <div class="field"><label>1. Files Upload (PDF, CSV, TXT, Excel, Images — ek ya zyada)</label>
         <input type="file" id="artDataFiles" accept=".pdf,.csv,.txt,.xlsx,.xls,image/*" multiple>
       </div>
-      <button class="btn" id="extractTopicsBtn">🔍 Topics Nikalein</button>
+      <div class="field"><label>2. URL (govt scheme page, press release, notification)</label>
+        <input type="text" id="artUrlInput" placeholder="https://...">
+      </div>
+      <div class="field"><label>3. Copy-Paste Text</label>
+        <textarea id="artPasteText" rows="4" placeholder="Kisi bhi jagah se text yahan paste karein..."></textarea>
+      </div>
+      <button class="btn" id="extractTopicsBtn">🔍 Data Jama Karein &amp; Topics Nikalein</button>
     </div>
 
     <div id="artWebsiteSourceBlock" style="display:none">
@@ -2425,7 +2423,6 @@ document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
   r.addEventListener('change', () => {
     const mode = document.querySelector('input[name="artSourceMode"]:checked').value;
     document.getElementById('artFileSourceBlock').style.display = mode === 'file' ? 'block' : 'none';
-    document.getElementById('artUrlBlock').style.display = mode === 'url' ? 'block' : 'none';
     document.getElementById('artWebsiteSourceBlock').style.display = mode === 'website' ? 'block' : 'none';
     document.getElementById('artOpendataBlock').style.display = mode === 'opendata' ? 'block' : 'none';
     document.getElementById('artSbpBlock').style.display = mode === 'sbp' ? 'block' : 'none';
@@ -2440,7 +2437,6 @@ document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
     document.getElementById('artOdResourcesBox').innerHTML = '';
     document.getElementById('artSbpStatus').textContent = '';
     document.getElementById('artGuideStatus').textContent = '';
-    document.getElementById('artUrlStatus').textContent = '';
     document.getElementById('artGenerateWrap').style.display = 'none';
     document.getElementById('artDraftBox').innerHTML = '';
     artFilesCache = [];
@@ -2909,47 +2905,50 @@ document.getElementById('extractTopicsBtn').addEventListener('click', async () =
   const statusEl = document.getElementById('artTopicsStatus');
   const topicsBox = document.getElementById('artTopicsList');
   const files = Array.from(document.getElementById('artDataFiles').files || []);
-  if(files.length === 0){ statusEl.textContent = '❌ Pehle ek ya zyada files upload karein.'; return; }
+  const url = document.getElementById('artUrlInput').value.trim();
+  const pastedText = document.getElementById('artPasteText').value.trim();
+
+  if(files.length === 0 && !url && !pastedText){
+    statusEl.textContent = '❌ Files, URL, ya paste text mein se kam-az-kam ek bharein.';
+    return;
+  }
 
   document.getElementById('artGenerateWrap').style.display = 'none';
   topicsBox.innerHTML = '';
-  statusEl.textContent = '⏳ Files padhi ja rahi hain...';
+  artFilesCache = [];
+  artUrlSourceMeta = null;
+  const sourceLabels = [];
+  const dataParts = [];
 
   try{
-    artFilesCache = [];
-    artSourceLabelOverride = null;
-    for(const file of files){
-      statusEl.textContent = `⏳ Padh raha hoon: ${file.name}...`;
-      const parsed = await readFileForArticle(file);
-      artFilesCache.push(parsed);
+    if(files.length > 0){
+      for(const file of files){
+        statusEl.textContent = `⏳ Padh raha hoon: ${file.name}...`;
+        const parsed = await readFileForArticle(file);
+        artFilesCache.push(parsed);
+      }
+      const textParts = artFilesCache.filter(f => f.kind === 'text').map(f => `[File: ${f.label}]\n${f.text}`).join('\n\n');
+      if(textParts) dataParts.push(textParts);
+      sourceLabels.push(...artFilesCache.map(f => f.label));
     }
 
-    const textParts = artFilesCache.filter(f => f.kind === 'text').map(f => `[File: ${f.label}]\n${f.text}`).join('\n\n');
-    artFileDataForPrompt = textParts;
+    if(url){
+      statusEl.textContent = '⏳ URL fetch ho raha hai...';
+      const result = await callAdminApi('fetch-url-content?url=' + encodeURIComponent(url), { method: 'GET' });
+      artUrlSourceMeta = { url: result.url, domain: result.domain, page_title: result.page_title };
+      dataParts.push(`[Source URL: ${result.url}]\n[Page Title: ${result.page_title || '(none)'}]\n\n${result.text}`);
+      sourceLabels.push(result.page_title || result.domain);
+    }
 
-    await runArtTopicExtraction(statusEl, topicsBox);
-  }catch(e){
-    statusEl.textContent = '❌ ' + e.message;
-  }
-});
+    if(pastedText){
+      dataParts.push(`[Pasted Text]\n${pastedText}`);
+      sourceLabels.push('Pasted Text');
+    }
 
-document.getElementById('fetchUrlBtn').addEventListener('click', async () => {
-  const statusEl = document.getElementById('artUrlStatus');
-  const topicsBox = document.getElementById('artTopicsList');
-  const url = document.getElementById('artUrlInput').value.trim();
-  if(!url){ statusEl.textContent = '❌ Pehle URL likhein.'; return; }
+    artFileDataForPrompt = dataParts.join('\n\n---\n\n');
+    artSourceLabelOverride = sourceLabels.join(', ');
 
-  document.getElementById('artGenerateWrap').style.display = 'none';
-  topicsBox.innerHTML = '';
-  statusEl.textContent = '⏳ URL fetch ho raha hai...';
-
-  try{
-    const result = await callAdminApi('fetch-url-content?url=' + encodeURIComponent(url), { method: 'GET' });
-    artUrlSourceMeta = { url: result.url, domain: result.domain, page_title: result.page_title };
-    artFilesCache = [];
-    artFileDataForPrompt = `[Source URL: ${result.url}]\n[Page Title: ${result.page_title || '(none)'}]\n\n${result.text}`;
-    artSourceLabelOverride = result.page_title || result.domain;
-    statusEl.textContent = `✅ ${result.text.length} characters mile. Topics nikal raha hoon...`;
+    statusEl.textContent = '⏳ Topics nikal raha hoon...';
     await runArtTopicExtraction(statusEl, topicsBox);
   }catch(e){
     statusEl.textContent = '❌ ' + e.message;
