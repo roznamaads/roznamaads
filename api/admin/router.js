@@ -298,7 +298,34 @@ export default async function handler(req, res) {
           .trim();
 
         if (text.length < 200) {
-          return res.status(422).json({ error: 'Page se bohot kam text mila — ye JS-rendered page ho sakta hai jise sirf browser render kar sakta hai.' });
+          return res.status(422).json({ error: 'Page se bohot kam text mila — ye JS-rendered page ho sakta hai jise sirf browser render kar sakta hai. "Copy-Paste Text" field use karein.' });
+        }
+
+        // Bot-protection / CAPTCHA detection — hum inhe automatically solve
+        // nahi kar sakte, isliye clear error dena behtar hai bajaye is ke ke
+        // is junk content ko silently Gemini tak bhej diya jaye.
+        const BOT_BLOCK_SIGNALS = [
+          /checking your browser/i,
+          /verify you are human/i,
+          /verify you.re human/i,
+          /cf-browser-verification/i,
+          /captcha/i,
+          /recaptcha/i,
+          /hcaptcha/i,
+          /access denied/i,
+          /just a moment/i,
+          /ddos protection by/i,
+          /enable javascript and cookies/i,
+          /attention required/i,
+          /unusual traffic/i,
+          /are you a robot/i
+        ];
+        const sampleForCheck = text.slice(0, 3000);
+        const isBotBlocked = BOT_BLOCK_SIGNALS.some(rx => rx.test(sampleForCheck)) || BOT_BLOCK_SIGNALS.some(rx => rx.test(pageTitle));
+        if (isBotBlocked) {
+          return res.status(422).json({
+            error: 'Ye page bot-protection/CAPTCHA ke peeche hai — automatically fetch nahi ho sakta. Browser mein URL khol kar text copy karein aur "Copy-Paste Text" field mein daal dein.'
+          });
         }
 
         return res.status(200).json({
