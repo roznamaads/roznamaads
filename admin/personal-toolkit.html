@@ -260,6 +260,10 @@
       </div>
       <div class="field"><label>2. URL (govt scheme page, press release, notification)</label>
         <input type="text" id="artUrlInput" placeholder="https://...">
+        <div style="margin-top:6px;font-size:.8rem">
+          <label style="font-weight:normal;display:block;margin-bottom:2px"><input type="checkbox" id="artUrlBrowserRelay"> Fetch via Browser Relay (jab server direct fetch block ho)</label>
+          <label style="font-weight:normal;display:block"><input type="checkbox" id="artUrlDirectPhone"> Direct Phone Fetch (jab relay bhi block ho — is phone ke internet se; "Allow CORS" extension ON hona zaroori hai)</label>
+        </div>
       </div>
       <div class="field"><label>3. Copy-Paste Text</label>
         <textarea id="artPasteText" rows="4" placeholder="Kisi bhi jagah se text yahan paste karein..."></textarea>
@@ -2933,8 +2937,21 @@ document.getElementById('extractTopicsBtn').addEventListener('click', async () =
     }
 
     if(url){
-      statusEl.textContent = '⏳ URL fetch ho raha hai...';
-      const result = await callAdminApi('fetch-url-content?url=' + encodeURIComponent(url), { method: 'GET' });
+      const useBrowserRelay = document.getElementById('artUrlBrowserRelay').checked;
+      const useDirectPhone = document.getElementById('artUrlDirectPhone').checked;
+      let result;
+      if(useDirectPhone){
+        statusEl.textContent = '⏳ Is phone se seedha fetch kar raha hoon...';
+        const directResult = await directFetchClientSide(url, { method: 'GET' });
+        result = await callAdminApi('extract-url-content-from-html', { method: 'POST', body: JSON.stringify({ html: directResult.html, url }) });
+      } else if(useBrowserRelay){
+        statusEl.textContent = '⏳ Browser relay se fetch ho raha hai (30-60+ sec lag sakte hain, sabar karein)...';
+        const relayResult = await relayFetchClientSide(url, { method: 'GET' });
+        result = await callAdminApi('extract-url-content-from-html', { method: 'POST', body: JSON.stringify({ html: relayResult.html, url }) });
+      } else {
+        statusEl.textContent = '⏳ URL fetch ho raha hai...';
+        result = await callAdminApi('fetch-url-content?url=' + encodeURIComponent(url), { method: 'GET' });
+      }
       artUrlSourceMeta = { url: result.url, domain: result.domain, page_title: result.page_title };
       dataParts.push(`[Source URL: ${result.url}]\n[Page Title: ${result.page_title || '(none)'}]\n\n${result.text}`);
       sourceLabels.push(result.page_title || result.domain);

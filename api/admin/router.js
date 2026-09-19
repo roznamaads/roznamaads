@@ -20,6 +20,59 @@ import { Agent } from 'undici';
 const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
 const FAST_TIMEOUT_MS = 5000; // fail fast taake relay (48s tak) ke liye time bache — function ka maxDuration 60s hai
 
+// Article Generator — "URL Se Likhwayein" mode. Raw HTML se plain text nikalta
+// hai aur bot-protection/CAPTCHA pages detect karta hai. url-content ke dono
+// actions (server-fetch aur client-fetched-html) yahi function share karte hain.
+const BOT_BLOCK_SIGNALS = [
+  /checking your browser/i,
+  /verify you are human/i,
+  /verify you.re human/i,
+  /cf-browser-verification/i,
+  /captcha/i,
+  /recaptcha/i,
+  /hcaptcha/i,
+  /access denied/i,
+  /just a moment/i,
+  /ddos protection by/i,
+  /enable javascript and cookies/i,
+  /attention required/i,
+  /unusual traffic/i,
+  /are you a robot/i
+];
+
+function extractArticleTextFromHtml(rawHtml) {
+  const titleMatch = (rawHtml || '').match(/<title[^>]*>([^<]*)<\/title>/i);
+  const pageTitle = titleMatch ? titleMatch[1].trim() : '';
+
+  const text = (rawHtml || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(br|p|div|li|h[1-6]|tr)[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (text.length < 200) {
+    return { error: 'Page se bohot kam text mila — ye JS-rendered page ho sakta hai jise sirf browser render kar sakta hai. "Copy-Paste Text" field use karein.' };
+  }
+
+  const sampleForCheck = text.slice(0, 3000);
+  const isBotBlocked = BOT_BLOCK_SIGNALS.some(rx => rx.test(sampleForCheck)) || BOT_BLOCK_SIGNALS.some(rx => rx.test(pageTitle));
+  if (isBotBlocked) {
+    return { error: 'Ye page bot-protection/CAPTCHA ke peeche hai — automatically fetch nahi ho sakta. Browser mein URL khol kar text copy karein aur "Copy-Paste Text" field mein daal dein.' };
+  }
+
+  return { pageTitle, text: text.slice(0, 30000) };
+}
+
 async function fetchGovUrl(url){
   try{
     const r = await fetch(url, { signal: AbortSignal.timeout(FAST_TIMEOUT_MS) });
@@ -277,66 +330,39 @@ export default async function handler(req, res) {
           return res.status(502).json({ error: `Page ne HTTP ${fetchResult.status} diya — URL check karein ya shayad JS-rendered page hai.` });
         }
 
-        const rawHtml = fetchResult.text || '';
-        const titleMatch = rawHtml.match(/<title[^>]*>([^<]*)<\/title>/i);
-        const pageTitle = titleMatch ? titleMatch[1].trim() : '';
-
-        const text = rawHtml
-          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-          .replace(/<!--[\s\S]*?-->/g, ' ')
-          .replace(/<(br|p|div|li|h[1-6]|tr)[^>]*>/gi, '\n')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/[ \t]+/g, ' ')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim();
-
-        if (text.length < 200) {
-          return res.status(422).json({ error: 'Page se bohot kam text mila — ye JS-rendered page ho sakta hai jise sirf browser render kar sakta hai. "Copy-Paste Text" field use karein.' });
-        }
-
-        // Bot-protection / CAPTCHA detection — hum inhe automatically solve
-        // nahi kar sakte, isliye clear error dena behtar hai bajaye is ke ke
-        // is junk content ko silently Gemini tak bhej diya jaye.
-        const BOT_BLOCK_SIGNALS = [
-          /checking your browser/i,
-          /verify you are human/i,
-          /verify you.re human/i,
-          /cf-browser-verification/i,
-          /captcha/i,
-          /recaptcha/i,
-          /hcaptcha/i,
-          /access denied/i,
-          /just a moment/i,
-          /ddos protection by/i,
-          /enable javascript and cookies/i,
-          /attention required/i,
-          /unusual traffic/i,
-          /are you a robot/i
-        ];
-        const sampleForCheck = text.slice(0, 3000);
-        const isBotBlocked = BOT_BLOCK_SIGNALS.some(rx => rx.test(sampleForCheck)) || BOT_BLOCK_SIGNALS.some(rx => rx.test(pageTitle));
-        if (isBotBlocked) {
-          return res.status(422).json({
-            error: 'Ye page bot-protection/CAPTCHA ke peeche hai — automatically fetch nahi ho sakta. Browser mein URL khol kar text copy karein aur "Copy-Paste Text" field mein daal dein.'
-          });
-        }
+        const extracted = extractArticleTextFromHtml(fetchResult.text || '');
+        if (extracted.error) return res.status(422).json({ error: extracted.error });
 
         return res.status(200).json({
           ok: true,
           url: targetUrl,
           domain: parsedUrl.hostname.replace(/^www\./, ''),
-          page_title: pageTitle,
-          text: text.slice(0, 30000)
+          page_title: extracted.pageTitle,
+          text: extracted.text
         });
       }
 
+      case 'extract-url-content-from-html': {
+        // Same as fetch-url-content, but the HTML was already fetched
+        // client-side (Browser Relay ya Direct Phone Fetch se — jab server
+        // ka apna fetch bhi block ho jaye). Server sirf text nikalta hai.
+        if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+        const { html, url } = req.body || {};
+        if (!html || !url) return res.status(400).json({ error: 'html and url required' });
+        let parsedUrl2;
+        try { parsedUrl2 = new URL(url); } catch (e) { return res.status(400).json({ error: 'Invalid URL' }); }
+
+        const extracted = extractArticleTextFromHtml(html);
+        if (extracted.error) return res.status(422).json({ error: extracted.error });
+
+        return res.status(200).json({
+          ok: true,
+          url,
+          domain: parsedUrl2.hostname.replace(/^www\./, ''),
+          page_title: extracted.pageTitle,
+          text: extracted.text
+        });
+      }
       case 'publish-article': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
         const { id } = req.body || {};
