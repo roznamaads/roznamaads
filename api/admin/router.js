@@ -255,6 +255,61 @@ export default async function handler(req, res) {
         return res.status(200).json(matches);
       }
 
+      case 'fetch-url-content': {
+        // Article Generator — "URL Se Likhwayein" mode. Fetches a government
+        // scheme/press-release page and extracts plain text for the AI prompt
+        // pipeline (same fallback chain used by Table Downloader for
+        // datacenter-IP-blocked govt sites: direct -> relaxed-TLS -> relay).
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const targetUrl = (req.query.url || '').toString().trim();
+        if (!targetUrl) return res.status(400).json({ error: 'url required' });
+        let parsedUrl;
+        try { parsedUrl = new URL(targetUrl); } catch (e) { return res.status(400).json({ error: 'Invalid URL' }); }
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) return res.status(400).json({ error: 'Sirf http/https URLs allowed hain' });
+
+        let fetchResult;
+        try {
+          fetchResult = await fetchGovUrl(targetUrl);
+        } catch (e) {
+          return res.status(502).json({ error: `URL fetch fail ho gaya: ${e.message}` });
+        }
+        if (fetchResult.status >= 400) {
+          return res.status(502).json({ error: `Page ne HTTP ${fetchResult.status} diya — URL check karein ya shayad JS-rendered page hai.` });
+        }
+
+        const rawHtml = fetchResult.text || '';
+        const titleMatch = rawHtml.match(/<title[^>]*>([^<]*)<\/title>/i);
+        const pageTitle = titleMatch ? titleMatch[1].trim() : '';
+
+        const text = rawHtml
+          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+          .replace(/<!--[\s\S]*?-->/g, ' ')
+          .replace(/<(br|p|div|li|h[1-6]|tr)[^>]*>/gi, '\n')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/[ \t]+/g, ' ')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+
+        if (text.length < 200) {
+          return res.status(422).json({ error: 'Page se bohot kam text mila — ye JS-rendered page ho sakta hai jise sirf browser render kar sakta hai.' });
+        }
+
+        return res.status(200).json({
+          ok: true,
+          url: targetUrl,
+          domain: parsedUrl.hostname.replace(/^www\./, ''),
+          page_title: pageTitle,
+          text: text.slice(0, 30000)
+        });
+      }
+
       case 'publish-article': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
         const { id } = req.body || {};

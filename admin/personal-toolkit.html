@@ -178,6 +178,7 @@
     <div class="field"><label>Data Source</label>
       <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="file" checked> 📁 File Upload</label>
+        <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="url"> 🔗 URL Se Likhwayein</label>
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="website"> 📊 Website Data (Verifications/Tenders)</label>
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="opendata"> 🌐 Open Data API (KP/NODP)</label>
         <label style="font-weight:normal;display:flex;align-items:center;gap:6px"><input type="radio" name="artSourceMode" value="sbp"> 🏦 SBP EasyData (Economic Indicators)</label>
@@ -240,6 +241,14 @@
       <button class="btn" id="sbpFetchBtn">🏦 Data Laayein (Server se)</button>
       <button class="btn alt" id="sbpDirectFetchBtn" style="margin-top:8px">📱 Phone se Direct Try Karein (agar upar wala fail ho)</button>
       <div id="artSbpStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
+    </div>
+
+    <div id="artUrlBlock" style="display:none">
+      <div class="field"><label>Government Scheme / Press Release URL</label>
+        <input type="text" id="artUrlInput" placeholder="https://... (govt scheme page, press release, notification)">
+      </div>
+      <button class="btn" id="fetchUrlBtn">🔗 URL Fetch Karein &amp; Topics Nikalein</button>
+      <div id="artUrlStatus" style="margin-top:10px;font-size:.85rem;color:var(--muted)"></div>
     </div>
 
     <div id="artGuideBlock" style="display:none">
@@ -2374,6 +2383,7 @@ document.getElementById('loadAuthorsBtn').addEventListener('click', loadAuthors)
 let artFilesCache = [];       // { file, kind: 'text'|'image', textContent?, imagePart? }
 let artFileDataForPrompt = ''; // combined text summary of all files or DB rows, for prompt
 let artSourceLabelOverride = null; // set when source = website data, else falls back to file labels
+let artUrlSourceMeta = null; // { url, domain, page_title } when source = URL fetch
 let artIsGuideMode = false; // true when "Guide/How-To Article" source is selected — changes the final-article prompt framing
 let artCategoriesCache = [];  // { id, slug, label } loaded from article_categories table
 
@@ -2415,6 +2425,7 @@ document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
   r.addEventListener('change', () => {
     const mode = document.querySelector('input[name="artSourceMode"]:checked').value;
     document.getElementById('artFileSourceBlock').style.display = mode === 'file' ? 'block' : 'none';
+    document.getElementById('artUrlBlock').style.display = mode === 'url' ? 'block' : 'none';
     document.getElementById('artWebsiteSourceBlock').style.display = mode === 'website' ? 'block' : 'none';
     document.getElementById('artOpendataBlock').style.display = mode === 'opendata' ? 'block' : 'none';
     document.getElementById('artSbpBlock').style.display = mode === 'sbp' ? 'block' : 'none';
@@ -2429,11 +2440,13 @@ document.querySelectorAll('input[name="artSourceMode"]').forEach(r => {
     document.getElementById('artOdResourcesBox').innerHTML = '';
     document.getElementById('artSbpStatus').textContent = '';
     document.getElementById('artGuideStatus').textContent = '';
+    document.getElementById('artUrlStatus').textContent = '';
     document.getElementById('artGenerateWrap').style.display = 'none';
     document.getElementById('artDraftBox').innerHTML = '';
     artFilesCache = [];
     artFileDataForPrompt = '';
     artSourceLabelOverride = null;
+    artUrlSourceMeta = null;
   });
 });
 
@@ -2920,6 +2933,29 @@ document.getElementById('extractTopicsBtn').addEventListener('click', async () =
   }
 });
 
+document.getElementById('fetchUrlBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('artUrlStatus');
+  const topicsBox = document.getElementById('artTopicsList');
+  const url = document.getElementById('artUrlInput').value.trim();
+  if(!url){ statusEl.textContent = '❌ Pehle URL likhein.'; return; }
+
+  document.getElementById('artGenerateWrap').style.display = 'none';
+  topicsBox.innerHTML = '';
+  statusEl.textContent = '⏳ URL fetch ho raha hai...';
+
+  try{
+    const result = await callAdminApi('fetch-url-content?url=' + encodeURIComponent(url), { method: 'GET' });
+    artUrlSourceMeta = { url: result.url, domain: result.domain, page_title: result.page_title };
+    artFilesCache = [];
+    artFileDataForPrompt = `[Source URL: ${result.url}]\n[Page Title: ${result.page_title || '(none)'}]\n\n${result.text}`;
+    artSourceLabelOverride = result.page_title || result.domain;
+    statusEl.textContent = `✅ ${result.text.length} characters mile. Topics nikal raha hoon...`;
+    await runArtTopicExtraction(statusEl, topicsBox);
+  }catch(e){
+    statusEl.textContent = '❌ ' + e.message;
+  }
+});
+
 function selectArtTopic(i){
   const t = window._artTopicsCache[i];
   document.getElementById('artSelectedTopic').value = t.topic;
@@ -3075,6 +3111,7 @@ METHODOLOGY: [1-3 lines Urdu script mein — data kahan se aya, AI ka role kya t
               <option value="other">Other</option>
             </select>
           </div>
+          <input type="text" id="artDSourceUrl" placeholder="Source URL (link)" style="margin-top:6px">
           <div class="field-row" style="margin-top:6px">
             <div class="field"><label style="font-size:.75rem">Source Published Date</label><input type="date" id="artDSourcePublishedAt"></div>
             <div class="field"><label style="font-size:.75rem">Data Collected Date</label><input type="date" id="artDDataCollectedAt" value="${new Date().toISOString().slice(0,10)}"></div>
@@ -3118,6 +3155,12 @@ METHODOLOGY: [1-3 lines Urdu script mein — data kahan se aya, AI ka role kya t
       const typeSel = document.getElementById('artDSourceType');
       const match = Array.from(typeSel.options).find(o => o.value.toLowerCase() === aiSourceType.toLowerCase());
       if(match) typeSel.value = match.value;
+    }
+    if(artUrlSourceMeta){
+      document.getElementById('artDSourceUrl').value = artUrlSourceMeta.url;
+      if(!document.getElementById('artDSourceName').value) document.getElementById('artDSourceName').value = artUrlSourceMeta.domain;
+      document.getElementById('artDSourceType').value = 'press release';
+      document.getElementById('artDDataCollectedAt').value = new Date().toISOString().slice(0,10);
     }
 
     // Phase G: duplicate/near-duplicate check against existing articles
@@ -3235,7 +3278,7 @@ Sirf bullet points do, koi lambi explanation nahi, koi markdown headers nahi.`;
             body_html: bodyHtml,
             category: document.getElementById('artDCategory').value || null,
             source_label: artSourceLabelOverride || artFilesCache.map(f => f.label).join(', ') || null,
-            source_url: null,
+            source_url: document.getElementById('artDSourceUrl').value.trim() || null,
             chart_data: window._artChartData,
             word_count: wordCount,
             toolnest_category: toolnestCat,
