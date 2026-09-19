@@ -11,6 +11,25 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://roznamaads.pk/verify.html">
 <meta property="og:image" content="https://roznamaads.pk/logo.svg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://roznamaads.pk/"},
+{"@type":"ListItem","position":2,"name":"Society / Visa Agency Verification","item":"https://roznamaads.pk/verify.html"}
+]},
+{"@type":"Service","name":"Society & Visa Agency Verification","serviceType":"Fraud Prevention / Verification","provider":{"@type":"Organization","name":"RoznamaAds.pk"},"areaServed":"PK","description":"Housing society aur visa/overseas employment agency ki official record (CDA, RDA, BEOE) se free verification."},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"RoznamaAds pe housing society verify karna free hai?","acceptedAnswer":{"@type":"Answer","text":"Haan, society ya visa agency ka naam search karna bilkul free hai — koi sign-up ya payment nahi chahiye."}},
+{"@type":"Question","name":"Verification ka data kahan se aata hai?","acceptedAnswer":{"@type":"Answer","text":"Data official authorities — CDA, RDA aur BEOE (Bureau of Emigration & Overseas Employment) — ke public records se liya jata hai, aur regular update hota hai."}},
+{"@type":"Question","name":"Agar society ya agency list mein na mile to iska matlab illegal hai?","acceptedAnswer":{"@type":"Answer","text":"Nahi. \"Insufficient Information\" ka matlab hai ke abhi hamare paas us ka official record maujood nahi — ye fraud ka saboot nahi. Mutalliqa official idaray se khud tasdeeq karein."}},
+{"@type":"Question","name":"Kya verification ek qanooni guarantee hai?","acceptedAnswer":{"@type":"Answer","text":"Nahi. Ye sirf ek maloomati risk assessment hai, koi qanooni faisla ya tauseeq nahi. Paisay dene se pehle hamesha official idaray se khud confirm karein."}},
+{"@type":"Question","name":"Housing society aur visa agency dono check ho sakti hain?","acceptedAnswer":{"@type":"Answer","text":"Haan — page ke top pe do tabs hain: Housing Society aur Visa Agency, dono alag official sources se verify hoti hain."}},
+{"@type":"Question","name":"Verification ka result kitni jaldi update hota hai?","acceptedAnswer":{"@type":"Answer","text":"Records periodically official sources se refresh hote hain — \"Last verified\" date har record ke saath dikhayi jati hai."}},
+{"@type":"Question","name":"Kya main society ka reference number ke bina bhi search kar sakta hoon?","acceptedAnswer":{"@type":"Answer","text":"Haan, sirf naam se bhi search ho jati hai — reference/license number optional hai, agar maloom ho to results zyada accurate hote hain."}},
+{"@type":"Question","name":"Agar mujhe koi galat/purana record nazar aaye to kya karoon?","acceptedAnswer":{"@type":"Answer","text":"Contact page se hamein bata dein — hum record ko dobara official source se cross-check kar ke update karenge."}}
+]}
+]}
+</script>
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
@@ -38,6 +57,13 @@
   .vsource-link{display:inline-block;margin-top:8px;font-size:.82rem;font-weight:700}
   .vdisclaimer{background:#fff6e0;border:1px solid #f0d98a;border-radius:10px;padding:12px 14px;font-size:.78rem;color:#5c4a10;line-height:1.6;margin-top:16px}
   .vempty{text-align:center;color:var(--muted);padding:30px 10px;font-size:.9rem}
+  .seo-content{max-width:760px;margin:8px auto 0;padding:10px 16px 40px}
+  .seo-content h2{font-size:1.15rem;color:var(--green-dark);margin:26px 0 10px}
+  .seo-content h3{font-size:1rem;color:var(--ink);margin:16px 0 6px}
+  .seo-content p,.seo-content li{font-size:.9rem;line-height:1.7;color:var(--ink)}
+  .seo-content ol,.seo-content ul{padding-left:20px;margin:8px 0}
+  .seo-faq details{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;background:var(--card)}
+  .seo-faq summary{font-weight:700;font-size:.9rem;cursor:pointer;color:var(--green-dark)}
 </style>
 </head>
 <body>
@@ -84,6 +110,51 @@
     ⚠️ Ye nateeja ek maloomati tasdeeq aur risk assessment hai — ye koi qanooni faisla, tauseeq ya guarantee nahi. Adaigi ya wabastagi se pehle hamesha mutalliqa official idaray se khud tasdeeq karein.
   </div>
 </main>
+
+<section class="seo-content">
+  <h2>Pakistan Mein Property aur Overseas Job Fraud — Ye Kyun Barh Raha Hai</h2>
+  <p>Pakistan ke bade shehron — Lahore, Karachi, Islamabad, Rawalpindi — mein har saal fake housing societies naye plots bech kar ghayab ho jati hain, aur ghair-license visa agencies overseas job ka lalach de kar log logon se lakhon rupay le leti hain. Zyadatar victims ko yaqeen dila diya jata hai ke society "CDA approved" hai ya agency "BEOE licensed" hai, lekin haqeeqat mein official record mein wo naam maujood hi nahi hota. RDA aur CDA dono ne baaqaeda public advisory di hai ke investment se pehle society ka status khud website ya official channel se confirm karein — RoznamaAds.pk ka Verification tool yehi kaam ek jagah, mobile se, chand seconds mein kar deta hai.</p>
+
+  <h3>Verify Karna Kyun Zaroori Hai — Ek Choti Si Ghalti Ka Nuqsan</h3>
+  <p>Ek plot file ya ek visa agency ka advance payment, dono mein hazaron se lakhon rupay tak ka risk hota hai. Agar society "unapproved" nikle to file kabhi transfer nahi ho pati, aur agar visa agency "unlicensed" nikle to na visa milta hai na paisay wapis. Ye tool aap ko wo hi maloomat deta hai jo official authority ke record mein maujood hai — koi rumor, koi agent ka dawa nahi, seedha source se.</p>
+
+  <h3>Search Kaise Karein (3 Steps)</h3>
+  <ol>
+    <li><strong>Category tab select karein</strong> — "Housing Society" ya "Visa Agency" jo bhi check karna hai.</li>
+    <li><strong>Naam ya reference number likhein</strong> — society ka naam (jaise "Bahria" ya "DHA"), ya agency ka license/reference number.</li>
+    <li><strong>Search dabayein</strong> — official record se match hone par status label, source link aur last-verified date fauran dikh jati hai.</li>
+  </ol>
+
+  <h3>5 Risk-Status Levels Ka Matlab Samjhein</h3>
+  <p>Ye tool kabhi bhi "100% scam" ya "100% safe" ka fatwa nahi deta — sirf official record ki position batata hai:</p>
+  <ul>
+    <li><strong>✅ Verified / Official Record Match</strong> — approved, valid ya issued status official record mein maujood hai.</li>
+    <li><strong>⚠️ Needs Caution</strong> — record "unapproved", "stale" ya "pending" dikhata hai — aur tasdeeq zaroori hai.</li>
+    <li><strong>🚫 Official Warning / Contradiction Found</strong> — official source ne illegal, cancelled ya blacklisted declare kiya hai.</li>
+    <li><strong>❔ Insufficient Information</strong> — abhi humare paas is naam ka koi official record nahi — iska matlab automatically fraud nahi.</li>
+  </ul>
+
+  <h3>Kis Kis Ke Liye Faidamand Hai</h3>
+  <p>Plot ya file kharidne se pehle investors, overseas job apply karne se pehle job seekers, real estate agents jo apne clients ko sahi maloomat dena chahte hain, banking/finance professionals jo mortgage se pehle due-diligence karte hain, aur koi bhi jo paisay invest karne se pehle "ye legal hai ya nahi" confirm karna chahta hai.</p>
+
+  <h3>Data Kahan Se Aata Hai (Trust &amp; Privacy)</h3>
+  <p>Search karne ke liye aap se koi personal data nahi mangi jati — koi login, koi phone number, kuch nahi. Data sirf official government/regulatory sources — CDA, RDA, BEOE — se aata hai aur periodically refresh hota hai. Koi teesra-party ya unverified crowd-sourced data is verification database mein shamil nahi kiya jata, taake result par bharosa kiya ja sake.</p>
+
+  <h2>Common Sawalat (FAQ)</h2>
+  <div class="seo-faq">
+    <details><summary>RoznamaAds pe housing society verify karna free hai?</summary><p>Haan, society ya visa agency ka naam search karna bilkul free hai — koi sign-up ya payment nahi chahiye.</p></details>
+    <details><summary>Verification ka data kahan se aata hai?</summary><p>Data official authorities — CDA, RDA aur BEOE (Bureau of Emigration &amp; Overseas Employment) — ke public records se liya jata hai, aur regular update hota hai.</p></details>
+    <details><summary>Agar society ya agency list mein na mile to iska matlab illegal hai?</summary><p>Nahi. "Insufficient Information" ka matlab hai ke abhi hamare paas us ka official record maujood nahi — ye fraud ka saboot nahi. Mutalliqa official idaray se khud tasdeeq karein.</p></details>
+    <details><summary>Kya verification ek qanooni guarantee hai?</summary><p>Nahi. Ye sirf ek maloomati risk assessment hai, koi qanooni faisla ya tauseeq nahi. Paisay dene se pehle hamesha official idaray se khud confirm karein.</p></details>
+    <details><summary>Housing society aur visa agency dono check ho sakti hain?</summary><p>Haan — page ke top pe do tabs hain: Housing Society aur Visa Agency, dono alag official sources se verify hoti hain.</p></details>
+    <details><summary>Verification ka result kitni jaldi update hota hai?</summary><p>Records periodically official sources se refresh hote hain — "Last verified" date har record ke saath dikhayi jati hai.</p></details>
+    <details><summary>Kya main society ka reference number ke bina bhi search kar sakta hoon?</summary><p>Haan, sirf naam se bhi search ho jati hai — reference/license number optional hai, agar maloom ho to results zyada accurate hote hain.</p></details>
+    <details><summary>Agar mujhe koi galat/purana record nazar aaye to kya karoon?</summary><p>Contact page se hamein bata dein — hum record ko dobara official source se cross-check kar ke update karenge.</p></details>
+  </div>
+
+  <h2>Related Pages</h2>
+  <p><a href="scam-checker.html">🔎 Scam &amp; Risk Checker</a> · <a href="tenders.html">📢 Government Tenders</a> · <a href="index.html">🏠 Home</a></p>
+</section>
 
 <footer>
   <div class="wrap">

@@ -11,6 +11,23 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://roznamaads.pk/tenders.html">
 <meta property="og:image" content="https://roznamaads.pk/logo.svg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://roznamaads.pk/"},
+{"@type":"ListItem","position":2,"name":"Government Tenders","item":"https://roznamaads.pk/tenders.html"}
+]},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Tenders ka data kahan se aata hai?","acceptedAnswer":{"@type":"Answer","text":"Ye data PPRA (Public Procurement Regulatory Authority) ke official portal epms.ppra.gov.pk se automatically har roz update hota hai."}},
+{"@type":"Question","name":"Tender list dekhna free hai?","acceptedAnswer":{"@type":"Answer","text":"Haan, sab tenders free browse aur search kiye ja sakte hain — koi sign-up zaroori nahi."}},
+{"@type":"Question","name":"Bidding kaise submit karein?","acceptedAnswer":{"@type":"Answer","text":"Har tender card pe official PPRA link diya hota hai — bidding process wahan official portal ya mutalliqa department ke through hoti hai."}},
+{"@type":"Question","name":"Closed tenders bhi dikhti hain?","acceptedAnswer":{"@type":"Answer","text":"Haan, status filter se sirf Open/Published tenders bhi dekhi ja sakti hain."}},
+{"@type":"Question","name":"Department ya tender number se search ho sakta hai?","acceptedAnswer":{"@type":"Answer","text":"Haan, search box mein tender ka naam, tender number, ya department ka naam likh kar search kar sakte hain."}},
+{"@type":"Question","name":"Kya har tender ka full document yahan milta hai?","acceptedAnswer":{"@type":"Answer","text":"Nahi, ye page tenders ki summary/list dikhata hai — full document official PPRA link se hi download karein."}},
+{"@type":"Question","name":"Tender miss ho jaye to kya karein?","acceptedAnswer":{"@type":"Answer","text":"Closing date guzar jane ke baad tender \"Closed\" ho jati hai — future opportunities ke liye list regular check karte rahein."}}
+]}
+]}
+</script>
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
@@ -34,6 +51,16 @@
   .tempty{text-align:center;color:var(--muted);padding:30px 10px;font-size:.9rem}
   .tload-more{display:block;margin:18px auto;padding:11px 26px;border-radius:8px;border:1px solid var(--green);background:#fff;color:var(--green-dark);font-weight:700;cursor:pointer}
   .tdisclaimer{background:#fff6e0;border:1px solid #f0d98a;border-radius:10px;padding:12px 14px;font-size:.78rem;color:#5c4a10;line-height:1.6;margin-top:16px}
+  .seo-content{max-width:760px;margin:8px auto 0;padding:10px 16px 40px}
+  .seo-content h2{font-size:1.15rem;color:var(--green-dark);margin:26px 0 10px}
+  .seo-content h3{font-size:1rem;color:var(--ink);margin:16px 0 6px}
+  .seo-content p,.seo-content li{font-size:.9rem;line-height:1.7;color:var(--ink)}
+  .seo-content ol,.seo-content ul{padding-left:20px;margin:8px 0}
+  .seo-content dl{margin:8px 0}
+  .seo-content dt{font-size:.92rem;color:var(--green-dark);margin-top:8px}
+  .seo-content dd{font-size:.88rem;color:var(--muted);margin:2px 0 0}
+  .seo-faq details{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;background:var(--card)}
+  .seo-faq summary{font-weight:700;font-size:.9rem;cursor:pointer;color:var(--green-dark)}
 </style>
 </head>
 <body>
@@ -82,6 +109,62 @@
     ⚠️ Ye data PPRA (epms.ppra.gov.pk) se automatically liya jata hai. Bidding se pehle hamesha official PPRA portal ya mutalliqa department se khud tasdeeq karein.
   </div>
 </main>
+
+<section class="seo-content">
+  <h2>PPRA Kya Hai, Aur Ye List Kaise Kaam Karti Hai</h2>
+  <p><strong>PPRA</strong> (Public Procurement Regulatory Authority) wo federal idara hai jo Pakistan ki government departments, autonomous bodies aur public-sector organizations ke procurement/tenders ko regulate karta hai — matlab jab bhi koi government office construction, supply ya services ke liye bidding karwana chahe, wo PPRA ke rules follow karta hai aur tender officially publish karta hai. RoznamaAds.pk ye tenders PPRA ke official e-Procurement portal (epms.ppra.gov.pk) se automatically nikaal kar aapko ek simple, search-able list mein deta hai — bina register kiye, bina kisi charge ke.</p>
+
+  <h3>Konsi Tender Categories Milti Hain</h3>
+  <dl>
+    <dt><strong>Construction &amp; Civil Works</strong></dt><dd>Roads, buildings, infrastructure projects.</dd>
+    <dt><strong>Goods &amp; Supplies</strong></dt><dd>Equipment, machinery, materials procurement.</dd>
+    <dt><strong>Services</strong></dt><dd>Consultancy, maintenance, IT services.</dd>
+    <dt><strong>Miscellaneous Government Procurement</strong></dt><dd>Departments-specific ya multi-category tenders.</dd>
+  </dl>
+
+  <h3>Search Kaise Karein</h3>
+  <ol>
+    <li>Search box mein tender ka naam, tender number, ya department likhein.</li>
+    <li>Status filter se sirf Open/Published tenders select karein.</li>
+    <li>Card pe diya official PPRA link kholein aur bidding process wahan complete karein.</li>
+  </ol>
+
+  <h3>Bidding Se Pehle Ye Zaroor Karein</h3>
+  <p>Kabhi bhi sirf is list ki summary par bidding decision na lein — har tender ka poora document (terms, eligibility, deadline) official PPRA portal ya mutalliqa department se hi download karein. Closing date guzar jane ke baad tender automatically "Closed" show hoti hai.</p>
+
+  <h3>Data Kitna Fresh Hai</h3>
+  <p>Tenders roz automatically PPRA se refresh hoti hain, is liye list hamesha updated rehti hai — koi manual entry nahi, seedha official source se sync.</p>
+
+  <h3>Kaun Apply Kar Sakta Hai</h3>
+  <p>PPRA tenders sirf badi construction companies ke liye nahi hote — chhote suppliers, service providers, aur specialized contractors bhi apply kar sakte hain, bas tender ki eligibility criteria (jo document mein likhi hoti hai) poori honi chahiye. Har tender apni requirements khud specify karti hai — kuch mein pehle se PPRA/relevant board mein registration zaroori hoti hai.</p>
+
+  <h3>Bidders Jo Aam Ghaltiyan Karte Hain</h3>
+  <ul>
+    <li>Sirf list ka short description parh kar bid daal dena — poora tender document na parhna.</li>
+    <li>Submission deadline ko last moment tak chhod dena — documents complete karne mein waqt lagta hai.</li>
+    <li>Eligibility criteria (license, registration, experience) verify na karna, phir bid disqualify ho jati hai.</li>
+  </ul>
+
+  <h3>PPRA Tenders Aur Provincial Tenders Mein Farq</h3>
+  <p>PPRA sirf federal-level procurement regulate karta hai — Punjab, Sindh, KPK aur Balochistan ke apne provincial procurement authorities (PPRA-equivalent bodies) hoti hain jo apne province ke departments ke tenders publish karti hain. RoznamaAds.pk ki ye list PPRA ke central federal portal se sync hoti hai, jahan federal aur bohat se autonomous-body tenders combine hoti hain.</p>
+
+  <h3>Notification Set Karne Ka Tareeqa</h3>
+  <p>Filhaal ye page manually check karna hota hai, lekin agar aap regular bidder hain to har hafte ek fixed din (jaise Monday) is list ko dekhne ki aadat banayein — naye tenders roz add hoti hain aur closing dates mukhtalif hoti hain, is liye regular checking se koi opportunity miss nahi hoti.</p>
+
+  <h2>Common Sawalat (FAQ)</h2>
+  <div class="seo-faq">
+    <details><summary>Tenders ka data kahan se aata hai?</summary><p>Ye data PPRA (Public Procurement Regulatory Authority) ke official portal epms.ppra.gov.pk se automatically har roz update hota hai.</p></details>
+    <details><summary>Tender list dekhna free hai?</summary><p>Haan, sab tenders free browse aur search kiye ja sakte hain — koi sign-up zaroori nahi.</p></details>
+    <details><summary>Bidding kaise submit karein?</summary><p>Har tender card pe official PPRA link diya hota hai — bidding process wahan official portal ya mutalliqa department ke through hoti hai.</p></details>
+    <details><summary>Closed tenders bhi dikhti hain?</summary><p>Haan, status filter se sirf Open/Published tenders bhi dekhi ja sakti hain.</p></details>
+    <details><summary>Department ya tender number se search ho sakta hai?</summary><p>Haan, search box mein tender ka naam, tender number, ya department ka naam likh kar search kar sakte hain.</p></details>
+    <details><summary>Kya har tender ka full document yahan milta hai?</summary><p>Nahi, ye page tenders ki summary/list dikhata hai — full document official PPRA link se hi download karein.</p></details>
+    <details><summary>Tender miss ho jaye to kya karein?</summary><p>Closing date guzar jane ke baad tender "Closed" ho jati hai — future opportunities ke liye list regular check karte rahein.</p></details>
+  </div>
+
+  <h2>Related Pages</h2>
+  <p><a href="verify.html">🛡️ Society/Visa Verify</a> · <a href="scam-checker.html">🔎 Scam Checker</a> · <a href="index.html">🏠 Home</a></p>
+</section>
 
 <footer>
   <div class="wrap">
