@@ -179,14 +179,40 @@ export default async function handler(req, res) {
           'title', 'summary', 'body_html', 'category', 'source_label', 'source_url',
           'author_id', 'editor_id', 'source_name', 'source_type', 'source_published_at', 'data_collected_at',
           'methodology', 'fact_checked', 'human_reviewed', 'original_value_verified', 'ai_assisted',
-          'hero_image_url', 'hero_image_caption', 'hero_image_alt', 'key_points', 'source_status', 'publish_status', 'is_time_sensitive'
+          'hero_image_url', 'hero_image_caption', 'hero_image_alt', 'key_points', 'source_status', 'publish_status',
+          'is_time_sensitive', 'correction_note'
         ];
-        const { id, fields } = req.body || {};
+        const { id, fields, revision_reason } = req.body || {};
         if (!id || !fields) return res.status(400).json({ error: 'id and fields required' });
         const patch = {};
         for (const key of ALLOWED_FIELDS) if (fields[key] !== undefined) patch[key] = fields[key];
         if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
         patch.updated_at = new Date().toISOString();
+        if (patch.correction_note) patch.corrected_at = new Date().toISOString();
+
+        // Phase G: log a revision whenever content-relevant fields change.
+        // Best-effort — a logging failure should never block the actual save.
+        const REVISION_TRACKED_FIELDS = ['title', 'summary', 'body_html', 'key_points', 'methodology', 'correction_note'];
+        const trackedChanged = REVISION_TRACKED_FIELDS.filter(k => patch[k] !== undefined);
+        if (trackedChanged.length > 0) {
+          try {
+            const lastR = await fetch(`${SB()}/rest/v1/article_revisions?article_id=eq.${id}&select=revision_id&order=revision_id.desc&limit=1`, { headers: sbHeaders() });
+            const lastData = await lastR.json();
+            const nextRevisionId = (Array.isArray(lastData) && lastData[0]) ? lastData[0].revision_id + 1 : 1;
+            await fetch(`${SB()}/rest/v1/article_revisions`, {
+              method: 'POST',
+              headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                article_id: id,
+                revision_id: nextRevisionId,
+                changed_by: fields.editor_id || null,
+                reason: revision_reason || null,
+                summary_of_change: trackedChanged.join(', ') + ' updated'
+              })
+            });
+          } catch (e) { /* revision log is best-effort */ }
+        }
+
         const r = await fetch(`${SB()}/rest/v1/articles?id=eq.${id}`, {
           method: 'PATCH',
           headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
@@ -194,6 +220,39 @@ export default async function handler(req, res) {
         });
         const data = await r.json();
         return res.status(r.status).json(data);
+      }
+
+      case 'list-article-revisions': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const articleId = req.query.article_id;
+        if (!articleId) return res.status(400).json({ error: 'article_id required' });
+        const r = await fetch(
+          `${SB()}/rest/v1/article_revisions?article_id=eq.${articleId}&order=revision_id.desc&select=*,author:changed_by(name)`,
+          { headers: sbHeaders() }
+        );
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+
+      case 'check-duplicate-article': {
+        if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+        const title = (req.query.title || '').toString().trim();
+        if (!title) return res.status(400).json({ error: 'title required' });
+        const r = await fetch(`${SB()}/rest/v1/articles?select=id,title,slug,published&order=created_at.desc&limit=500`, { headers: sbHeaders() });
+        const all = await r.json();
+        const norm = s => (s || '').toLowerCase().replace(/[^\w\s\u0600-\u06FF]/g, '').split(/\s+/).filter(w => w.length > 2);
+        const targetWords = new Set(norm(title));
+        const matches = (Array.isArray(all) ? all : [])
+          .map(a => {
+            const words = norm(a.title);
+            const overlap = words.filter(w => targetWords.has(w)).length;
+            const score = targetWords.size > 0 ? overlap / targetWords.size : 0;
+            return { ...a, score };
+          })
+          .filter(a => a.score >= 0.5)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
+        return res.status(200).json(matches);
       }
 
       case 'publish-article': {

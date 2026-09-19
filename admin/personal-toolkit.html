@@ -3036,6 +3036,7 @@ METHODOLOGY: [1-3 lines Urdu script mein — data kahan se aya, AI ka role kya t
     draftBox.innerHTML = `
       <div class="draft-card">
         <div class="field"><label>Title</label><input type="text" id="artDTitle" value="${escapeHtml(title)}"></div>
+        <div id="artDupWarning"></div>
         <div class="field"><label>Slug</label><input type="text" id="artDSlug" value="${escapeHtml(slug)}"></div>
         <div class="field"><label>Summary</label><textarea id="artDSummary" rows="2">${escapeHtml(summary)}</textarea></div>
         <div class="field">
@@ -3118,6 +3119,18 @@ METHODOLOGY: [1-3 lines Urdu script mein — data kahan se aya, AI ka role kya t
       const match = Array.from(typeSel.options).find(o => o.value.toLowerCase() === aiSourceType.toLowerCase());
       if(match) typeSel.value = match.value;
     }
+
+    // Phase G: duplicate/near-duplicate check against existing articles
+    try{
+      const dupMatches = await callAdminApi('check-duplicate-article?title=' + encodeURIComponent(title), { method: 'GET' });
+      if(dupMatches && dupMatches.length){
+        document.getElementById('artDupWarning').innerHTML = `
+          <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:8px 10px;margin-top:4px;font-size:.8rem">
+            ⚠️ Milte-julte article(s) pehle se maujood hain:
+            ${dupMatches.map(m => `<div>— ${escapeHtml(m.title)} ${m.published ? '(live)' : '(draft)'}</div>`).join('')}
+          </div>`;
+      }
+    }catch(e){ /* duplicate check optional — ignore fail */ }
 
     const TOOLNEST_CAT_LABELS = {
   property: 'Property', jobs: 'Jobs', matrimonial: 'Matrimonial/Rishta',
@@ -3269,10 +3282,14 @@ document.getElementById('loadArticlesBtn').addEventListener('click', async () =>
         <b>${escapeHtml(a.title)}</b>
         <span style="font-size:.78rem;color:var(--muted)">${a.published ? '✅ Published' : '📝 Draft'} · ${a.word_count||'?'} words · ${a.category} · ${new Date(a.created_at).toLocaleDateString('en-GB')}</span>
         ${!a.published ? `<label style="font-size:.8rem;margin-top:6px"><input type="checkbox" class="humanReviewedCheck" ${a.human_reviewed ? 'checked' : ''}> Human Reviewed (publish se pehle zaroori)</label>` : ''}
-        <div style="display:flex;gap:8px;margin-top:6px">
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
           ${a.published ? `<a class="mini-btn" href="../article.html?slug=${a.slug}" target="_blank" style="text-decoration:none;display:inline-block">👁️ View Live</a>` : `<button class="mini-btn" onclick="publishArticle('${a.id}')">✅ Publish</button>`}
+          <button class="mini-btn" onclick="loadRevisionHistory('${a.id}')">📜 History</button>
+          ${a.published ? `<button class="mini-btn" onclick="openCorrectionForm('${a.id}')">✏️ Correction</button>` : ''}
           <button class="mini-btn" style="color:#c0392b" onclick="deleteArticleRow('${a.id}')">🗑️ Delete</button>
         </div>
+        <div class="revHistoryBox" style="display:none;margin-top:6px;font-size:.78rem;background:var(--card-alt,#f5f2ea);border-radius:6px;padding:8px"></div>
+        <div class="correctionBox" style="display:none;margin-top:6px"></div>
       </div>
     `).join('');
     box.querySelectorAll('.humanReviewedCheck').forEach(cb => {
@@ -3295,6 +3312,47 @@ async function deleteArticleRow(id){
   if(!confirm('Ye article DELETE karna hai? Undo nahi ho sakta.')) return;
   try{ await callAdminApi('delete-article', {method:'POST', body: JSON.stringify({id})}); document.getElementById('loadArticlesBtn').click(); }
   catch(e){ alert('Error: ' + e.message); }
+}
+
+async function loadRevisionHistory(id){
+  const row = document.querySelector(`[data-article-id="${id}"]`);
+  const box = row.querySelector('.revHistoryBox');
+  if(box.style.display !== 'none'){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.textContent = 'Loading...';
+  try{
+    const revs = await callAdminApi('list-article-revisions?article_id=' + id, {method:'GET'});
+    if(!revs || !revs.length){ box.textContent = 'Koi revision history nahi hai abhi.'; return; }
+    box.innerHTML = revs.map(r => `
+      <div style="padding:4px 0;border-bottom:1px solid var(--line)">
+        <b>#${r.revision_id}</b> — ${escapeHtml(r.summary_of_change || '')}
+        ${r.reason ? `<br><span style="color:var(--muted)">Reason: ${escapeHtml(r.reason)}</span>` : ''}
+        <br><span style="color:var(--muted)">${new Date(r.changed_at).toLocaleString('en-GB')}${r.author?.name ? ' · ' + escapeHtml(r.author.name) : ''}</span>
+      </div>
+    `).join('');
+  }catch(e){ box.textContent = '❌ ' + e.message; }
+}
+
+function openCorrectionForm(id){
+  const row = document.querySelector(`[data-article-id="${id}"]`);
+  const box = row.querySelector('.correctionBox');
+  if(box.style.display !== 'none'){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = `
+    <textarea rows="2" placeholder="Correction note (public article page par dikhegi)" class="correctionNoteInput" style="width:100%"></textarea>
+    <button class="mini-btn" style="margin-top:4px" onclick="saveCorrectionNote('${id}')">💾 Save Correction</button>
+  `;
+}
+
+async function saveCorrectionNote(id){
+  const row = document.querySelector(`[data-article-id="${id}"]`);
+  const note = row.querySelector('.correctionNoteInput').value.trim();
+  if(!note) return;
+  try{
+    await callAdminApi('update-article', {method:'POST', body: JSON.stringify({id, fields:{correction_note: note}, revision_reason: 'Correction added'})});
+    alert('✅ Correction save ho gayi.');
+    row.querySelector('.correctionBox').style.display = 'none';
+  }catch(e){ alert('Error: ' + e.message); }
 }
 
 /* ---------- Admin DB access via Vercel serverless functions ---------- */
